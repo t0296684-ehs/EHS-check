@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1C2B45">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="作業檢點">
+<link rel="manifest" href="manifest.json">
+<title>作業檢點</title>
+<style>
+:root{--navy:#1C2B45;--blue:#2F5D8C;--ink:#1F2933;--sub:#5B6573;--mute:#8A939F;--line:#E3E6EA;--bg:#F4F5F7;--card:#FFFFFF;
+--ok:#1E8E3E;--okbg:#E6F4EA;--ng:#C5221F;--ngbg:#FCE8E6;--warn:#B06000;--warnbg:#FEF3E0;--na:#5B6573;--nabg:#EEF0F2}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45}
+button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
+input,textarea,select{font:inherit}
+.top{position:sticky;top:0;z-index:10;background:var(--navy);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+display:flex;align-items:center;gap:10px}
+.top .back{font-size:22px;width:28px}
+.top .ttl{flex:1;font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .who{font-size:12px;opacity:.85;text-align:right}
+.dot{width:8px;height:8px;border-radius:50%;background:#7CD992;display:inline-block}
+.dot.off{background:#F28B82}
+.page{padding:12px 12px calc(90px + env(safe-area-inset-bottom));max-width:720px;margin:0 auto}
+.card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.h{font-size:13px;color:var(--sub);margin:16px 4px 8px;font-weight:600}
+.row{display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;background:var(--card);margin-bottom:8px;
+box-shadow:0 1px 2px rgba(0,0,0,.05);width:100%;text-align:left}
+.row .main{flex:1;min-width:0}
+.row .name{font-weight:600}
+.row .meta{font-size:12px;color:var(--sub);margin-top:2px}
+.pill{font-size:12px;padding:3px 9px;border-radius:999px;white-space:nowrap;font-weight:600}
+.p-ok{background:var(--okbg);color:var(--ok)}.p-ng{background:var(--ngbg);color:var(--ng)}
+.p-warn{background:var(--warnbg);color:var(--warn)}.p-na{background:var(--nabg);color:var(--na)}
+.btn{display:block;width:100%;padding:14px;border-radius:10px;background:var(--blue);color:#fff;font-weight:700;text-align:center;font-size:16px}
+.btn[disabled]{opacity:.45}
+.btn.ghost{background:#fff;color:var(--blue);border:1px solid #C9D4E2}
+.btn.red{background:var(--ng)}
+.btn.small{display:inline-block;width:auto;padding:8px 14px;font-size:14px}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);
+padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:9}
+.bar .in{max-width:720px;margin:0 auto}
+.alert{border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px;background:var(--warnbg);color:#6B3D00}
+.alert.red{background:var(--ngbg);color:#7A1410}.alert.blue{background:#E8F0FA;color:#173F6B}.alert.green{background:var(--okbg);color:#0E4F22}
+.alert u{cursor:pointer}
+.item{background:var(--card);border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.item .q{font-weight:600;margin-bottom:8px}
+.item .q small{color:var(--mute);font-weight:400}
+.grp{font-size:12px;color:var(--blue);font-weight:700;margin:14px 4px 6px}
+.opts{display:flex;gap:8px;flex-wrap:wrap}
+.opt{flex:1;min-width:76px;padding:11px 6px;border-radius:9px;border:1.5px solid var(--line);background:#fff;font-weight:600;color:var(--sub);text-align:center}
+.opt.on.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.opt.on.ng{background:var(--ng);border-color:var(--ng);color:#fff}
+.opt.on.warn{background:var(--warn);border-color:var(--warn);color:#fff}
+.opt.on.na{background:var(--na);border-color:var(--na);color:#fff}
+.note{width:100%;margin-top:8px;padding:9px;border:1.5px solid var(--ng);border-radius:8px;min-height:44px}
+.note.plain{border-color:var(--line)}
+.field{width:100%;padding:11px;border:1px solid var(--line);border-radius:9px;background:#fff}
+label.lb{display:block;font-size:13px;color:var(--sub);margin:10px 2px 6px}
+.sigbox{border:1.5px dashed #AEB7C2;border-radius:10px;background:#fff;touch-action:none;width:100%;height:180px;display:block}
+.sigimg{max-width:220px;max-height:80px;display:block;margin:6px 0}
+.grid{overflow-x:auto;background:#fff;border-radius:10px;margin-bottom:12px}
+.grid table{border-collapse:collapse;font-size:12px}
+.grid th,.grid td{border:1px solid var(--line);padding:4px 5px;text-align:center;white-space:nowrap}
+.grid td.t{text-align:left;white-space:normal;min-width:180px;max-width:240px;position:sticky;left:0;background:#fff}
+.grid td.bad{background:var(--ngbg);color:var(--ng);font-weight:700}
+.grid td.late{background:#FFF8E1}
+.big{font-size:28px;font-weight:800;color:var(--navy)}
+.muted{color:var(--mute);font-size:12px}
+.toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);background:#1F2933;color:#fff;
+padding:10px 16px;border-radius:9px;font-size:14px;z-index:50;max-width:90%;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.toast.ok{background:var(--ok)}.toast.err{background:var(--ng)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:9px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-weight:600}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;
+animation:sp .8s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.center{text-align:center}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.kv div:nth-child(odd){color:var(--sub)}
+</style>
+</head>
+<body>
+<div class="top"><button class="back" id="back" style="visibility:hidden">‹</button><div class="ttl" id="ttl">作業檢點</div>
+<div class="who" id="who"></div><span class="dot" id="net"></span></div>
+<div id="app" class="page"><div class="center muted" style="margin-top:40px">載入中…</div></div>
+<div id="bar"></div>
+<script src="app.js"></script>
+</body>
+</html>
