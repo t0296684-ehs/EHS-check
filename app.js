@@ -4,7 +4,7 @@
  *       月底「本月完成送主管」→ 單位負責人手機審核簽名 → 產 PDF → 環安衛審核歸檔。
  */
 'use strict';
-var APP_VERSION = '0.3.0';
+var APP_VERSION = '0.3.2';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 
@@ -165,7 +165,7 @@ function F(id) { return S.me.forms[id]; }
 function aTitle(a) { var f = F(a.form); return f.name + (a.object ? '｜' + a.object : '') + (a.kind ? '｜' + a.kind : ''); }
 function isMgr() { return S.me && S.me.person.role === '單位負責人'; }
 function mgrOf(dept) { var d = (S.me.depts || []).filter(function (x) { return x.id === dept; })[0]; return d && d.mgr; }
-function isEhs() { return S.me && S.me.person.role === '環安衛'; }
+function isEhs() { return S.me && /^環安衛/.test(S.me.person.role); }
 function pendingFor(a, date) {
   return (S.outbox || []).some(function (j) { return j.status === 'pending' && j.key === a.key && j.body.date === date; });
 }
@@ -191,7 +191,7 @@ function render() {
   $('net').className = 'dot' + (navigator.onLine ? '' : ' off');
   fn();
 }
-function setTitle(t) { $('ttl').textContent = t; }
+function setTitle(t) { $('ttl').textContent = t; document.title = t === '員和工業 - 檢查表線上系統' ? t : t + '｜員和工業 - 檢查表線上系統'; }
 function bar(html) { $('bar').innerHTML = '<div class="bar"><div class="in">' + html + '</div></div>'; }
 
 var PAGES = {};
@@ -325,7 +325,7 @@ function dueMeta(a) {
   return (a.freq || '') + (d.last ? '｜上次 ' + d.last + (d.due ? '｜下次 ' + d.due : '') : '｜還沒有紀錄');
 }
 PAGES.home = function () {
-  setTitle('作業檢點');
+  setTitle('員和工業 - 檢查表線上系統');
   var m = S.me;
   if (!m) { $('app').innerHTML = '<div class="center muted" style="margin-top:40px">載入中…</div>'; return; }
   var h = outboxBlock(), t = today();
@@ -748,6 +748,7 @@ PAGES.settings = function () {
 };
 function logout() {
   if (!confirm('登出 ' + S.me.person.name + '？')) return;
+  api('logout', {}, { quiet: true, noRetry: true }).catch(function () {});   // 讓伺服器端這支手機的登入作廢
   lsDel(LS.TOKEN); lsDel(LS.ME); S.me = null; S.boot = null; S.stack = []; go('login', {}, true);
 }
 

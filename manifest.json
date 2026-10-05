@@ -1,6 +1,6 @@
 {
-  "name": "員和 作業檢點",
-  "short_name": "作業檢點",
+  "name": "員和工業 - 檢查表線上系統",
+  "short_name": "員和檢查表",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
