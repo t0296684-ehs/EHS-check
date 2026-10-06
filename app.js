@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.5.3';
+var APP_VERSION = '0.5.7';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -14,7 +14,7 @@ var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgn
 var RID_STRICT = true;
 
 var LS = { GAS: 'chk.gas', TOKEN: 'chk.token', ME: 'chk.me', REM: 'chk.remind', DRAFT: 'chk.draft' };
-var S = { me: null, page: 'home', arg: {}, stack: [], outbox: [], flushing: false, boot: null, view: null, fill: null,
+var S = { clockOff: Number(lsGet('chk.clock', 0)) || 0, me: null, page: 'home', arg: {}, stack: [], outbox: [], flushing: false, boot: null, view: null, fill: null,
           title: '', hero: null, topExtra: '', pkgs: null, ff: 'all', mArg: null, mf: 0, mv: 'cal', md: undefined, mErr: null, cm: '' };
 
 // ───────────── 小工具 ─────────────
@@ -28,7 +28,15 @@ function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
 function gasUrl() { return lsGet(LS.GAS, '') || DEFAULT_GAS; }
 function pad(n) { return (n < 10 ? '0' : '') + n; }
 function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
-function today() { return ymd(new Date()); }
+// 手機時間不準（快或慢超過 5 分鐘）就改用系統時間，避免紀錄寫到錯的日子
+function nowD() { return new Date(Date.now() + (S.clockOff || 0)); }
+function today() { return ymd(nowD()); }
+function setClock(serverNow) {
+  if (!serverNow) return;
+  var off = serverNow - Date.now();
+  S.clockOff = Math.abs(off) > 5 * 60000 ? off : 0;
+  lsSet('chk.clock', S.clockOff);
+}
 function wk(s) { return '日一二三四五六'.charAt(new Date(s + 'T00:00:00').getDay()); }
 function md(s) { return Number(s.slice(5, 7)) + '/' + Number(s.slice(8)); }
 function ymLabel(p) { return p.slice(0, 4) + ' 年 ' + Number(p.slice(5)) + ' 月'; }
@@ -65,6 +73,31 @@ function ic(n, s, w) {
     '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[n] + '</svg>';
 }
 function pill(cls, icon, text) { return '<span class="pill p-' + cls + '">' + (icon ? ic(icon, 14, 2.8) : '') + esc(text) + '</span>'; }
+/** 處理中遮罩（送審、核准、歸檔這類要十幾秒、而且中途關掉會不確定有沒有成功的動作）。 */
+var BUSY = null;
+function busyOn(title, sub) {
+  busyOff();
+  var d = document.createElement('div'); d.id = 'busy'; d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-live', 'assertive');
+  d.innerHTML = '<div class="bx"><span class="spin big"></span><b>' + esc(title) + '</b><p class="warn">請不要關閉這個畫面</p>' +
+    (sub ? '<p>' + esc(sub) + '</p>' : '') + '<p class="sec2">已經 <span id="busySec">0</span> 秒</p></div>';
+  document.body.appendChild(d);
+  var t0 = Date.now();
+  BUSY = setInterval(function () {
+    var sec = Math.round((Date.now() - t0) / 1000), e = $('busySec'); if (e) e.textContent = sec;
+    if (sec === 60 && $('busy')) {                     // 一直沒回應：不要永遠擋住畫面，告訴他怎麼確認
+      var x = document.createElement('div'); x.className = 'late';
+      x.innerHTML = '<p>Google 這次回應特別慢。可以再等一下；若要先離開，稍後回到這個月份看狀態是否已改變，<b>不要重複送出</b>。</p><button class="btn ghost" onclick="busyOff()">先關閉這個提示</button>';
+      $('busy').querySelector('.bx').appendChild(x);
+    }
+  }, 1000);
+  window.addEventListener('beforeunload', busyGuard);
+}
+function busyOff() {
+  if (BUSY) clearInterval(BUSY); BUSY = null;
+  var d = $('busy'); if (d) d.remove();
+  window.removeEventListener('beforeunload', busyGuard);
+}
+function busyGuard(e) { e.preventDefault(); e.returnValue = '還在處理中，現在離開可能不確定有沒有成功'; return e.returnValue; }
 function loading(t) { return '<div class="loading"><span class="spin"></span>' + esc(t) + '</div>'; }
 /** 重要錯誤：停留在畫面上的卡片（不會自己消失） */
 function errBox(title, msg, btns) {
@@ -100,10 +133,11 @@ function api(action, body, opt) {
       var j; try { j = JSON.parse(t); } catch (e) { throw new Error('Google 暫時無法開啟'); }
       if (!j || typeof j !== 'object') throw new Error('Google 暫時無法開啟');
       if (j.rid !== rid && (RID_STRICT || j.rid !== undefined)) throw new Error('連線回應錯亂（rid 不符）');
-      if (!j.success) { var err = new Error(j.error || '系統錯誤'); err.biz = true; throw err; }
+      if (!j.success) { var err = new Error(j.error || '系統錯誤'); if (j.retry) err.server = true; else err.biz = true; throw err; }
       return j.data;
     }).catch(function (e) {
-      if (e.biz || i >= waits.length) throw e;
+      if (e.biz || i >= waits.length + (e.server ? 2 : 0)) throw e;
+      if (i >= waits.length) waits.push(15000);         // 系統忙碌：多等兩次（每次 15 秒）
       if (i === 0 && !opt.quiet) toast('連線不穩，自動重試中…', '', 2000);
       var w = waits[i++];
       return new Promise(function (res) { setTimeout(res, w); }).then(once);
@@ -184,7 +218,8 @@ function outboxBlock() {
   var pend = a.filter(function (j) { return j.status === 'pending'; });
   var h = '';
   if (pend.length) {
-    var why = !navigator.onLine ? '等網路恢復' : S.flushing ? '上傳中…' : (pend.some(function (j) { return j.message; }) ? '沒連上，會自動再試' : '背景上傳中');
+    var msg = (pend.filter(function (j) { return j.message; })[0] || {}).message;
+    var why = !navigator.onLine ? '等網路恢復' : S.flushing ? '上傳中…' : (msg ? (/忙碌/.test(msg) ? '系統忙碌，會自動再試' : '沒連上，會自動再試') : '背景上傳中');
     h += '<div class="strip info">' + ic('cloud', 24, 2.2) + '<div class="stx"><span><b>待上傳 ' + pend.length + ' 筆</b>・' + why + '</span>' +
       '<small>已存在手機，不會不見</small></div>' +
       '<button class="btn sm" onclick="flush()"' + (S.flushing ? ' disabled' : '') + '>立即上傳</button></div>';
@@ -201,6 +236,12 @@ function outboxBlock() {
       '<button class="btn redline" onclick="obDrop(' + jsq(j.id) + ')">刪除這筆</button></div>');
   });
   return h;
+}
+function clockBlock() {
+  if (!S.clockOff) return '';
+  var m = Math.round(Math.abs(S.clockOff) / 60000), t = m >= 1440 ? Math.round(m / 1440) + ' 天' : m >= 60 ? Math.round(m / 60) + ' 小時' : m + ' 分鐘';
+  return '<div class="strip off">' + ic('clock', 24, 2.2) + '<div class="stx"><b>這支手機的時間' + (S.clockOff < 0 ? '快' : '慢') + '了 ' + t + '</b>' +
+    '<small>系統已改用正確時間記錄；請到手機「設定 → 日期與時間」開啟自動設定</small></div></div>';
 }
 function netBlock() {
   if (navigator.onLine) return '';
@@ -235,20 +276,21 @@ function obDrop(id) { if (!confirm('刪除這筆檢點？刪了手機上就沒�
 
 // ───────────── 資料 ─────────────
 function normMe(m) {
-  m.assigns = []; m.months = [];
+  m.assigns = []; m.months = []; m.confirms = [];
   var stale = m.today && m.today !== today();      // 手機裡存的是前幾天的狀態（例如隔天一早沒訊號）：今天一律當作還沒做
   m.person.depts = m.depts.map(function (d) { return { id: d.id, name: d.id }; });
   m.depts.forEach(function (d) {
     d.daily.forEach(function (x) {
       if (stale) x = { form: x.form, state: 'todo', signer: '' };
       m.assigns.push({ key: d.id + '|' + x.form + '||', dept: d.id, form: x.form, object: '', kind: '', freq: '作業日', daily: true,
-        due: { todayDone: x.state === 'done' || x.state === 'nowork', todayNoWork: x.state === 'nowork', state: x.state, signer: x.signer || '' } });
+        due: { todayDone: x.state === 'done' || x.state === 'nowork' || x.state === 'sheet', todayNoWork: x.state === 'nowork', state: x.state, signer: x.signer || '' } });
     });
     d.pick.forEach(function (x) {
       if (x.missingEquip) { m.assigns.push({ key: d.id + '|' + x.form + '|?|', dept: d.id, form: x.form, object: '', kind: '', missingEquip: x.missingEquip, freq: '' }); return; }
       m.assigns.push({ key: [d.id, x.form, x.object, x.kind].join('|'), dept: d.id, form: x.form, object: x.object, objectName: x.objectName,
         kind: x.kind, freq: x.freq, pick: true, warnDays: 30, due: { last: x.last, due: x.due, state: x.state } });
     });
+    (d.confirms || []).forEach(function (c) { m.confirms.push({ dept: d.id, period: c.period, n: c.n }); });
     d.months.forEach(function (x) { m.months.push({ dept: d.id, unit: d.unit, period: x.period, status: x.status, reason: x.reason, sheetUrl: d.sheetUrl,
       crew: x.crew, submitter: x.submitter, submittedAt: x.submittedAt }); });
   });
@@ -257,7 +299,7 @@ function normMe(m) {
 function refreshMe() {
   if (!lsGet(LS.TOKEN, '')) return Promise.resolve();
   return api('me', {}, { quiet: true }).then(function (m) {
-    S.me = normMe(m); lsSet(LS.ME, m);
+    setClock(m.serverNow); S.me = normMe(m); lsSet(LS.ME, m);
     if (m.pendingReview) loadPkgs(true); else S.pkgs = [];
     if (['home', 'settings', 'pick', 'months'].indexOf(S.page) >= 0) render();
   }).catch(function (e) {
@@ -377,8 +419,14 @@ function doBind() {
   var sel = S.boot.people[S.arg.dept][S.arg.i];
   var pin = $('pin') ? $('pin').value.trim() : '';
   $('loginErr').innerHTML = '';
+  if ($('pin') && !pin) {
+    $('loginErr').innerHTML = errBox('還沒輸入啟用碼', '單位負責人、環安衛人員和設了啟用碼的人，登入要輸入環安衛中心給您的 4 位數字。');
+    $('pin').classList.add('bad'); $('pin').focus();
+    btn.disabled = false; btn.className = 'btn'; btn.textContent = '確認，我是 ' + sel.name;
+    return;
+  }
   api('bind', { name: sel.name, pin: pin, device: navigator.userAgent.slice(0, 80) }).then(function (d) {
-    lsSet(LS.TOKEN, d.token); lsSet(LS.ME, d.me); S.me = normMe(d.me); S.stack = [];
+    setClock(d.me.serverNow); lsSet(LS.TOKEN, d.token); lsSet(LS.ME, d.me); S.me = normMe(d.me); S.stack = [];
     go(d.me.signature ? 'home' : 'sign', {}, true);
     toast('歡迎，' + esc(d.me.person.name), 'ok');
     rebindJobs(d.me.person.name, d.token);
@@ -407,7 +455,9 @@ PAGES.sign = function () {
     h += '<div class="h2">請用手指簽全名</div><div class="lead">只要簽<b>這一次</b>，存在系統裡，之後每次送出都會自動帶入，不用每天簽。</div>' +
       '<div class="sigwrap"><canvas id="cv" class="sigbox" aria-label="橫式簽名區"></canvas>';
   }
-  h += '<div class="right"><button class="btn ghost sm" onclick="sigClear()">' + ic('refresh', 18) + '清除重簽</button></div></div>';
+  h += '<div class="right"><label class="btn ghost sm upl">' + ic('up', 18) + '上傳簽名照片<input type="file" accept="image/*" id="sigFile" onchange="sigUpload(this)" hidden></label>' +
+    '<button class="btn ghost sm" onclick="sigClear()">' + ic('refresh', 18) + '清除重簽</button></div></div>' +
+    '<div class="muted upnote">也可以在白紙上用黑筆' + (v ? '<b>由上往下</b>' : '') + '簽好、拍照上傳，系統會自動去掉背景。</div>';
   if (!v) h += '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">這個簽名用在定期檢查表與送審。下一步再簽一個直的，給每日檢點表用。</div></div></div></div>';
   if (has) h += '<div class="card"><div class="muted">目前的簽名（按儲存才會換掉）</div><div class="sigimgs"><img src="' + esc(has.image) + '" alt="目前的橫式簽名">' +
     (has.imageV ? '<img class="v" src="' + esc(has.imageV) + '" alt="目前的直式簽名">' : '') + '</div></div>';
@@ -436,6 +486,64 @@ function sigInit() {
   cv.addEventListener('touchstart', start, { passive: false }); cv.addEventListener('touchmove', move, { passive: false }); cv.addEventListener('touchend', end);
   SIG.drawn = false;
 }
+/** 上傳簽名照片：去背（白紙→透明、筆跡→深色）、放進簽名框，之後跟手簽一樣裁切縮小再存。 */
+function sigUpload(inp) {
+  var file = inp.files && inp.files[0]; inp.value = '';
+  if (!file) return;
+  if (!/^image\//.test(file.type || 'image/')) return toast('請選照片檔（JPG、PNG）', 'err');
+  if (file.size > 20 * 1024 * 1024) return toast('照片太大（超過 20 MB），請換一張', 'err');
+  var url = URL.createObjectURL(file), img = new Image();
+  img.onerror = function () { URL.revokeObjectURL(url); toast('這個檔案打不開，請用 JPG 或 PNG 照片', 'err', 4000); };
+  img.onload = function () {
+    URL.revokeObjectURL(url);
+    var out = sigClean(img);
+    if (!out.ok) return toast(out.msg, 'err', 4500);
+    var cv = $('cv'), ctx = cv.getContext('2d'), W = cv.clientWidth, H = cv.clientHeight, pad = 10;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
+    var k = Math.min((W - pad * 2) / out.c.width, (H - pad * 2) / out.c.height);
+    var w = out.c.width * k, h = out.c.height * k;
+    ctx.drawImage(out.c, (W - w) / 2, (H - h) / 2, w, h);
+    SIG.drawn = true;
+    var vert = S.arg.step === 'v';
+    if (vert && out.c.width > out.c.height * 1.2) toast('這張看起來是橫的簽名；直式要由上往下簽，請確認後再儲存', 'err', 5000);
+    else if (!vert && out.c.height > out.c.width * 1.2) toast('這張看起來是直的簽名；這一步要橫式，請確認後再按下一步', 'err', 5000);
+    else toast('已放進簽名框，確認沒問題就按下面的按鈕', 'ok', 3000);
+  };
+  img.src = url;
+}
+function sigClean(img) {
+  var k = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+  var w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
+  if (w < 60 || h < 30) return { ok: false, msg: '照片太小，請拍大一點' };
+  var c = document.createElement('canvas'); c.width = w; c.height = h;
+  var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(img, 0, 0, w, h);   // 透明 PNG 先墊白底
+  var id = x.getImageData(0, 0, w, h), d = id.data, n = w * h, lum = new Uint8Array(n), hist = new Array(256).fill(0);
+  for (var i = 0; i < n; i++) { var L = (d[i * 4] * 299 + d[i * 4 + 1] * 587 + d[i * 4 + 2] * 114) / 1000 | 0; lum[i] = L; hist[L]++; }
+  // Otsu 自動找門檻：紙張有陰影、偏黃也分得開
+  var sum = 0; for (var t = 0; t < 256; t++) sum += t * hist[t];
+  var sB = 0, wB = 0, best = 0, th = 128;
+  for (t = 0; t < 256; t++) { wB += hist[t]; if (!wB) continue; var wF = n - wB; if (!wF) break; sB += t * hist[t];
+    var mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF); if (v > best) { best = v; th = t; } }
+  th = Math.min(th, 200);
+  var ink = 0;
+  for (i = 0; i < n; i++) {
+    if (lum[i] < th) { var a = Math.min(255, Math.round((th - lum[i]) / Math.max(1, th) * 255 * 1.6) + 60); d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 17; d[i * 4 + 3] = a; ink++; }
+    else d[i * 4 + 3] = 0;
+  }
+  // 去雜點：四周 8 格幾乎沒有筆跡的孤立點當作紙張雜訊（不然裁切範圍會被撐大、簽名變很小）
+  var keep = new Uint8Array(n);
+  for (var yy = 1; yy < h - 1; yy++) for (var xx = 1; xx < w - 1; xx++) {
+    var q = yy * w + xx; if (!d[q * 4 + 3]) continue;
+    var nb = 0; for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) if ((dy || dx) && d[(q + dy * w + dx) * 4 + 3]) nb++;
+    if (nb >= 2) keep[q] = 1;
+  }
+  ink = 0; for (i = 0; i < n; i++) { if (!keep[i]) d[i * 4 + 3] = 0; else ink++; }
+  var r = ink / n;
+  if (r < 0.002) return { ok: false, msg: '看不出簽名，請在白紙上用黑筆簽、拍清楚一點' };
+  if (r > 0.35) return { ok: false, msg: '背景太暗或太雜，看不出哪裡是簽名。請在白紙上用黑筆簽，光線亮一點、只拍簽名那一塊' };
+  x.putImageData(id, 0, 0);
+  return { ok: true, c: c };
+}
 function sigClear() { var cv = $('cv'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; }
 /** 裁到筆跡範圍、縮小、存成透明 PNG（約 5～15 KB）。 */
 function sigExport() {
@@ -455,6 +563,7 @@ function sigNext() {
   if (!SIG.drawn) return toast('請先簽名', 'err');
   var img = sigExport();
   if (!img) return toast('簽名太小，請簽大一點', 'err');
+  if (img.length > 44000) return toast('簽名圖雜點太多，請用白紙黑筆重拍，或直接在框裡簽', 'err', 4500);
   if (S.arg.step !== 'v') { SIG.h = img; S.arg = { step: 'v' }; window.scrollTo(0, 0); return render(); }
   var btn = $('sigBtn'); btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>儲存中…';
   api('saveSignature', { image: SIG.h, imageV: img }).then(function (r) {
@@ -498,6 +607,11 @@ PAGES.home = function () {
   // 1. 被退回
   if (!ehs) m.months.forEach(function (x) {
     if (x.status === '退回' && !mgrOf(x.dept)) tasks.push({ red: true, tag: dn(x.dept) + '被退回，要修正', title: ymLabel(x.period) + '的檢點紀錄', meta: '退回原因：' + (x.reason || '（未填寫）'), btn: '去修正並重新送出', on: goMonth(x.dept, x.period) });
+  });
+  // 1.5 試算表填的、還沒在手機確認
+  if (!ehs) (m.confirms || []).forEach(function (c) {
+    tasks.push({ tag: dn(c.dept) + ymLabel(c.period) + '・試算表填的紀錄', title: c.n + ' 筆還沒在手機確認', meta: '確認後才會帶入您的電子簽名，才能送審',
+      btn: '查看並確認', on: goMonth(c.dept, c.period) });
   });
   // 2. 待審核（主管／環安衛）
   if (m.pendingReview) {
@@ -548,7 +662,7 @@ PAGES.home = function () {
     '<div class="hs">' + hs + '</div></div>';
 
   // 內容
-  var h = netBlock() + outboxBlock();
+  var h = netBlock() + clockBlock() + outboxBlock();
   if (tasks.length) h += '<div class="sec"><span class="sl"><span class="cnt">' + tasks.length + '</span>要做的事</span></div>' + tasks.map(taskHtml).join('');
   else h += '<div class="card calm">' + ic('check', 24, 3) + '目前沒有要做的事</div>';
 
@@ -559,6 +673,7 @@ PAGES.home = function () {
       var other = a.due.signer && a.due.signer !== m.person.name;     // 同課別人已經檢點
       var st = job && job.status === 'auth' ? '<span class="mt inf">' + esc(job.who || '之前登入的人') + ' 已填，等他重新登入後上傳</span>' :
         job ? '<span class="mt inf">已存手機，等待上傳・' + hm(job.created) + '</span>' : a.due.todayNoWork ? '<span class="mt">今日無作業</span>' :
+        a.due.state === 'sheet' ? '<span class="mt inf">在試算表填好了，待您確認</span>' :
         other ? '<span class="mt okt">' + esc(a.due.signer) + ' 已檢點</span>' : '<span class="mt okt">已上傳</span>';
       return '<button class="li" onclick="openFill(' + jsq(a.key) + ')">' + dot + '<span class="mn"><span class="nm">' + esc(dn(a.dept) + F(a.form).name) + '</span>' + st + '</span></button>';
     }).join('') + '</div>';
@@ -573,7 +688,7 @@ PAGES.home = function () {
     if (mine2.length) h += '<div class="sec">各課送審狀況<small>送審後才能審核</small></div><div class="list">' + mine2.map(crewRow).join('') + '</div>';
   }
   if (ehs && m.months.length) {
-    var lastP = (function () { var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return ymd(d).slice(0, 7); })();
+    var lastP = (function () { var d = nowD(); d.setDate(1); d.setMonth(d.getMonth() - 1); return ymd(d).slice(0, 7); })();
     var ms = m.months.filter(function (x) { return x.period >= lastP || x.status !== '已歸檔'; })
       .sort(function (x, y) { return x.period < y.period ? 1 : x.period > y.period ? -1 : (x.dept < y.dept ? -1 : 1); });
     if (ms.length) h += '<div class="sec">各部門月結進度</div><div class="list">' + ms.map(monthRow).join('') + '</div>';
@@ -689,7 +804,7 @@ PAGES.fill = function () {
   if (!a || !fm) return back();
   var f = F(a.form);
   setTitle(f.name);
-  var t = today(), minD = (function () { var d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return ymd(d); })();
+  var t = today(), minD = (function () { var d = nowD(); d.setDate(1); d.setMonth(d.getMonth() - 1); return ymd(d); })();
   var st = fillState(f, fm), ff = S.ff;
 
   // 頂部固定：進度＋只看未勾／異常
@@ -825,7 +940,7 @@ PAGES.month = function () {
   var a = S.arg;
   setTitle(deptOf(a.dept) + ' ' + ymLabel(a.period));
   if (S.mArg !== a) { S.mArg = a; S.mf = 0; S.mv = 'cal'; S.md = undefined; S.mErr = null; S.cm = ''; }
-  $('app').innerHTML = loading('讀取中…');
+  $('app').innerHTML = loading('讀取這個月的紀錄中…（約 3～6 秒）');
   api('monthView', { deptId: a.dept, period: a.period }).then(function (v) {
     if (S.page !== 'month' || S.arg !== a) return;
     S.view = v; monthRender();
@@ -844,7 +959,10 @@ function monthRender() {
   if (S.mErr) h += errBox(S.mErr.t, S.mErr.m, S.mErr.btn || '');
   h += '<div class="card"><div class="mr"><b>本月狀態</b>' + statusPill(v.status) + '</div>' +
     (v.status === '退回' ? '<div class="box err" role="alert"><div class="r">' + ic('ret', 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(v.reason) + '</div></div></div></div>' : '') +
-    (v.sheetUrl ? '<a class="link" href="' + esc(v.sheetUrl) + '" target="_blank" rel="noopener">' + ic('ext', 18, 2.2) + '在 Google 試算表檢視／編輯</a>' : '') + '</div>';
+    (v.sheetUrl ? '<a class="link" href="' + esc(v.sheetUrl) + '" target="_blank" rel="noopener">' + ic('ext', 18, 2.2) +
+      (v.status === '填寫中' || v.status === '退回' ? '在 Google 試算表檢視／編輯' : '在 Google 試算表檢視（已鎖定，不能修改）') + '</a>' : '') +
+    (v.status === '填寫中' || v.status === '退回' ? '<div class="muted sm2">在試算表填的內容，要回到這裡按「確認」才會帶入電子簽名、才能送審。</div>' : '') + '</div>';
+  h += confirmBlock(v);
   var pend = (S.outbox || []).filter(function (j) { return j.body.deptId === v.dept && j.body.date.slice(0, 7) === v.period; });
   if (pend.length) h += '<div class="strip info">' + ic('cloud', 24, 2.2) + '<div class="stx"><span>手機裡還有 <b>' + pend.length + ' 筆</b>這個月的檢點沒上傳完</span><small>上傳完才會出現在下面</small></div>' +
     '<button class="btn sm" onclick="flush().then(function(){render()})">立即上傳</button></div>';
@@ -877,11 +995,17 @@ function monthRender() {
   if (!mm.daily.length && !mm.periodic.length) h += '<div class="empty">這個月沒有資料。</div>';
   $('app').innerHTML = h;
 
-  if ((v.status === '填寫中' || v.status === '退回') && !ehs) {
+  var thisMonth = v.period === today().slice(0, 7);
+  if ((v.status === '填寫中' || v.status === '退回') && !ehs && thisMonth) {
+    var nx = new Date(Number(v.period.slice(0, 4)), Number(v.period.slice(5)), 1);
+    bar('<button class="btn" disabled>' + Number(v.period.slice(5)) + ' 月還沒結束，' + (nx.getMonth() + 1) + '/1 起才能送審</button>');
+  } else if (v.status === '待主管審核' && !boss && !ehs && v.submitter === S.me.person.name) {
+    bar('<button class="btn redline" onclick="withdrawMonth()">' + ic('ret', 20, 2.4) + '撤回送審（主管還沒審核，可以撤回修改）</button>');
+  } else if ((v.status === '填寫中' || v.status === '退回') && !ehs) {
     bar(v.problems.length ? '<button class="btn" disabled>補完 ' + v.problems.length + ' 個地方，才能送單位負責人</button>'
       : '<button class="btn" id="smBtn" onclick="submitMonth()">' + ic('check', 22, 2.8) + '本月完成，鎖定送單位負責人</button>');
   } else if (v.status === '待主管審核' && boss && !ehs) {
-    bar('<label class="nl" for="cm">意見（退回時必填）</label><textarea id="cm" class="note plain" placeholder="意見（退回時必填）">' + esc(S.cm) + '</textarea>' +
+    bar('<label class="nl" for="cm">意見（可不填；退回是整個月退給本課，要改哪裡請當面說明）</label><textarea id="cm" class="note plain" placeholder="意見（可不填）">' + esc(S.cm) + '</textarea>' +
       '<div class="btns r12"><button class="btn redline" onclick="doReview(\'return\')">退回</button><button class="btn" onclick="doReview(\'approve\')">' + ic('pen', 22) + '核准並簽名</button></div>');
   } else if (v.status === '待環安衛審核' && ehs) {
     bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic('pdf', 20, 2.2) + '開啟 PDF</button>' +
@@ -889,6 +1013,50 @@ function monthRender() {
   } else if (v.status === '已歸檔' || v.status === '待環安衛審核') {
     bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic('pdf', 20, 2.2) + '開啟 PDF</button>');
   }
+}
+/** 這個月在試算表填的（或手機送出後在試算表被改過的），輪到我確認的列出來，一鍵確認帶入簽名。 */
+function myUnconf(v) {
+  var me = S.me.person.name, out = [];
+  if (isEhs() || !(v.status === '填寫中' || v.status === '退回')) return out;
+  v.model.daily.forEach(function (x) {
+    var f = F(x.form); if (!f) return;
+    Object.keys(x.days).forEach(function (d) {
+      var r = x.days[d], byMgr = mgrOf(v.dept) && (v.gone || []).indexOf(r.signer) >= 0;
+      if (!r.unconf || !(r.signer === me || r.noWork || byMgr)) return;
+      var nb = Object.keys(r.results || {}).filter(function (k) { return f.noteFor.indexOf(r.results[k]) >= 0; }).length;
+      out.push({ d: Number(d), t: Number(v.period.slice(5)) + '/' + d + ' ' + f.name + (byMgr ? '（' + r.signer + '，已不在名單）' : ''), s: r.noWork ? '無作業' : (nb ? '異常 ' + nb + ' 項' : '全部正常'), ch: r.unconf === 'changed',
+        key: byMgr ? '' : v.dept + '|' + x.form + '||', date: v.period + '-' + pad(Number(d)) });
+    });
+  });
+  (v.model.periodic || []).forEach(function (x) {
+    if (x.unconf && (x.signer === me || (mgrOf(v.dept) && (v.gone || []).indexOf(x.signer) >= 0))) out.push({ d: Number(x.date.slice(8)), t: x.date.slice(5).replace('-', '/') + ' ' + x.name + (x.object ? ' ' + x.object : ''), s: '定期檢查', ch: x.unconf === 'changed' });
+  });
+  return out.sort(function (a, b) { return a.d - b.d; });
+}
+function confirmBlock(v) {
+  var a = myUnconf(v); if (!a.length) return '';
+  return '<div class="box info cfm"><div class="r">' + ic('pen', 24) + '<div class="bt"><b>在試算表填的 ' + a.length + ' 筆，請確認</b>' +
+    '<div class="m">內容沒錯就按最下面「已全數確認無誤」，會記成您檢點的並帶入電子簽名；哪一筆要改，點那一筆「前往修改」，改好送出就算確認。</div></div></div>' +
+    '<div class="list">' + a.map(function (x) {
+      var inner = '<span class="mn"><span class="nm">' + esc(x.t) + '</span><span class="mt' + (x.ch ? ' wn' : '') + '">' + esc(x.s) + (x.ch ? '・手機送出後在試算表被改過' : '') + '</span></span>';
+      return x.key ? '<button class="li" style="min-height:56px" onclick="openFill(' + jsq(x.key) + ',' + jsq(x.date) + ')">' + inner + '<span class="go">前往修改' + ic('arrow', 16, 2.6) + '</span></button>'
+        : '<div class="li" style="min-height:56px">' + inner + '<span class="mt">要改請到試算表</span></div>';
+    }).join('') + '</div>' +
+    '<button class="btn navy" id="cfBtn" onclick="confirmFill()">' + ic('check', 20, 2.8) + '已全數確認無誤（' + a.length + ' 筆，帶入我的簽名）</button></div>';
+}
+function confirmFill() {
+  var v = S.view, b = $('cfBtn'); if (b) { b.disabled = true; b.className = 'btn busy'; b.innerHTML = '<span class="spin"></span>確認中…'; }
+  api('confirmFill', { deptId: v.dept, period: v.period }).then(function (r) {
+    toast('已確認 ' + r.count + ' 筆', 'ok'); refreshMe(); render();
+  }).catch(function (e) { S.mErr = { t: '確認沒有成功', m: e.message }; monthRender(); window.scrollTo(0, 0); });
+}
+function withdrawMonth() {
+  var v = S.view, why = prompt('撤回原因（例如：漏填 28 號）？撤回後可以修改，改好再重新送審。');
+  if (why === null) return;
+  busyOn('撤回中…', '');
+  api('withdrawMonth', { monthId: v.monthId, reason: why }).then(function () {
+    busyOff(); toast('已撤回，可以修改了', 'ok'); refreshMe(); render();
+  }).catch(function (e) { busyOff(); S.mErr = { t: '撤回沒有成功', m: e.message }; monthRender(); window.scrollTo(0, 0); });
 }
 function mView(x) { S.mv = x; monthRender(); }
 function mForm(i) { S.mf = i; S.md = undefined; monthRender(); }
@@ -901,7 +1069,7 @@ function calHtml(f, x, period, late) {
   var y = Number(period.slice(0, 4)), mo = Number(period.slice(5)), n = new Date(y, mo, 0).getDate(), first = new Date(y, mo - 1, 1).getDay(), td = today();
   var h = '<div class="calw">' + '日一二三四五六'.split('').map(function (c) { return '<span>' + c + '</span>'; }).join('') + '</div><div class="cal">';
   for (var i = 0; i < first; i++) h += '<span></span>';
-  var anyLate = false, anyMiss = false;
+  var anyLate = false, anyMiss = false, anyUc = false;
   for (var d = 1; d <= n; d++) {
     var r = x.days[d], date = period + '-' + pad(d), dow = (first + d - 1) % 7, future = date > td, cls = 'cd', mark = '', lab;
     if (r && r.noWork) { cls += ' nw'; mark = '<small>無</small>'; lab = '無作業'; }
@@ -909,12 +1077,14 @@ function calHtml(f, x, period, late) {
     else if (r) { cls += ' ok'; mark = ic('check', 12, 3.6); lab = '正常'; }
     else if (!future && dow > 0 && dow < 6) { cls += ' miss'; lab = '沒有紀錄'; anyMiss = true; }
     else lab = '沒有紀錄';
+    if (r && r.unconf) { cls += ' uc'; anyUc = true; mark = '<small class="ucl">待確認</small>'; lab += '、試算表填的待確認'; }
     if (late && late[d]) { cls += ' late'; anyLate = true; if (!r || !dayBad(f, r)) mark = '<small class="lt">補登</small>'; lab += '、補登'; }
     if (S.md === d) cls += ' sel';
     h += '<button class="' + cls + '" aria-label="' + mo + '/' + d + ' ' + lab + '"' + (future ? ' disabled' : ' onclick="mDay(' + d + ')"') + '>' + d + mark + '</button>';
   }
   h += '</div><div class="legend"><span><i style="background:var(--okbg)"></i>✓ 正常</span><span><i style="background:var(--ng)"></i>✕ 有異常</span><span><i style="background:#E2E6EB"></i>無作業</span>' +
-    (anyMiss ? '<span><i style="border:2px dashed #B5BEC9"></i>平日沒紀錄</span>' : '') + (anyLate ? '<span><i style="box-shadow:inset 0 0 0 2px var(--orange)"></i>補登</span>' : '') + '</div>';
+    (anyMiss ? '<span><i style="border:2px dashed #B5BEC9"></i>平日沒紀錄</span>' : '') + (anyLate ? '<span><i style="box-shadow:inset 0 0 0 2px var(--orange)"></i>補登</span>' : '') +
+    (anyUc ? '<span><i style="border:2px dashed #1A5FB4"></i>試算表填的待確認</span>' : '') + '</div>';
   return h;
 }
 function optLabel(f, seq, k) {
@@ -989,9 +1159,20 @@ function submitMonth() {
                btn: '<button class="btn navy" onclick="S.mErr=null;flush().then(function(){render()})">立即上傳</button>' };
     monthRender(); window.scrollTo(0, 0); return;
   }
-  if (!confirm('鎖定 ' + v.dept + ' ' + ymLabel(v.period) + ' 並送單位負責人審核？\n\n送出後 App 和試算表這個月都不能再改，除非被退回。')) return;
+  var y0 = Number(v.period.slice(0, 4)), m0 = Number(v.period.slice(5)), nd = new Date(y0, m0, 0).getDate(), lines = [];
+  v.model.daily.forEach(function (x) {
+    var f = F(x.form); if (!f) return;
+    var work = 0, nw = 0, blank = [];
+    for (var d = 1; d <= nd; d++) { var r = x.days[d], dow = new Date(y0, m0 - 1, d).getDay(); if (r && r.noWork) nw++; else if (r) work++; else if (dow > 0 && dow < 6) blank.push(d); }
+    lines.push('・' + f.name + '：檢點 ' + work + ' 天、無作業 ' + nw + ' 天' + (blank.length ? '、平日空白 ' + blank.length + ' 天（' + blank.slice(0, 8).join('、') + (blank.length > 8 ? '…' : '') + ' 號）' : ''));
+  });
+  if (v.model.periodic.length) lines.push('・定期檢查 ' + v.model.periodic.length + ' 份');
+  if (!confirm('送出 ' + v.dept + ' ' + ymLabel(v.period) + '？\n\n' + lines.join('\n') +
+    '\n\n平日空白的日子如果是沒上班可以不填；如果是漏填，請先按「取消」補上。\n送出後這個月就鎖定，App 和試算表都不能再改；主管審核前可以自己撤回。')) return;
   var btn = $('smBtn'); if (btn) { btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>送出中…'; }
+  busyOn('鎖定送審中…', '要檢查整個月的紀錄並鎖定試算表，約 10～30 秒');
   api('submitMonth', { deptId: v.dept, period: v.period }).then(function (r) {
+    busyOff();
     S.mErr = null;
     toast('已鎖定送審', 'ok');
     var link = location.origin + location.pathname + '?r=' + r.monthId;
@@ -1001,6 +1182,7 @@ function submitMonth() {
     bar('<button class="btn" onclick="shareTo(' + jsq(text) + ')">' + ic('chat', 22, 2.4) + '用 LINE／訊息通知主管</button>' +
       '<button class="btn ghost" onclick="S.stack=[];go(\'home\',{},true);refreshMe()">' + ic('home', 20, 2.2) + '回首頁</button>');
   }).catch(function (e) {
+    busyOff();
     S.mErr = { t: '送審沒有成功', m: e.message };
     monthRender(); window.scrollTo(0, 0);
   });
@@ -1014,25 +1196,29 @@ function shareTo(text) {
 function doReview(action) {
   var cm = ($('cm') || {}).value || '';
   S.cm = cm;
-  if (action === 'return' && !cm.trim()) { toast('退回請寫原因', 'err'); if ($('cm')) $('cm').focus(); return; }
+  if (action === 'return' && !confirm('把 ' + S.view.dept + ' ' + ymLabel(S.view.period) + ' 整個月退回給本課？\n\n退回後檢點人員可以修改，改好再重新送審。要改哪裡請當面說明。')) return;
   if (action === 'approve') {
     if (!S.me.signature) return go('sign');
     if (!confirm('核准 ' + S.view.dept + ' ' + ymLabel(S.view.period) + ' 的檢點紀錄？\n會帶入您的簽名並產生 PDF。')) return;
   }
   bar('<div class="loading" style="padding:14px 0"><span class="spin"></span>' + (action === 'approve' ? '簽名並產生 PDF 中，約 10～30 秒…' : '退回中…') + '</div>');
-  api('review', { monthId: S.view.monthId, decision: action, comment: cm }, { noRetry: true }).then(function (r) {
+  busyOn(action === 'approve' ? '簽名並產生 PDF 中…' : '退回中…', action === 'approve' ? '約 10～30 秒' : '');
+  api('review', { monthId: S.view.monthId, decision: action, comment: cm }).then(function (r) {
+    busyOff();
     toast(action === 'approve' ? '已核准，PDF 已產生' : '已退回', 'ok', 3000);
     S.stack = []; S.cm = ''; go('home', {}, true); refreshMe();
-  }).catch(function (e) { S.mErr = { t: action === 'approve' ? '核准沒有成功' : '退回沒有成功', m: e.message }; monthRender(); window.scrollTo(0, 0); });
+  }).catch(function (e) { busyOff(); S.mErr = { t: action === 'approve' ? '核准沒有成功' : '退回沒有成功', m: e.message }; monthRender(); window.scrollTo(0, 0); });
 }
 function doEhs(action) {
   var why = '';
-  if (action === 'return') { why = prompt('退回原因？'); if (!why) return; }
+  if (action === 'return') { why = prompt('退回原因（可不填）？整個月會退回給本課。'); if (why === null) return; }
   else if (!confirm('確認歸檔？')) return;
   bar('<div class="loading" style="padding:14px 0"><span class="spin"></span>' + (action === 'approve' ? '歸檔中…' : '退回中…') + '</div>');
-  api('ehsReview', { monthId: S.view.monthId, decision: action, comment: why }, { noRetry: true }).then(function () {
+  busyOn(action === 'approve' ? '歸檔中…' : '退回中…', '');
+  api('ehsReview', { monthId: S.view.monthId, decision: action, comment: why }).then(function () {
+    busyOff();
     toast(action === 'approve' ? '已歸檔' : '已退回', 'ok'); S.stack = []; go('home', {}, true); refreshMe();
-  }).catch(function (e) { S.mErr = { t: action === 'approve' ? '歸檔沒有成功' : '退回沒有成功', m: e.message }; monthRender(); window.scrollTo(0, 0); });
+  }).catch(function (e) { busyOff(); S.mErr = { t: action === 'approve' ? '歸檔沒有成功' : '退回沒有成功', m: e.message }; monthRender(); window.scrollTo(0, 0); });
 }
 function openPdf(id) {
   var w = window.open('', '_blank');
@@ -1076,7 +1262,7 @@ PAGES.shareMake = function () {
   }).join('') + '</div>';
   var L = S.arg.link, t = today();
   if (!L && S.arg.dept) {
-    var days = [0, 1, 2, 3, 4, 5, 6, 7].map(function (n) { var d = new Date(); d.setDate(d.getDate() + n); return ymd(d); });
+    var days = [0, 1, 2, 3, 4, 5, 6, 7].map(function (n) { var d = nowD(); d.setDate(d.getDate() + n); return ymd(d); });
     if (!S.arg.date) S.arg.date = t;
     h += '<div class="sec">哪一天要代填</div><div class="depts">' + days.map(function (d, i) {
       var on = S.arg.date === d, lab = i === 0 ? '今天' : i === 1 ? '明天' : i === 2 ? '後天' : md(d) + '（' + wk(d) + '）';
@@ -1086,15 +1272,21 @@ PAGES.shareMake = function () {
   if (L) {
     h += '<div class="card"><div class="mr"><b>' + esc(L.dept) + '　' + md(L.date) + ' 代填連結</b>' + pill('ok', 'check', '已產生') + '</div>' +
       '<div class="muted">只能在 ' + md(L.date) + '（' + wk(L.date) + '）當天使用，填那天的每日檢點表，23:59 失效。</div>' +
-      '<input class="field" id="shareUrl" readonly value="' + esc(L.url) + '" onclick="this.select()"></div>';
+      '<div class="cprow"><input class="field" id="shareUrl" readonly value="' + esc(L.url) + '" onclick="this.select()">' +
+      '<button class="btn navy sm" id="cpBtn" onclick="copyShare()">' + ic('check', 18, 2.6) + '複製網址</button></div></div>';
   }
   h += '<div id="shareErr"></div>';
   $('app').innerHTML = h;
   if (L) bar('<button class="btn" onclick="shareTo(' + jsq('請幫忙填 ' + L.dept + ' ' + md(L.date) + '（' + wk(L.date) + '）的每日檢點表，那天打開這個連結就能填：' + L.url) + ')">' + ic('chat', 22, 2.4) + '用 LINE／訊息傳給同事</button>');
   else if (S.arg.dept) bar('<button class="btn" id="mkBtn" onclick="shareMake()">' + ic('ext', 22, 2.2) + '產生' + (S.arg.date === t ? '今天' : ' ' + md(S.arg.date) + ' ') + '的代填連結</button>');
 };
+function copyShare() {
+  var el = $('shareUrl'), txt = el.value, done = function () { var b = $('cpBtn'); if (b) b.innerHTML = ic('check', 18, 2.6) + '已複製'; toast('網址已複製，可以貼給同事', 'ok'); };
+  var old = function () { el.removeAttribute('readonly'); el.select(); el.setSelectionRange(0, txt.length); var ok = false; try { ok = document.execCommand('copy'); } catch (e) {} el.setAttribute('readonly', ''); if (ok) done(); else toast('這支手機不讓 App 自動複製，請長按網址選「拷貝」', 'err', 4000); };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(txt).then(done, old); else old();
+}
 function shareMake() {
-  var btn = $('mkBtn'); btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>產生中…';
+  var btn = $('mkBtn'); btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>產生中，約 3～5 秒…';
   api('shareCreate', { deptId: S.arg.dept, date: S.arg.date || today() }).then(function (r) {
     if (!r.url) r.url = location.origin + location.pathname + '#share=' + r.token;
     S.arg = { dept: S.arg.dept, date: S.arg.date, link: r }; render();
