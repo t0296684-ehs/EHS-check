@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.5.7';
+var APP_VERSION = '0.5.8';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -613,6 +613,11 @@ PAGES.home = function () {
     tasks.push({ tag: dn(c.dept) + ymLabel(c.period) + '・試算表填的紀錄', title: c.n + ' 筆還沒在手機確認', meta: '確認後才會帶入您的電子簽名，才能送審',
       btn: '查看並確認', on: goMonth(c.dept, c.period) });
   });
+  // 1.8 歸檔收尾沒做完（環安衛）
+  if (ehs) (m.archPending || []).forEach(function (x) {
+    tasks.push({ red: true, tag: '歸檔收尾還沒完成', title: x.dept + ' ' + ymLabel(x.period), meta: '每張表的 PDF 或通知信還沒做完（每天 09:15 電腦也會自動補做）',
+      btn: '繼續完成', on: 'archLoop(' + jsq(x.monthId) + ')' });
+  });
   // 2. 待審核（主管／環安衛）
   if (m.pendingReview) {
     var want = ehs ? '待環安衛審核' : '待主管審核';
@@ -1215,10 +1220,28 @@ function doEhs(action) {
   else if (!confirm('確認歸檔？')) return;
   bar('<div class="loading" style="padding:14px 0"><span class="spin"></span>' + (action === 'approve' ? '歸檔中…' : '退回中…') + '</div>');
   busyOn(action === 'approve' ? '歸檔中…' : '退回中…', '');
-  api('ehsReview', { monthId: S.view.monthId, decision: action, comment: why }).then(function () {
-    busyOff();
-    toast(action === 'approve' ? '已歸檔' : '已退回', 'ok'); S.stack = []; go('home', {}, true); refreshMe();
+  var mid = S.view.monthId;
+  api('ehsReview', { monthId: mid, decision: action, comment: why }).then(function () {
+    if (action === 'approve') return archLoop(mid);
+    busyOff(); toast('已退回', 'ok'); S.stack = []; go('home', {}, true); refreshMe();
   }).catch(function (e) { busyOff(); S.mErr = { t: action === 'approve' ? '歸檔沒有成功' : '退回沒有成功', m: e.message }; monthRender(); window.scrollTo(0, 0); });
+}
+/** 歸檔收尾：分表 PDF 與通知信分段做，一直呼叫到完成；中途關掉，首頁會出現「繼續完成歸檔」。 */
+function archLoop(mid) {
+  busyOn('歸檔收尾中…', '產生每張表的 PDF、寄通知信');
+  var round = function () {
+    return api('archiveWork', { monthId: mid }).then(function (r) {
+      var sub = document.querySelector('#busy .bx p:not(.warn):not(.sec2)');
+      if (sub && r.total) sub.textContent = '每張表的 PDF：' + r.made + ' / ' + r.total + (r.done ? '，寄通知信' : '');
+      if (r.done) return r;
+      return new Promise(function (res) { setTimeout(res, r.busy ? 8000 : 300); }).then(round);
+    });
+  };
+  return round().then(function () {
+    busyOff(); toast('已歸檔，PDF 與通知信都完成了', 'ok', 3000); S.stack = []; go('home', {}, true); refreshMe();
+  }).catch(function (e) {
+    busyOff(); toast(esc('已歸檔，但收尾沒做完：' + e.message + '（首頁可以繼續）'), 'err', 6000); S.stack = []; go('home', {}, true); refreshMe();
+  });
 }
 function openPdf(id) {
   var w = window.open('', '_blank');
