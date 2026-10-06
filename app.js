@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.5.2';
+var APP_VERSION = '0.5.3';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -138,11 +138,12 @@ function obDel(id) { return obTx('readwrite', function (s) { s.delete(id); }); }
 function obRefresh() { return obAll().then(function (a) { S.outbox = a; }).catch(function () { S.outbox = []; }); }
 
 var flushTimer = null;
+var AUTH_RE = /失效|名單|選擇您的身分/;
 function flush() {
-  if (S.flushing || !navigator.onLine || !gasUrl()) return Promise.resolve();
+  if (S.flushing || !navigator.onLine || !gasUrl() || !lsGet(LS.TOKEN, '')) return Promise.resolve();   // 登出中先不送，重新登入後換上新的登入再送
   S.flushing = true;
   if (S.page === 'home') render();
-  var sent = 0, failed = 0;
+  var sent = 0, failed = 0, relogin = '';
   return obAll().then(function (jobs) {
     var p = Promise.resolve(), stop = false;
     jobs.filter(function (j) { return j.status === 'pending'; }).forEach(function (j) {
@@ -152,6 +153,10 @@ function flush() {
           sent++; return obDel(j.id);
         }).catch(function (e) {
           j.tries = (j.tries || 0) + 1; j.message = e.message;
+          if (e.biz && AUTH_RE.test(e.message)) {          // 登入失效（啟用碼改了等）：紀錄留在手機，重新登入後自動補送
+            if (j.token === lsGet(LS.TOKEN, '')) { stop = true; relogin = e.message; return obPut(j); }
+            j.status = 'auth'; return obPut(j);            // 別人（之前用這支手機的人）的紀錄：等他本人重新登入，不影響現在的人
+          }
           if (e.biz) {                                 // 後端拒收：首頁不能再把這張當成「已上傳」
             j.status = 'error'; failed++;
             var a = S.me && A(j.key); if (a && a.due && j.body.date === today() && !a.due.signer) { a.due.todayDone = false; a.due.todayNoWork = false; }
@@ -165,6 +170,7 @@ function flush() {
     return p;
   }).then(function () {
     S.flushing = false;
+    if (relogin) return kickToLogin(relogin);
     if (sent) toast('已上傳 ' + sent + ' 筆檢點', 'ok');
     if (sent || failed) refreshMe();
     return obRefresh();
@@ -183,7 +189,13 @@ function outboxBlock() {
       '<small>已存在手機，不會不見</small></div>' +
       '<button class="btn sm" onclick="flush()"' + (S.flushing ? ' disabled' : '') + '>立即上傳</button></div>';
   }
-  a.filter(function (j) { return j.status !== 'pending'; }).forEach(function (j) {
+  var wait = a.filter(function (j) { return j.status === 'auth'; }), byWho = {};
+  wait.forEach(function (j) { var w = j.who || '之前登入的人'; byWho[w] = (byWho[w] || 0) + 1; });
+  Object.keys(byWho).forEach(function (w) {
+    h += '<div class="strip info">' + ic('cloud', 24, 2.2) + '<div class="stx"><span><b>' + esc(w) + ' 的檢點 ' + byWho[w] + ' 筆</b>・等本人重新登入</span>' +
+      '<small>已存在手機，不會不見；' + esc(w) + ' 在這支手機用新的啟用碼登入後自動上傳</small></div></div>';
+  });
+  a.filter(function (j) { return j.status !== 'pending' && j.status !== 'auth'; }).forEach(function (j) {
     h += errBox(j.label + ' 沒有上傳成功', '原因：' + (j.message || '不明'),
       '<div class="btns"><button class="btn red" onclick="obRetry(' + jsq(j.id) + ')">重試</button>' +
       '<button class="btn redline" onclick="obDrop(' + jsq(j.id) + ')">刪除這筆</button></div>');
@@ -193,6 +205,30 @@ function outboxBlock() {
 function netBlock() {
   if (navigator.onLine) return '';
   return '<div class="strip off">' + ic('wifioff', 24, 2.2) + '<div class="stx"><b>目前沒有網路</b><small>照常檢點，會先存在手機，有網路自動上傳</small></div></div>';
+}
+/** 登入失效：先把這次登入名下、舊版沒記姓名的待上傳紀錄補上姓名（重新登入後才認得回來），再回登入頁 */
+function kickToLogin(msg) {
+  var tok = lsGet(LS.TOKEN, ''), name = S.me && S.me.person ? S.me.person.name : (lsGet(LS.ME, null) || { person: {} }).person.name;
+  return obAll().then(function (a) {
+    return Promise.all(a.filter(function (j) { return !j.who && j.token === tok && name; }).map(function (j) { j.who = name; return obPut(j); }));
+  }).catch(function () {}).then(function () {
+    lsDel(LS.TOKEN); lsDel(LS.ME); S.me = null; S.stack = [];
+    go('login', {}, true); toast(esc(msg), 'err');
+    return obRefresh();
+  });
+}
+/** 重新登入後：這個人手機裡還沒送出的檢點，換上新的登入再送（舊登入可能因改啟用碼而失效） */
+function rebindJobs(name, token) {
+  return obAll().then(function (a) {
+    var p = Promise.resolve(), n = 0;
+    a.forEach(function (j) {
+      if (j.who !== name || j.token === token) return;
+      if (j.status !== 'pending' && j.status !== 'auth' && !(j.status === 'error' && AUTH_RE.test(j.message || ''))) return;
+      j.token = token; j.status = 'pending'; n++;
+      p = p.then(function () { return obPut(j); });
+    });
+    return p.then(function () { return n; });
+  }).then(function (n) { if (n) return obRefresh().then(flush); });
 }
 function obRetry(id) { obAll().then(function (a) { var j = a.filter(function (x) { return x.id === id; })[0]; if (!j) return; j.status = 'pending'; return obPut(j); }).then(obRefresh).then(function () { render(); flush(); }); }
 function obDrop(id) { if (!confirm('刪除這筆檢點？刪了手機上就沒有這筆資料了。')) return; obDel(id).then(obRefresh).then(render); }
@@ -225,7 +261,7 @@ function refreshMe() {
     if (m.pendingReview) loadPkgs(true); else S.pkgs = [];
     if (['home', 'settings', 'pick', 'months'].indexOf(S.page) >= 0) render();
   }).catch(function (e) {
-    if (e.biz && /失效|名單|選擇您的身分/.test(e.message)) { lsDel(LS.TOKEN); lsDel(LS.ME); S.me = null; go('login', {}, true); }
+    if (e.biz && AUTH_RE.test(e.message)) kickToLogin(e.message);
   });
 }
 /** 主管／環安衛首頁要列出「哪一份待審」：讀 packages 清單 */
@@ -243,10 +279,11 @@ function isMgr() { return S.me && S.me.person.role === '單位負責人'; }
 function mgrOf(dept) { var d = (S.me.depts || []).filter(function (x) { return x.id === dept; })[0]; return d && d.mgr; }
 function isEhs() { return S.me && /^環安衛/.test(S.me.person.role); }
 function pendingFor(a, date) {
-  return (S.outbox || []).some(function (j) { return j.status === 'pending' && j.key === a.key && j.body.date === date; });
+  return !!pendJob(a, date);
 }
 function pendJob(a, date) {
-  return (S.outbox || []).filter(function (j) { return j.status === 'pending' && j.key === a.key && j.body.date === date; })[0];
+  // 「auth」＝之前用這支手機的人填好、等他重新登入才上傳：對現在的人也算這張今天已有人填，避免重複填
+  return (S.outbox || []).filter(function (j) { return (j.status === 'pending' || j.status === 'auth') && j.key === a.key && j.body.date === date; })[0];
 }
 function whoLine() {
   if (!S.me) return '';
@@ -344,6 +381,7 @@ function doBind() {
     lsSet(LS.TOKEN, d.token); lsSet(LS.ME, d.me); S.me = normMe(d.me); S.stack = [];
     go(d.me.signature ? 'home' : 'sign', {}, true);
     toast('歡迎，' + esc(d.me.person.name), 'ok');
+    rebindJobs(d.me.person.name, d.token);
   }).catch(function (e) {
     // 登入失敗要停在畫面上（不只 Toast 一閃而過）
     $('loginErr').innerHTML = errBox('登入沒有成功', e.message);
@@ -519,7 +557,8 @@ PAGES.home = function () {
       var job = pendJob(a, t);
       var dot = job ? '<span class="dotic info">' + ic('up', 16, 3) + '</span>' : a.due.todayNoWork ? '<span class="dotic na">' + ic('minus', 16, 3) + '</span>' : '<span class="dotic ok">' + ic('check', 16, 3.2) + '</span>';
       var other = a.due.signer && a.due.signer !== m.person.name;     // 同課別人已經檢點
-      var st = job ? '<span class="mt inf">已存手機，等待上傳・' + hm(job.created) + '</span>' : a.due.todayNoWork ? '<span class="mt">今日無作業</span>' :
+      var st = job && job.status === 'auth' ? '<span class="mt inf">' + esc(job.who || '之前登入的人') + ' 已填，等他重新登入後上傳</span>' :
+        job ? '<span class="mt inf">已存手機，等待上傳・' + hm(job.created) + '</span>' : a.due.todayNoWork ? '<span class="mt">今日無作業</span>' :
         other ? '<span class="mt okt">' + esc(a.due.signer) + ' 已檢點</span>' : '<span class="mt okt">已上傳</span>';
       return '<button class="li" onclick="openFill(' + jsq(a.key) + ')">' + dot + '<span class="mn"><span class="nm">' + esc(dn(a.dept) + F(a.form).name) + '</span>' + st + '</span></button>';
     }).join('') + '</div>';
@@ -765,7 +804,7 @@ function submitFill() {
   (f.extra || []).forEach(function (x, i) { if (fm.x[i]) extra[x] = fm.x[i]; });
   var body = { deptId: a.dept, formId: a.form, object: a.object || '', kind: a.kind || '', date: fm.date,
                results: fm.noWork ? {} : fm.r, notes: fm.noWork ? {} : fm.n, extra: extra, noWork: fm.noWork };
-  var job = { id: newId(), token: lsGet(LS.TOKEN, ''), key: a.key, body: body, created: Date.now(), status: 'pending',
+  var job = { id: newId(), token: lsGet(LS.TOKEN, ''), who: S.me && S.me.person ? S.me.person.name : '', key: a.key, body: body, created: Date.now(), status: 'pending',
               label: f.name + ' ' + md(fm.date) };
   obPut(job).then(function () {
     draftDrop(fm);
