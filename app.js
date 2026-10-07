@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.6.0';
+var APP_VERSION = '0.7.0';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -57,6 +57,7 @@ var ICON = {
   cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
   clip: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/>',
   plus: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  swap: '<path d="M7 7h12l-3-3M17 17H5l3 3"/>',
   logo: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M8.5 13l2.5 2.5 4.5-5"/>',
   review: '<path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>',
   pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', ret: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
@@ -303,7 +304,7 @@ function refreshMe() {
   return api('me', {}, { quiet: true }).then(function (m) {
     setClock(m.serverNow); S.me = normMe(m); lsSet(LS.ME, m);
     if (m.pendingReview) loadPkgs(true); else S.pkgs = [];
-    if (['home', 'settings', 'pick', 'months'].indexOf(S.page) >= 0) render();
+    if (['home', 'settings', 'pick', 'months', 'notice', 'claim'].indexOf(S.page) >= 0) render();
   }).catch(function (e) {
     if (e.biz && AUTH_RE.test(e.message)) kickToLogin(e.message);
   });
@@ -687,6 +688,9 @@ PAGES.home = function () {
   var t = today(), ehs = isEhs(), mgr = isMgr(), multi = m.depts.length > 1;
   var dn = function (d) { return multi ? d + '・' : ''; };
   var tasks = [];
+  // 0. 未讀通知
+  if (m.unread) tasks.push({ tag: '新通知', title: '有 ' + m.unread + ' 則新通知', meta: (m.notices || []).filter(function (x) { return !x.read; }).slice(0, 2).map(function (x) { return x.title; }).join('、'),
+    btn: '查看通知', on: "go('notice')" });
   // 1. 被退回
   if (!ehs) m.months.forEach(function (x) {
     if (x.status === '退回' && !mgrOf(x.dept)) tasks.push({ red: true, tag: dn(x.dept) + '被退回，要修正', title: ymLabel(x.period) + '的檢點紀錄', meta: '退回原因：' + (x.reason || '（未填寫）'), btn: '去修正並重新送出', on: goMonth(x.dept, x.period) });
@@ -798,8 +802,10 @@ PAGES.home = function () {
     tl += tile('chat', '請人代填', "go('shareMake')", '', '休假時給同事限時連結');
   if (!ehs && !mgr && m.claimable.length) tl += tile('plus', '領取表單', "go('claim')", '', '本課其他表、其他設備');
   if (mgr || ehs) tl += tile('review', '審核紀錄', "go('packages')");
+  if (mgr || ehs) tl += tile('swap', '下月負責人', "go('nextOwners')", '', '調動誰負責哪張表、哪台設備');
+  tl += tile('bell', '通知', "go('notice')", m.unread ? pill('ng', '', m.unread + ' 則未讀') : '');
   tl += tile('cal', '月結紀錄', "go('months')");
-  tl += tile('bell', '提醒設定', "go('remind')");
+  tl += tile('clock', '提醒設定', "go('remind')");
   tl += tile('sliders', '設定', "go('settings')");
   h += '<div class="tiles">' + tl + '</div><div class="ver">v' + APP_VERSION + '</div>';
   $('app').innerHTML = h;
@@ -881,6 +887,76 @@ function claimGo(k) {
   api('claim', x.kind === 'equip' ? { deptId: x.dept, kind: 'equip', cat: x.cat, object: x.object } : { deptId: x.dept, kind: 'form', formId: x.form }).then(function (r) {
     busyOff(); S.me = normMe(r.me); lsSet(LS.ME, r.me);
     toast('已領取：' + what, 'ok', 3000); render();
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
+}
+// ───────────── 通知區：權責異動、下月異動、月結結果（檢點人員沒有信箱也看得到）─────────────
+PAGES.notice = function () {
+  setTitle('通知');
+  var list = (S.me && S.me.notices) || [];
+  var h = '<div class="muted upnote">最近 60 天和您有關的通知。單位負責人、環安衛另外會收到 Email。</div>';
+  if (!list.length) h += '<div class="empty">目前沒有通知</div>';
+  else h += '<div class="list">' + list.map(function (x) {
+    return '<div class="li nt' + (x.read ? '' : ' unread') + '"><span class="mn"><span class="mt">' + esc((x.type || '') + '・' + (x.dept ? x.dept + '・' : '') + x.time.slice(5).replace('-', '/')) + '</span>' +
+      '<span class="nm">' + (x.read ? '' : '<i class="ndot"></i>') + esc(x.title) + '</span><span class="mt nb">' + esc(x.body) + '</span></span></div>';
+  }).join('') + '</div>';
+  $('app').innerHTML = h;
+  var ids = list.filter(function (x) { return !x.read; }).map(function (x) { return x.id; });
+  if (ids.length && navigator.onLine) api('noticeRead', { ids: ids }, { quiet: true }).then(function () {
+    list.forEach(function (x) { x.read = true; }); S.me.unread = 0;
+    var raw = lsGet(LS.ME, null); if (raw) { (raw.notices || []).forEach(function (x) { x.read = true; }); raw.unread = 0; lsSet(LS.ME, raw); }
+  }).catch(function () {});
+};
+
+// ───────────── 下月負責人：選表單（含設備）→ 左邊本月、右邊下月 → 下個月 1 日自動生效 ─────────────
+PAGES.nextOwners = function () {
+  setTitle('下月負責人');
+  var ds = S.me.depts.filter(function (d) { return mgrOf(d.id); }).map(function (d) { return d.id; });
+  if (!S.arg.dept) S.arg.dept = ds[0];
+  var nx = S.next && S.next.dept === S.arg.dept ? S.next : null;
+  var h = '';
+  if (ds.length > 1) h += '<div class="chips">' + ds.map(function (d) { return '<button class="chip' + (d === S.arg.dept ? ' on' : '') + '" onclick="nextDept(' + jsq(d) + ')">' + esc(d) + '</button>'; }).join('') + '</div>';
+  if (!nx) {
+    $('app').innerHTML = h + loading('讀取本課負責人…');
+    api('nextList', { deptId: S.arg.dept }).then(function (r) { S.next = r; if (!S.arg.key && r.targets.length) S.arg.key = r.targets[0].key; render(); })
+      .catch(function (e) { $('app').innerHTML = h + '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">' + esc(e.message) + '</div></div></div></div>'; });
+    return;
+  }
+  var mo = Number(nx.month.slice(5)) + ' 月';
+  h += '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">先選要變更的表單或設備，右邊勾 ' + mo + ' 起的負責人，按儲存。' + mo + ' 1 日自動生效，當事人會收到 App 通知。這個月照舊。</div></div></div></div>';
+  var opt = function (k) { var t = nx.targets.filter(function (x) { return x.kind === k; }); return t.map(function (x) { return '<option value="' + esc(x.key) + '"' + (x.key === S.arg.key ? ' selected' : '') + '>' + esc(x.name) + (x.next ? '（已安排）' : '') + '</option>'; }).join(''); };
+  h += '<div class="sec">1. 要變更的表單或設備</div><select class="field" id="nxKey" onchange="nextPick(this.value)">' +
+    '<optgroup label="檢查表">' + opt('form') + '</optgroup><optgroup label="設備">' + opt('equip') + '</optgroup></select>';
+  var tg = nx.targets.filter(function (x) { return x.key === S.arg.key; })[0], same = false, saved = false;
+  if (tg) {
+    var want = S.arg.want || (tg.next || tg.now).slice();
+    S.arg.want = want;
+    if (tg.uses && tg.uses.length) h += '<div class="muted upnote">這台設備會用到：' + esc(tg.uses.join('、')) + '</div>';
+    h += '<div class="sec">2. 負責人</div><div class="nxcols"><div class="nxc"><div class="nxh">本月（目前）</div>' +
+      (tg.now.length ? tg.now.map(function (n) { return '<div class="nxn">' + esc(n) + '</div>'; }).join('') : '<div class="muted">沒有負責人</div>') + '</div>' +
+      '<div class="nxc on"><div class="nxh">' + mo + ' 起</div>' + nx.ops.map(function (n) {
+        return '<label class="ck"><input type="checkbox" ' + (want.indexOf(n) >= 0 ? 'checked' : '') + ' onchange="nextTick(' + jsq(n) + ',this.checked)">' + esc(n) + '</label>';
+      }).join('') + (nx.ops.length ? '' : '<div class="muted">本課還沒有檢點人員</div>') + '</div></div>';
+    same = want.slice().sort().join() === tg.now.slice().sort().join();
+    saved = tg.next && want.slice().sort().join() === tg.next.slice().sort().join();
+    if (!want.length) h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">' + mo + ' 起沒有負責人＝這' + (tg.kind === 'equip' ? '台設備' : '張表') + '本課不再使用（手機上看不到、不算缺漏）。</div></div></div></div>';
+    bar('<button class="btn" id="nxBtn" onclick="nextSave()">' + ic('check', 22, 2.8) + (saved ? '已安排（要改請重新勾選）' : same && tg.next ? '取消下月異動（維持現狀）' : same ? '沒有變更' : '儲存 ' + mo + ' 的安排') + '</button>');
+  }
+  var plan = nx.targets.filter(function (x) { return x.next; });
+  h += '<div class="sec">已安排的下月異動<small>' + mo + ' 1 日生效</small></div>' + (plan.length ? '<div class="list">' + plan.map(function (x) {
+    return '<button class="li" onclick="nextPick(' + jsq(x.key) + ')"><span class="mn"><span class="nm">' + esc(x.name) + '</span><span class="mt">' + esc((x.now.join('、') || '（無）') + ' → ' + (x.next.join('、') || '（無）')) + '</span></span></button>';
+  }).join('') + '</div>' : '<div class="empty">還沒有安排</div>');
+  $('app').innerHTML = h;
+  if (tg && $('nxBtn') && (saved || (same && !tg.next))) $('nxBtn').disabled = true;
+};
+function nextDept(d) { S.arg = { dept: d }; S.next = null; render(); }
+function nextPick(k) { S.arg.key = k; S.arg.want = null; window.scrollTo(0, 0); render(); }
+function nextTick(n, on) { var w = S.arg.want || []; if (on && w.indexOf(n) < 0) w.push(n); if (!on) w = w.filter(function (x) { return x !== n; }); S.arg.want = w; render(); }
+function nextSave() {
+  var nx = S.next, tg = nx && nx.targets.filter(function (x) { return x.key === S.arg.key; })[0]; if (!tg) return;
+  if (!navigator.onLine) return toast('沒有網路，安排要連上網路才能存', 'err', 3500);
+  busyOn('儲存中…');
+  api('nextSet', { deptId: nx.dept, target: tg.key, names: S.arg.want || [] }).then(function (r) {
+    busyOff(); S.next = r; S.arg.want = null; toast('已儲存，' + Number(r.month.slice(5)) + ' 月 1 日生效；相關人員會收到通知', 'ok', 3500); render();
   }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
 }
 function deptOf(id) { return id; }

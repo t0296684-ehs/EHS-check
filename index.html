@@ -343,6 +343,16 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 @keyframes spUp{0%{transform:translateY(12px);opacity:0}100%{transform:none;opacity:1}}
 @keyframes spLoad{0%{transform:translateX(-110%)}100%{transform:translateX(260%)}}
 @media (prefers-reduced-motion:reduce){#splash *{animation:none!important}}
+/* ── 通知區、下月負責人 ── */
+.li.nt{align-items:flex-start}.li.nt .nb{white-space:normal;color:var(--ink);font-size:14px;line-height:1.55}
+.li.nt.unread{background:#FFF8EF}
+.ndot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--orange);margin-right:6px;vertical-align:middle}
+.nxcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:10px}
+.nxc{background:#fff;border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;border:1.5px solid var(--line)}
+.nxc.on{border-color:var(--navy)}
+.nxh{font-size:13px;font-weight:900;color:var(--sub);letter-spacing:.04em;margin-bottom:2px}
+.nxc.on .nxh{color:var(--navy)}
+.nxn{font-size:16px;font-weight:700;min-height:36px;display:flex;align-items:center}
 </style>
 </head>
 <body>
