@@ -1,7 +1,7 @@
 // 作業檢點 PWA：只快取同源的程式檔（先給快取、背景更新）；Google 後端一律不快取
-var CACHE = 'chk-v0.5.8';
+var CACHE = 'chk-v0.6.0';
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(['./', './index.html', './app.js', './manifest.json', './icon-192.png']); }));
+  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(['./', './index.html', './app.js', './manifest.json', './icon-192.png', './icon-512.png']); }));
   self.skipWaiting();
 });
 self.addEventListener('activate', function (e) {

@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.5.8';
+var APP_VERSION = '0.6.0';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -56,6 +56,7 @@ var ICON = {
   sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
   cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
   clip: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/>',
+  plus: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
   logo: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M8.5 13l2.5 2.5 4.5-5"/>',
   review: '<path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>',
   pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', ret: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
@@ -276,7 +277,7 @@ function obDrop(id) { if (!confirm('刪除這筆檢點？刪了手機上就沒�
 
 // ───────────── 資料 ─────────────
 function normMe(m) {
-  m.assigns = []; m.months = []; m.confirms = [];
+  m.assigns = []; m.months = []; m.confirms = []; m.claimable = [];
   var stale = m.today && m.today !== today();      // 手機裡存的是前幾天的狀態（例如隔天一早沒訊號）：今天一律當作還沒做
   m.person.depts = m.depts.map(function (d) { return { id: d.id, name: d.id }; });
   m.depts.forEach(function (d) {
@@ -291,6 +292,7 @@ function normMe(m) {
         kind: x.kind, freq: x.freq, pick: true, warnDays: 30, due: { last: x.last, due: x.due, state: x.state } });
     });
     (d.confirms || []).forEach(function (c) { m.confirms.push({ dept: d.id, period: c.period, n: c.n }); });
+    (d.claimable || []).forEach(function (c) { var x = Object.assign({ dept: d.id }, c); m.claimable.push(x); });
     d.months.forEach(function (x) { m.months.push({ dept: d.id, unit: d.unit, period: x.period, status: x.status, reason: x.reason, sheetUrl: d.sheetUrl,
       crew: x.crew, submitter: x.submitter, submittedAt: x.submittedAt }); });
   });
@@ -455,7 +457,8 @@ PAGES.sign = function () {
     h += '<div class="h2">請用手指簽全名</div><div class="lead">只要簽<b>這一次</b>，存在系統裡，之後每次送出都會自動帶入，不用每天簽。</div>' +
       '<div class="sigwrap"><canvas id="cv" class="sigbox" aria-label="橫式簽名區"></canvas>';
   }
-  h += '<div class="right"><label class="btn ghost sm upl">' + ic('up', 18) + '上傳簽名照片<input type="file" accept="image/*" id="sigFile" onchange="sigUpload(this)" hidden></label>' +
+  h += '<div class="right">' + (v && SIG.h ? '<button class="btn ghost sm" id="sigAuto" onclick="sigAutoV()">' + ic('refresh', 18) + '用橫式自動轉</button>' : '') +
+    '<label class="btn ghost sm upl">' + ic('up', 18) + '上傳簽名照片<input type="file" accept="image/*" id="sigFile" onchange="sigUpload(this)" hidden></label>' +
     '<button class="btn ghost sm" onclick="sigClear()">' + ic('refresh', 18) + '清除重簽</button></div></div>' +
     '<div class="muted upnote">也可以在白紙上用黑筆' + (v ? '<b>由上往下</b>' : '') + '簽好、拍照上傳，系統會自動去掉背景。</div>';
   if (!v) h += '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">這個簽名用在定期檢查表與送審。下一步再簽一個直的，給每日檢點表用。</div></div></div></div>';
@@ -464,6 +467,7 @@ PAGES.sign = function () {
   $('app').innerHTML = h;
   bar('<button class="btn" id="sigBtn" onclick="sigNext()">' + (v ? ic('check', 22, 2.8) + '儲存兩個簽名' : '下一步：簽直式' + ic('arrow', 20, 2.6)) + '</button>');
   sigInit();
+  if (v && SIG.h) setTimeout(sigAutoV, 150);       // 進直式這一步先自動轉一次，不滿意再自己簽
 };
 var SIG = { drawn: false };
 function sigInit() {
@@ -516,18 +520,49 @@ function sigClean(img) {
   var w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
   if (w < 60 || h < 30) return { ok: false, msg: '照片太小，請拍大一點' };
   var c = document.createElement('canvas'); c.width = w; c.height = h;
-  var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); x.drawImage(img, 0, 0, w, h);   // 透明 PNG 先墊白底
-  var id = x.getImageData(0, 0, w, h), d = id.data, n = w * h, lum = new Uint8Array(n), hist = new Array(256).fill(0);
-  for (var i = 0; i < n; i++) { var L = (d[i * 4] * 299 + d[i * 4 + 1] * 587 + d[i * 4 + 2] * 114) / 1000 | 0; lum[i] = L; hist[L]++; }
+  var x = c.getContext('2d'); x.drawImage(img, 0, 0, w, h);
+  var a0 = x.getImageData(0, 0, w, h).data, n = w * h, clear = 0;
+  for (var i = 0; i < n; i++) if (a0[i * 4 + 3] < 250) clear++;
+  x.globalCompositeOperation = 'destination-over'; x.fillStyle = '#fff'; x.fillRect(0, 0, w, h);   // 透明處墊白底
+  x.globalCompositeOperation = 'source-over';
+  var id = x.getImageData(0, 0, w, h), d = id.data, lum = new Uint8Array(n), hist = new Array(256).fill(0);
+  for (i = 0; i < n; i++) { var L = (d[i * 4] * 299 + d[i * 4 + 1] * 587 + d[i * 4 + 2] * 114) / 1000 | 0; lum[i] = L; hist[L]++; }
+  // 已去背的 PNG：看得見、不是白色的就是筆跡，不用猜門檻，也不擋「太暗」
+  if (clear > n * 0.05) {
+    var inkA = 0;
+    for (i = 0; i < n; i++) {
+      var al = a0[i * 4 + 3];
+      if (al >= 25 && lum[i] < 235) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 17; d[i * 4 + 3] = Math.min(255, Math.round(al * 1.3)); inkA++; }
+      else d[i * 4 + 3] = 0;
+    }
+    if (inkA / n < 0.002) return { ok: false, msg: '這張去背圖看不到簽名（可能是白色字或整張透明），請換一張' };
+    if (inkA / n > 0.9) return { ok: false, msg: '這張圖幾乎整片都是顏色，看不出簽名，請確認是已去背的簽名檔' };
+    x.putImageData(id, 0, 0);
+    return { ok: true, c: c };
+  }
   // Otsu 自動找門檻：紙張有陰影、偏黃也分得開
   var sum = 0; for (var t = 0; t < 256; t++) sum += t * hist[t];
   var sB = 0, wB = 0, best = 0, th = 128;
   for (t = 0; t < 256; t++) { wB += hist[t]; if (!wB) continue; var wF = n - wB; if (!wF) break; sB += t * hist[t];
     var mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF); if (v > best) { best = v; th = t; } }
   th = Math.min(th, 200);
+  // 墨跡比例太高＝門檻落在背景裡（例如棋盤格截圖、灰紙）：只在較暗的那一群裡再找一次門檻，最多兩次
+  var redo = false;
+  for (var tries = 0; tries < 2; tries++) {
+    var cnt = 0; for (t = 0; t <= th; t++) cnt += hist[t];
+    if (cnt / n <= 0.25) break;
+    var s2 = 0, n2 = 0; for (t = 0; t <= th; t++) { s2 += t * hist[t]; n2 += hist[t]; }
+    var b2 = 0, w2 = 0, sb2 = 0, th2 = -1;
+    for (t = 0; t < th; t++) { w2 += hist[t]; if (!w2) continue; var f2 = n2 - w2; if (!f2) break; sb2 += t * hist[t];
+      var m1 = sb2 / w2, m2 = (s2 - sb2) / f2, v2 = w2 * f2 * (m1 - m2) * (m1 - m2); if (v2 > b2) { b2 = v2; th2 = t; } }
+    if (th2 < 0) break;
+    th = th2; redo = true;
+  }
+  // 重找過門檻的，門檻附近要是「谷底」（筆跡和背景分得開）；雜訊照片整片連續灰階，谷底不明顯就擋
+  if (redo) { var near = 0; for (t = Math.max(0, th - 12); t <= Math.min(255, th + 12); t++) near += hist[t]; if (near / n > 0.03) return { ok: false, msg: '背景太暗或太雜，看不出哪裡是簽名。請在白紙上用黑筆簽，光線亮一點、只拍簽名那一塊' }; }
   var ink = 0;
   for (i = 0; i < n; i++) {
-    if (lum[i] < th) { var a = Math.min(255, Math.round((th - lum[i]) / Math.max(1, th) * 255 * 1.6) + 60); d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 17; d[i * 4 + 3] = a; ink++; }
+    if (lum[i] <= th) { var a = Math.min(255, Math.round((th - lum[i]) / Math.max(1, th) * 255 * 1.6) + 60); d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 17; d[i * 4 + 3] = a; ink++; }
     else d[i * 4 + 3] = 0;
   }
   // 去雜點：四周 8 格幾乎沒有筆跡的孤立點當作紙張雜訊（不然裁切範圍會被撐大、簽名變很小）
@@ -543,6 +578,54 @@ function sigClean(img) {
   if (r > 0.35) return { ok: false, msg: '背景太暗或太雜，看不出哪裡是簽名。請在白紙上用黑筆簽，光線亮一點、只拍簽名那一塊' };
   x.putImageData(id, 0, 0);
   return { ok: true, c: c };
+}
+/** 橫式簽名自動轉直式：依字與字之間的空白切開，由上往下疊。切不出 2～5 個字（連筆）就回 null。 */
+function sigToVertical(src, cb) {
+  var img = new Image();
+  img.onload = function () {
+    var w = img.naturalWidth, h = img.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h;
+    var x = c.getContext('2d'); x.drawImage(img, 0, 0);
+    var d = x.getImageData(0, 0, w, h).data, col = new Array(w).fill(0);
+    for (var yy = 0; yy < h; yy++) for (var xx = 0; xx < w; xx++) if (d[(yy * w + xx) * 4 + 3] > 40) col[xx]++;
+    var segs = [], st = -1, gap = 0, minGap = Math.max(2, Math.round(h * 0.06));
+    for (xx = 0; xx <= w; xx++) {
+      var on = xx < w && col[xx] > 0;
+      if (on) { if (st < 0) st = xx; gap = 0; }
+      else if (st >= 0) { gap++; if (gap >= minGap || xx === w) { segs.push([st, xx - gap + 1]); st = -1; gap = 0; } }
+    }
+    // 太窄的碎片（點、撇）併到最近的字
+    var minW = w * 0.08;
+    for (var i = 0; i < segs.length; i++) if (segs.length > 1 && segs[i][1] - segs[i][0] < minW) {
+      var j = i === 0 ? 1 : i === segs.length - 1 ? i - 1 : (segs[i][0] - segs[i - 1][1] < segs[i + 1][0] - segs[i][1] ? i - 1 : i + 1);
+      segs[j] = [Math.min(segs[i][0], segs[j][0]), Math.max(segs[i][1], segs[j][1])]; segs.splice(i, 1); i = -1;
+    }
+    if (segs.length < 2 || segs.length > 5) return cb(null);
+    var parts = segs.map(function (g) {
+      var y0 = h, y1 = 0;
+      for (var yy2 = 0; yy2 < h; yy2++) for (var xx2 = g[0]; xx2 < g[1]; xx2++) if (d[(yy2 * w + xx2) * 4 + 3] > 40) { if (yy2 < y0) y0 = yy2; if (yy2 > y1) y1 = yy2; }
+      return { x: g[0], y: y0, w: g[1] - g[0], h: y1 - y0 + 1 };
+    });
+    var cw = Math.max.apply(null, parts.map(function (p) { return p.w; })), pad = Math.round(cw * 0.12);
+    var o = document.createElement('canvas'); o.width = cw + pad * 2;
+    o.height = parts.reduce(function (a, p) { return a + p.h; }, 0) + pad * (parts.length + 1);
+    var ox = o.getContext('2d'), y = pad;
+    parts.forEach(function (p) { ox.drawImage(c, p.x, p.y, p.w, p.h, pad + (cw - p.w) / 2, y, p.w, p.h); y += p.h + pad; });
+    cb(o);
+  };
+  img.onerror = function () { cb(null); };
+  img.src = src;
+}
+function sigAutoV() {
+  if (!SIG.h) return;
+  sigToVertical(SIG.h, function (o) {
+    if (!o) return toast('這個簽名字連在一起，沒辦法自動轉，請直接在框裡由上往下簽', 'err', 4500);
+    var cv = $('cv'), ctx = cv.getContext('2d'), W = cv.clientWidth, H = cv.clientHeight, pad = 10;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
+    var k = Math.min((W - pad * 2) / o.width, (H - pad * 2) / o.height), ww = o.width * k, hh = o.height * k;
+    ctx.drawImage(o, (W - ww) / 2, (H - hh) / 2, ww, hh);
+    SIG.drawn = true;
+    toast('已把橫式簽名轉成直式，確認沒問題就按儲存；不滿意可清除重簽', 'ok', 4000);
+  });
 }
 function sigClear() { var cv = $('cv'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; }
 /** 裁到筆跡範圍、縮小、存成透明 PNG（約 5～15 KB）。 */
@@ -643,6 +726,10 @@ PAGES.home = function () {
     var od = m.assigns.filter(function (a) { return a.dept === d.id && a.pick && a.due && a.due.state === 'overdue'; });
     if (od.length) tasks.push({ tag: dn(d.id) + '定期檢查', title: od.length + ' 張已到期', meta: od.slice(0, 2).map(pickName).join('、') + (od.length > 2 ? '…' : ''), btn: '去看看', on: "go('pick',{dept:" + jsq(d.id) + '})' });
   });
+  // 4.5 還沒有任何表（檢點人員）：去領取
+  if (!ehs && !mgr && !m.assigns.some(function (a) { return a.daily || a.pick; }))
+    tasks.push({ tag: '還沒有指派給您的檢查表', title: '先領取您負責的表或設備', meta: m.claimable.length ? '本課開放 ' + m.claimable.length + ' 項可以領取；領了才會出現在手機上' : '目前沒有可領取的表，請洽環安衛中心',
+      btn: '去領取', on: "go('claim')" });
   // 5. 上個月還沒送審
   if (!ehs) m.months.forEach(function (x) {
     if (x.period < t.slice(0, 7) && x.status === '填寫中' && !mgrOf(x.dept)) {     // 送審是檢點人員的事；主管看「各課送審狀況」
@@ -709,6 +796,7 @@ PAGES.home = function () {
   });
   if (!ehs && m.depts.some(function (d) { return m.assigns.some(function (a) { return a.dept === d.id && a.daily; }); }))
     tl += tile('chat', '請人代填', "go('shareMake')", '', '休假時給同事限時連結');
+  if (!ehs && !mgr && m.claimable.length) tl += tile('plus', '領取表單', "go('claim')", '', '本課其他表、其他設備');
   if (mgr || ehs) tl += tile('review', '審核紀錄', "go('packages')");
   tl += tile('cal', '月結紀錄', "go('months')");
   tl += tile('bell', '提醒設定', "go('remind')");
@@ -757,6 +845,44 @@ PAGES.pick = function () {
   if (!list.length) h += '<div class="empty">這個部門沒有其他檢查表</div>';
   $('app').innerHTML = h;
 };
+// ───────────── 領取表單：本課已開放、還不是自己的表或設備（表單內容只有環安衛中心能改）─────────────
+PAGES.claim = function () {
+  setTitle('領取表單');
+  var list = S.me.claimable || [], multi = S.me.depts.length > 1;
+  var h = '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">這裡是本課已開放、但還沒指派給您的表。領了之後就會出現在首頁，並記在後台「領取紀錄」。' +
+    '要取消領取請洽環安衛中心。</div></div></div></div>';
+  S.me.depts.forEach(function (d) {
+    var mine = list.filter(function (x) { return x.dept === d.id; });
+    if (!mine.length) return;
+    var fs = mine.filter(function (x) { return x.kind === 'form'; }), es = mine.filter(function (x) { return x.kind === 'equip'; });
+    if (fs.length) h += '<div class="sec">' + esc((multi ? d.id + '・' : '') + '檢查表') + '</div><div class="list">' + fs.map(function (x, i) {
+      return claimRow(x, x.name, (x.daily ? '每日檢點' : '定期檢查') + '・' + (x.users.length ? '目前使用：' + x.users.join('、') : '目前沒有人使用'), 'f' + i + d.id);
+    }).join('') + '</div>';
+    if (es.length) h += '<div class="sec">' + esc((multi ? d.id + '・' : '') + '設備（一台一台領）') + '</div><div class="list">' + es.map(function (x, i) {
+      return claimRow(x, x.cat + ' ' + x.object + (x.objectName ? '（' + x.objectName + '）' : ''),
+        '用到：' + x.forms.join('、') + '・' + (x.users.length ? '目前負責：' + x.users.join('、') : '目前沒有負責人'), 'e' + i + d.id);
+    }).join('') + '</div>';
+  });
+  if (!list.length) h += '<div class="empty">本課開放的表都已經是您的了</div>';
+  $('app').innerHTML = h;
+};
+var CLAIMS = {};
+function claimRow(x, title, meta, k) {
+  CLAIMS[k] = x;
+  return '<div class="li"><span class="mn"><span class="nm">' + esc(title) + '</span><span class="mt">' + esc(meta) + '</span></span>' +
+    '<button class="btn sm" onclick="claimGo(' + jsq(k) + ')">領取</button></div>';
+}
+function claimGo(k) {
+  var x = CLAIMS[k]; if (!x) return;
+  var what = x.kind === 'equip' ? x.cat + ' ' + x.object : x.name;
+  if (!confirm('領取「' + what + '」？領了之後首頁就會出現' + (x.kind === 'equip' ? '這台設備的檢查表' : '這張表') + '。')) return;
+  if (!navigator.onLine) return toast('沒有網路，領取要連上網路才能做', 'err', 3500);
+  busyOn('領取中…');
+  api('claim', x.kind === 'equip' ? { deptId: x.dept, kind: 'equip', cat: x.cat, object: x.object } : { deptId: x.dept, kind: 'form', formId: x.form }).then(function (r) {
+    busyOff(); S.me = normMe(r.me); lsSet(LS.ME, r.me);
+    toast('已領取：' + what, 'ok', 3000); render();
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
+}
 function deptOf(id) { return id; }
 function statusPill(s) {
   var c = { '填寫中': ['na', 'pen'], '待主管審核': ['warn', 'clock'], '待環安衛審核': ['warn', 'clock'], '已歸檔': ['ok', 'check'], '退回': ['ng', 'ret'] }[s] || ['na', ''];
@@ -1492,11 +1618,20 @@ window.addEventListener('online', function () { render(); if (!S.share) flush();
 window.addEventListener('offline', function () { render(); });
 document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && !S.share) { flush(); refreshMe(); } });
 
+/** 開場 LOGO：畫面第一次畫好、且至少播完 1.3 秒才收起；最慢 3 秒一定收。 */
+function splashDone() {
+  var s = document.getElementById('splash');
+  if (!s || s.getAttribute('data-done')) return;
+  s.setAttribute('data-done', '1');
+  var wait = Math.max(0, 1300 - (Date.now() - (window.SPLASH_T0 || 0)));
+  setTimeout(function () { s.className = 'out'; setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 450); }, wait);
+}
 (function init() {
+  setTimeout(splashDone, 3000);
   var sm = /[#&]share=([0-9a-fA-F]{64})/.exec(location.hash);
   if (sm) {                                     // 代填連結：不碰這支手機原本的登入、草稿、待上傳
     S.share = { token: sm[1], name: '' }; S.page = 'proxy';
-    render();
+    render(); splashDone();
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(function () {});
     return;
   }
@@ -1504,6 +1639,7 @@ document.addEventListener('visibilitychange', function () { if (document.visibil
   var deep = new URLSearchParams(location.search).get('r');
   obRefresh().then(function () {
     render();                                   // 先用手機裡的資料畫出來，不等 Google
+    splashDone();
     flush();
     return refreshMe();
   }).then(function () {
