@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.7.3';
+var APP_VERSION = '0.7.4';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -224,9 +224,10 @@ function outboxBlock() {
   var h = '';
   if (pend.length) {
     var msg = (pend.filter(function (j) { return j.message; })[0] || {}).message;
-    var why = !navigator.onLine ? '等網路恢復' : S.flushing ? '上傳中…' : (msg ? (/忙碌/.test(msg) ? '系統忙碌，會自動再試' : '沒連上，會自動再試') : '背景上傳中');
+    var why = !navigator.onLine ? '等網路恢復' : S.flushing ? '上傳中…' : (msg ? (/新版本/.test(msg) ? 'App 更新到新版後自動上傳' : /忙碌/.test(msg) ? '系統忙碌，會自動再試' : '沒連上，會自動再試') : '背景上傳中');
+    var old = pend.filter(function (j) { return j.created && Date.now() - j.created > 2 * 86400000; }).length;
     h += '<div class="strip info">' + ic('cloud', 24, 2.2) + '<div class="stx"><span><b>待上傳 ' + pend.length + ' 筆</b>・' + why + '</span>' +
-      '<small>已存在手機，不會不見</small></div>' +
+      '<small>' + (old ? '<b class="ngt">有 ' + old + ' 筆超過 2 天還沒上傳，請連上網路按「立即上傳」；超過上個月就不能補登</b>' : '已存在手機，不會不見') + '</small></div>' +
       '<button class="btn sm" onclick="flush()"' + (S.flushing ? ' disabled' : '') + '>立即上傳</button></div>';
   }
   var wait = a.filter(function (j) { return j.status === 'auth'; }), byWho = {};
@@ -1738,9 +1739,26 @@ PAGES.settings = function () {
     '</div><div class="ver">v' + APP_VERSION + '</div>';
 };
 function logout() {
-  if (!confirm('登出 ' + S.me.person.name + '？')) return;
-  api('logout', {}, { quiet: true, noRetry: true }).catch(function () {});   // 讓伺服器端這支手機的登入作廢
-  lsDel(LS.TOKEN); lsDel(LS.ME); S.me = null; S.boot = null; S.pkgs = null; S.stack = []; go('login', {}, true);
+  var name = S.me.person.name, tok = lsGet(LS.TOKEN, '');
+  var mine = (S.outbox || []).filter(function (j) { return j.token === tok && (j.status === 'pending' || j.status === 'error'); });
+  if (mine.length && navigator.onLine && !S.flushing) {        // 先試著把自己的送完再登出
+    toast('先上傳您還沒送出的 ' + mine.length + ' 筆…', '', 2500);
+    return flush().then(function () { return obRefresh(); }).then(function () {
+      var left = (S.outbox || []).filter(function (j) { return j.token === tok && j.status === 'pending'; });
+      if (left.length) logoutNow(name, tok, left.length); else logoutNow(name, tok, 0);
+    });
+  }
+  logoutNow(name, tok, mine.filter(function (j) { return j.status === 'pending'; }).length);
+}
+function logoutNow(name, tok, left) {
+  if (!confirm(left ? '還有 ' + left + ' 筆檢點沒上傳，登出後要「' + name + '」本人重新登入才會上傳（資料留在這支手機）。確定登出？' : '登出 ' + name + '？')) return;
+  obAll().then(function (a) {                                  // 記下是誰的：重新登入後 rebindJobs 換上新登入補送
+    return Promise.all(a.filter(function (j) { return j.token === tok && !j.who; }).map(function (j) { j.who = name; return obPut(j); }));
+  }).catch(function () {}).then(function () {
+    api('logout', {}, { quiet: true, noRetry: true }).catch(function () {});   // 讓伺服器端這支手機的登入作廢
+    lsDel(LS.TOKEN); lsDel(LS.ME); S.me = null; S.boot = null; S.pkgs = null; S.stack = []; go('login', {}, true);
+    return obRefresh();
+  });
 }
 
 // ───────────── 啟動 ─────────────
@@ -1795,7 +1813,10 @@ function swReg() {
     go2();
   });
 }
+/** 請瀏覽器把這個 App 的資料（待上傳、草稿、登入）列為保存，不要在空間不足或久沒開時自動清掉。 */
+function keepStorage() { try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {} }
 (function init() {
+  keepStorage();
   setTimeout(splashDone, 3000);
   var sm = /[#&]share=([0-9a-fA-F]{64})/.exec(location.hash);
   if (sm) {                                     // 代填連結：不碰這支手機原本的登入、草稿、待上傳
