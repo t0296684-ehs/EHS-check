@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.7.0';
+var APP_VERSION = '0.7.3';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -58,6 +58,7 @@ var ICON = {
   clip: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/>',
   plus: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
   swap: '<path d="M7 7h12l-3-3M17 17H5l3 3"/>',
+  chev: '<path d="M9 6l6 6-6 6"/>',
   logo: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M8.5 13l2.5 2.5 4.5-5"/>',
   review: '<path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>',
   pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', ret: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
@@ -127,7 +128,7 @@ function api(action, body, opt) {
   var i = 0;
   function once() {
     var rid = newId();
-    var payload = JSON.stringify(Object.assign({ action: action, token: opt.token === '-' ? '' : (opt.token || lsGet(LS.TOKEN, '')) }, body || {}, { rid: rid }));
+    var payload = JSON.stringify(Object.assign({ action: action, token: opt.token === '-' ? '' : (opt.token || lsGet(LS.TOKEN, '')) }, body || {}, { rid: rid, appVer: APP_VERSION }));
     return fetch(url, { method: 'POST', redirect: 'follow', body: payload }).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();
@@ -135,6 +136,7 @@ function api(action, body, opt) {
       var j; try { j = JSON.parse(t); } catch (e) { throw new Error('Google 暫時無法開啟'); }
       if (!j || typeof j !== 'object') throw new Error('Google 暫時無法開啟');
       if (j.rid !== rid && (RID_STRICT || j.rid !== undefined)) throw new Error('連線回應錯亂（rid 不符）');
+      if (!j.success && j.update) { var ue = new Error(j.error || 'App 有新版本'); ue.biz = true; ue.update = true; appUpdate(); throw ue; }
       if (!j.success) { var err = new Error(j.error || '系統錯誤'); if (j.retry) err.server = true; else err.biz = true; throw err; }
       return j.data;
     }).catch(function (e) {
@@ -189,6 +191,7 @@ function flush() {
           sent++; return obDel(j.id);
         }).catch(function (e) {
           j.tries = (j.tries || 0) + 1; j.message = e.message;
+          if (e.update) { stop = true; j.tries--; return obPut(j); }          // App 要更新：這筆留著，更新後自動補送
           if (e.biz && AUTH_RE.test(e.message)) {          // 登入失效（啟用碼改了等）：紀錄留在手機，重新登入後自動補送
             if (j.token === lsGet(LS.TOKEN, '')) { stop = true; relogin = e.message; return obPut(j); }
             j.status = 'auth'; return obPut(j);            // 別人（之前用這支手機的人）的紀錄：等他本人重新登入，不影響現在的人
@@ -304,6 +307,7 @@ function refreshMe() {
   return api('me', {}, { quiet: true }).then(function (m) {
     setClock(m.serverNow); S.me = normMe(m); lsSet(LS.ME, m);
     if (m.pendingReview) loadPkgs(true); else S.pkgs = [];
+    if (m.person && m.person.role !== '檢點人員') ovLoad(true);
     if (['home', 'settings', 'pick', 'months', 'notice', 'claim'].indexOf(S.page) >= 0) render();
   }).catch(function (e) {
     if (e.biz && AUTH_RE.test(e.message)) kickToLogin(e.message);
@@ -774,21 +778,7 @@ PAGES.home = function () {
       return '<button class="li" onclick="openFill(' + jsq(a.key) + ')">' + dot + '<span class="mn"><span class="nm">' + esc(dn(a.dept) + F(a.form).name) + '</span>' + st + '</span></button>';
     }).join('') + '</div>';
   }
-  if (mgr && daily.length) {
-    h += '<div class="sec">本課今天的檢點<small>' + md(t) + '（' + wk(t) + '）</small></div><div class="list">' + daily.map(function (a) {
-      return '<button class="li" onclick="openFill(' + jsq(a.key) + ')"><span class="mn"><span class="nm">' + esc(dn(a.dept) + F(a.form).name) + '</span></span>' + duePill(a) + '</button>';
-    }).join('') + '</div>';
-  }
-  if (mgr && !ehs) {
-    var mine2 = m.months.filter(function (x) { return x.crew; }).sort(function (x, y) { return x.period < y.period ? 1 : x.period > y.period ? -1 : (x.dept < y.dept ? -1 : 1); });
-    if (mine2.length) h += '<div class="sec">各課送審狀況<small>送審後才能審核</small></div><div class="list">' + mine2.map(crewRow).join('') + '</div>';
-  }
-  if (ehs && m.months.length) {
-    var lastP = (function () { var d = nowD(); d.setDate(1); d.setMonth(d.getMonth() - 1); return ymd(d).slice(0, 7); })();
-    var ms = m.months.filter(function (x) { return x.period >= lastP || x.status !== '已歸檔'; })
-      .sort(function (x, y) { return x.period < y.period ? 1 : x.period > y.period ? -1 : (x.dept < y.dept ? -1 : 1); });
-    if (ms.length) h += '<div class="sec">各部門月結進度</div><div class="list">' + ms.map(monthRow).join('') + '</div>';
-  }
+  if (mgr || ehs) h += overviewHtml();
 
   // 入口
   var tl = '';
@@ -810,6 +800,70 @@ PAGES.home = function () {
   h += '<div class="tiles">' + tl + '</div><div class="ver">v' + APP_VERSION + '</div>';
   $('app').innerHTML = h;
 };
+// ───────────── 各課執行狀況（環安衛、單位負責人）：一課一張卡，收合時一行看今天進度，展開看每張表與月結 ─────────────
+var OV_AT = 0;
+function ovOpenGet() { try { return JSON.parse(localStorage.getItem('chk_ov_open') || '{}'); } catch (e) { return {}; } }
+function ovOpenSet(o) { try { localStorage.setItem('chk_ov_open', JSON.stringify(o)); } catch (e) {} }
+function ovLoad(force) {
+  if (!force && (S.ovBusy || Date.now() - OV_AT < 60000)) return;
+  S.ovBusy = true;
+  api('overview', {}, { quiet: true }).then(function (r) { S.ov = r; S.ovErr = false; OV_AT = Date.now(); S.ovBusy = false; if (S.page === 'home') render(); })
+    .catch(function () { S.ovBusy = false; S.ovErr = true; OV_AT = Date.now(); if (S.page === 'home') render(); });
+}
+function ovSum(d) {
+  var c = { done: 0, nowork: 0, todo: 0, ng: 0, n: d.forms.length };
+  d.forms.forEach(function (x) { c[x.state]++; if (x.ng) c.ng++; });
+  return c;
+}
+function overviewHtml() {
+  ovLoad(false);
+  var ov = S.ov, t = today();
+  if (!ov && S.ovErr) {                                  // 沒網路或後端還是舊版：照舊列月結進度
+    var lastP = (function () { var d = nowD(); d.setDate(1); d.setMonth(d.getMonth() - 1); return ymd(d).slice(0, 7); })();
+    var ms = (S.me.months || []).filter(function (x) { return x.period >= lastP || x.status !== '已歸檔'; })
+      .sort(function (x, y) { return x.period < y.period ? 1 : x.period > y.period ? -1 : (x.dept < y.dept ? -1 : 1); });
+    return ms.length ? '<div class="sec">各部門月結進度<small>連上網路後顯示各課今天的檢點</small></div><div class="list">' + ms.map(monthRow).join('') + '</div>' : '';
+  }
+  if (!ov) return '<div class="sec">各課執行狀況</div>' + loading('讀取各課今天的檢點…');
+  var open = ovOpenGet(), many = ov.depts.length > 3;
+  var isOpenOf = function (id) { return id in open ? open[id] : !many; };
+  var rank = function (d) { var c = ovSum(d); return c.ng ? 0 : c.todo ? 1 : d.unconf ? 2 : 3; };
+  var list = ov.depts.slice().sort(function (a, b) { return rank(a) - rank(b) || (a.id < b.id ? -1 : 1); });
+  var tot = { ok: 0, todo: 0, ng: 0 };
+  list.forEach(function (d) { var c = ovSum(d); if (c.ng) tot.ng++; if (c.todo) tot.todo++; else if (c.n) tot.ok++; });
+  var h = '<div class="sec">各課執行狀況<small>' + md(t) + '（' + wk(t) + '）・' + (ov.today === t ? '' : '更新中・') +
+    '<button class="lnk" onclick="ovAll()">' + (ov.depts.some(function (d) { return isOpenOf(d.id); }) ? '全部收合' : '全部展開') + '</button></small></div>';
+  if (list.length > 1) h += '<div class="ovsum">' + list.length + ' 個課：' + [tot.ok ? '今日完成 ' + tot.ok : '', tot.todo ? '未完成 ' + tot.todo : '', tot.ng ? '<b class="ngt">有異常 ' + tot.ng + '</b>' : ''].filter(String).join('・') + '</div>';
+  h += '<div class="ovs">' + list.map(function (d) {
+    var c = ovSum(d), isOpen = isOpenOf(d.id);
+    var pv = d.months[0], cur = d.months[1];
+    var line = c.n ? '已檢點 ' + c.done + '/' + c.n + (c.nowork ? '・無作業 ' + c.nowork : '') : '沒有在用的每日表';
+    if (d.unconf) line += '・待確認 ' + d.unconf;
+    var mline = pv.status !== '已歸檔' ? ymLabel(pv.period) + '：' + pv.status : '';
+    var pl = c.ng ? pill('ng', 'warn', '異常 ' + c.ng) : c.todo ? pill('warn', 'clock', c.todo + ' 張未檢點') : c.n ? pill('ok', 'check', '今日完成') : '';
+    var x = '<div class="ov' + (isOpen ? ' open' : '') + '"><button class="ovh" onclick="ovToggle(' + jsq(d.id) + ')" aria-expanded="' + isOpen + '">' +
+      '<span class="chv">' + ic('chev', 18, 2.6) + '</span><span class="mn"><span class="nm">' + esc(d.id) + '</span><span class="mt">' + esc(line) + '</span>' +
+      (mline ? '<span class="mt' + (pv.status === '退回' ? ' wn' : '') + '">' + esc(mline) + '</span>' : '') + '</span>' + pl + '</button>';
+    if (isOpen) {
+      x += '<div class="ovb">' + (d.forms.length ? d.forms.map(function (f) {
+        var a = (S.me.assigns || []).filter(function (y) { return y.daily && y.dept === d.id && y.form === f.form; })[0];
+        var st = f.state === 'done' ? (f.ng ? pill('ng', 'warn', '異常') : pill('ok', 'check', '已檢點')) : f.state === 'nowork' ? pill('na', 'minus', '無作業') : pill('warn', 'clock', '未檢點');
+        var meta = (f.signer ? f.signer + ' 已檢點' : '負責：' + (f.who.join('、') || '—')) + '・本月已填 ' + f.filled + ' 天';
+        var inner = '<span class="mn"><span class="nm">' + esc(f.name) + '</span><span class="mt">' + esc(meta) + '</span></span>' + st;
+        return a && !isEhs() ? '<button class="li" onclick="openFill(' + jsq(a.key) + ')">' + inner + '</button>' : '<div class="li">' + inner + '</div>';
+      }).join('') : '<div class="li"><span class="mn"><span class="mt">這個課目前沒有在用的每日表</span></span></div>') +
+      (S.me.months || []).filter(function (y) { return y.dept === d.id; }).sort(function (a2, b2) { return a2.period < b2.period ? 1 : -1; }).map(monthRow).join('') + '</div>';
+    }
+    return x + '</div>';
+  }).join('') + '</div>';
+  return h;
+}
+function ovToggle(id) { var o = ovOpenGet(), many = S.ov && S.ov.depts.length > 3; o[id] = !(id in o ? o[id] : !many); ovOpenSet(o); render(); }
+function ovAll() {
+  var o = ovOpenGet(), ds = S.ov ? S.ov.depts : [], many = ds.length > 3, n = {};
+  var anyOpen = ds.some(function (d) { return d.id in o ? o[d.id] : !many; });
+  ds.forEach(function (d) { n[d.id] = !anyOpen; }); ovOpenSet(n); render();
+}
 function monthRow(x) {
   if (x.crew) return crewRow(x);
   return '<button class="li" onclick="' + goMonth(x.dept, x.period) + '"><span class="mn"><span class="nm">' + esc(x.dept) + '　<span class="nw">' + ymLabel(x.period) + '</span></span>' +
@@ -1702,13 +1756,52 @@ function splashDone() {
   var wait = Math.max(0, 1300 - (Date.now() - (window.SPLASH_T0 || 0)));
   setTimeout(function () { s.className = 'out'; setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 450); }, wait);
 }
+/** 註冊 Service Worker；回到 App 時順便檢查有沒有新版，換新版後在首頁自動重新載入（填寫中不打斷）。 */
+var SW_RELOAD = false;
+/** 後端說 App 太舊：在安全的畫面重新載入新版（填寫、簽名、代填中先不打斷，回到首頁等畫面再換）。待上傳的檢點在 IndexedDB、草稿在手機裡，重新載入不會丟。 */
+var SAFE_PAGES = ['home', 'login', 'url', 'notice', 'months', 'claim', 'pick', 'settings', 'remind', 'packages'];
+function appUpdate() {
+  if (S.updating) return;
+  var last = 0; try { last = Number(sessionStorage.getItem('chk_upd') || 0); } catch (e) {}
+  if (Date.now() - last < 120000) {                     // 剛重新載入過還是舊版：GitHub 可能還在發布，過一下再試，不要一直重整
+    S.updWait = true; toast('新版本還在發布中，1～2 分鐘後會自動再試', '', 4000);
+    setTimeout(function () { S.updWait = false; }, 60000);
+    return;
+  }
+  S.updating = true;
+  var go2 = function () {
+    if (SAFE_PAGES.indexOf(S.page) < 0 || $('busy')) {
+      if (!S.updNote) { S.updNote = true; toast('App 有新版本：這張填完送出、回到首頁後會自動更新', '', 5000); }
+      return setTimeout(go2, 2000);
+    }
+    try { sessionStorage.setItem('chk_upd', String(Date.now())); } catch (e) {}
+    busyOn('更新到新版…', '手機裡還沒上傳的檢點會保留，更新後自動上傳');
+    var done = function () { setTimeout(function () { location.reload(); }, 800); };
+    if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(function (r) { return r && r.update(); }).then(done, done);
+    else done();
+  };
+  go2();
+}
+function swReg() {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') reg.update().catch(function () {}); });
+    setInterval(function () { if (document.visibilityState === 'visible') reg.update().catch(function () {}); }, 30 * 60000);
+  }).catch(function () {});
+  var had = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (!had || SW_RELOAD) return;                       // 第一次安裝不用重載
+    SW_RELOAD = true;
+    var go2 = function () { if (['home', 'login', 'url', 'notice', 'months'].indexOf(S.page) >= 0 && !$('busy')) location.reload(); else setTimeout(go2, 3000); };
+    go2();
+  });
+}
 (function init() {
   setTimeout(splashDone, 3000);
   var sm = /[#&]share=([0-9a-fA-F]{64})/.exec(location.hash);
   if (sm) {                                     // 代填連結：不碰這支手機原本的登入、草稿、待上傳
     S.share = { token: sm[1], name: '' }; S.page = 'proxy';
     render(); splashDone();
-    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(function () {});
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) swReg();
     return;
   }
   S.me = lsGet(LS.ME, null); if (S.me) S.me = normMe(S.me);
@@ -1726,5 +1819,5 @@ function splashDone() {
       }).catch(function () {});
     }
   });
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) navigator.serviceWorker.register('sw.js').catch(function () {});
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) swReg();
 })();

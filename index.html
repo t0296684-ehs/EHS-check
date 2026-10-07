@@ -353,6 +353,20 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 .nxh{font-size:13px;font-weight:900;color:var(--sub);letter-spacing:.04em;margin-bottom:2px}
 .nxc.on .nxh{color:var(--navy)}
 .nxn{font-size:16px;font-weight:700;min-height:36px;display:flex;align-items:center}
+/* ── 各課執行狀況（可收合）── */
+.ovsum{font-size:14px;color:var(--sub);padding:0 4px}.ovsum .ngt{color:var(--ngT)}
+.ovs{display:flex;flex-direction:column;gap:8px}
+.ov{background:#fff;border-radius:18px;overflow:hidden;border:1.5px solid var(--line)}
+.ov.open{border-color:var(--line2)}
+.ovh{width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;text-align:left;min-height:64px}
+.ovh .chv{color:var(--sub);transition:transform .15s;flex-shrink:0;display:flex}
+.ov.open .ovh .chv{transform:rotate(90deg)}
+.ovh .mn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ovb{border-top:1px solid var(--line);display:flex;flex-direction:column}
+.ovb .li{border-radius:0;border-bottom:1px solid var(--line)}
+.ovb .li:last-child{border-bottom:0}
+.lnk{color:var(--info);font-weight:700;font-size:14px;padding:4px 2px;margin-left:4px}
+@media (prefers-reduced-motion:reduce){.ovh .chv{transition:none}}
 </style>
 </head>
 <body>
