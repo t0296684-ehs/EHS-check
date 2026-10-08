@@ -347,6 +347,15 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 .li.nt{align-items:flex-start}.li.nt .nb{white-space:normal;color:var(--ink);font-size:14px;line-height:1.55}
 .li.nt.unread{background:#FFF8EF}
 .ndot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--orange);margin-right:6px;vertical-align:middle}
+.pics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.pic{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:#EEF0F3}
+.pic img{width:100%;height:100%;object-fit:cover;display:block}
+.pic .px{position:absolute;top:4px;right:4px;width:32px;height:32px;border-radius:999px;background:rgba(20,35,60,.75);color:#fff;display:flex;align-items:center;justify-content:center}
+.pic.add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1.5px dashed #C3CBD6;background:#fff;color:var(--navy);font-size:13px;font-weight:700;cursor:pointer;text-align:center;padding:4px}
+.card.ev{display:flex;flex-direction:column;gap:6px}
+.pview{position:fixed;inset:0;z-index:99;background:rgba(10,18,32,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px}
+.pview img{max-width:100%;max-height:85vh;border-radius:8px}
+.pview .muted{color:#C9D1DC}
 .nxcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:10px}
 .nxc{background:#fff;border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;border:1.5px solid var(--line)}
 .nxc.on{border-color:var(--navy)}
@@ -367,6 +376,15 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 .ovb .li:last-child{border-bottom:0}
 .lnk{color:var(--info);font-weight:700;font-size:14px;padding:4px 2px;margin-left:4px}
 @media (prefers-reduced-motion:reduce){.ovh .chv{transition:none}}
+/* ── 補填、送審確認 ── */
+.btn.amber{background:var(--orange);color:#fff}
+.blankl{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--orT);font-weight:700;margin-top:6px}
+.dday .btn{margin-top:10px}
+.sml{font-size:15px;padding:6px 0;border-bottom:1px solid var(--line)}.sml:last-child{border-bottom:0}
+.smck{background:#fff;border-radius:18px;padding:12px 16px}
+/* ── 直式簽名預覽 ── */
+.vprev{gap:8px;min-height:420px;justify-content:center}.vpv{display:flex;justify-content:center;background:#fff;border:1.5px dashed var(--line2);border-radius:14px;padding:10px}
+.vpv img{max-height:240px;max-width:60%;object-fit:contain}
 </style>
 </head>
 <body>

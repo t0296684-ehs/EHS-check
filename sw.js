@@ -1,5 +1,5 @@
 // 作業檢點 PWA：程式檔「有網路先抓新的、沒網路用手機裡的」（v0.7.1 起，改版後打開 App 就是新版）；Google 後端一律不快取
-var CACHE = 'chk-v0.7.4';
+var CACHE = 'chk-v0.8.0';
 var FILES = ['./', './index.html', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', function (e) {
   // cache:'reload'：不拿瀏覽器 HTTP 暫存的舊檔（GitHub Pages 會暫存 10 分鐘）
