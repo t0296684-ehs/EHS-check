@@ -1,9 +1,15 @@
 // 作業檢點 PWA：程式檔「有網路先抓新的、沒網路用手機裡的」（v0.7.1 起，改版後打開 App 就是新版）；Google 後端一律不快取
-var CACHE = 'chk-v0.9.0';
+var CACHE = 'chk-v0.10.0';
 var FILES = ['./', './index.html', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
+// 畫面翻譯檔：抓不到也不影響安裝（App 會退回中文）
+var OPTIONAL = ['./i18n.js', './i18n_dict.js'];
 self.addEventListener('install', function (e) {
   // cache:'reload'：不拿瀏覽器 HTTP 暫存的舊檔（GitHub Pages 會暫存 10 分鐘）
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES.map(function (u) { return new Request(u, { cache: 'reload' }); })); }));
+  e.waitUntil(caches.open(CACHE).then(function (c) {
+    return c.addAll(FILES.map(function (u) { return new Request(u, { cache: 'reload' }); })).then(function () {
+      return Promise.all(OPTIONAL.map(function (u) { return c.add(new Request(u, { cache: 'reload' })).catch(function () {}); }));
+    });
+  }));
   self.skipWaiting();
 });
 self.addEventListener('activate', function (e) {

@@ -98,6 +98,7 @@ background:var(--orange);color:var(--navy);font-weight:900;font-size:18px;text-a
 .btn.redline{background:#fff;color:var(--ngT);border:2px solid var(--ng);font-weight:700}
 .btn[disabled]{background:#DDE2E9;color:#4A5564;border-color:transparent;cursor:not-allowed;font-weight:700}
 .btn.busy[disabled]{background:#FFB27A;color:var(--navy);cursor:progress}
+.langpick{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.langpick .btn.sm{min-height:40px}
 .btn.sm{width:auto;min-height:44px;padding:0 14px;font-size:15px;border-radius:12px;font-weight:700;flex-shrink:0;white-space:nowrap}
 .btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .btns.r12{grid-template-columns:1fr 2fr}.btns.r21{grid-template-columns:2fr 1fr}
@@ -424,6 +425,8 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 <div id="top" class="topbar"></div>
 <div id="app" class="page"><div class="loading">載入中…</div></div>
 <div id="bar"></div>
+<script src="i18n_dict.js"></script>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

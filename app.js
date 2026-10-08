@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.9.0';
+var APP_VERSION = '0.10.0';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -37,7 +37,8 @@ function setClock(serverNow) {
   S.clockOff = Math.abs(off) > 5 * 60000 ? off : 0;
   lsSet('chk.clock', S.clockOff);
 }
-function wk(s) { return '日一二三四五六'.charAt(new Date(s + 'T00:00:00').getDay()); }
+function wkNames() { return (window.I18N && I18N.wkNames()) || '日一二三四五六'.split(''); }   // 星期：依畫面語言
+function wk(s) { return wkNames()[new Date(s + 'T00:00:00').getDay()]; }
 function md(s) { return Number(s.slice(5, 7)) + '/' + Number(s.slice(8)); }
 function ymLabel(p) { return p.slice(0, 4) + ' 年 ' + Number(p.slice(5)) + ' 月'; }
 function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
@@ -396,7 +397,7 @@ function saveUrl() {
 PAGES.login = function () {
   setTitle('選擇您的身分');
   S.hero = '<div class="hero-in"><div class="brand"><span class="logo">' + '<img src="icon-192.png" alt="" style="width:100%;height:100%;border-radius:inherit;display:block">' + '</span>員和電子抄表</div>' +
-    '<div class="hn"><div class="h1">第一次使用，請選您是誰</div><div class="hsub">只要選一次，之後打開就直接用</div></div></div>';
+    '<div class="hn"><div class="h1">第一次使用，請選您是誰</div><div class="hsub">只要選一次，之後打開就直接用</div>' + (window.I18N ? I18N.picker() : '') + '</div></div>';
   var b = S.boot;
   if (!b) {
     $('app').innerHTML = loading('讀取名單中…');
@@ -1163,7 +1164,8 @@ PAGES.guide = function () {
   setTitle('使用教學');
   if (!S.guide) {
     $('app').innerHTML = loading('讀取教學…');
-    fetch('guide/content.json?v=' + APP_VERSION, { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    var gl = window.I18N && I18N.lang() !== 'zh' ? I18N.lang() : '', gget = function (f) { return fetch('guide/' + f + '?v=' + APP_VERSION, { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); };
+    (gl ? gget('content.' + gl + '.json').catch(function () { return gget('content.json'); }) : gget('content.json'))   // 英文／泰文教學；沒有就用中文
       .then(function (j) { S.guide = j; if (S.page === 'guide') render(); })
       .catch(function () { $('app').innerHTML = '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">教學要連上網路才能看，請稍後再試。</div></div></div></div>'; });
     return;
@@ -1841,7 +1843,7 @@ function mDay(d) {
 /** 月曆：一眼看出哪天正常、異常、無作業、沒紀錄；點日期看細節 */
 function calHtml(f, x, period, late) {
   var y = Number(period.slice(0, 4)), mo = Number(period.slice(5)), n = new Date(y, mo, 0).getDate(), first = new Date(y, mo - 1, 1).getDay(), td = today();
-  var h = '<div class="calw">' + '日一二三四五六'.split('').map(function (c) { return '<span>' + c + '</span>'; }).join('') + '</div><div class="cal">';
+  var h = '<div class="calw">' + wkNames().map(function (c) { return '<span>' + c + '</span>'; }).join('') + '</div><div class="cal">';
   for (var i = 0; i < first; i++) h += '<span></span>';
   var anyLate = false, anyMiss = false, anyUc = false;
   for (var d = 1; d <= n; d++) {
@@ -2274,7 +2276,8 @@ function makeIcs() {
 PAGES.settings = function () {
   setTitle('設定');
   var m = S.me;
-  $('app').innerHTML = '<div class="card"><div class="kv"><div>姓名</div><div><b>' + esc(m.person.name) + '</b></div><div>身分</div><div>' + esc(m.person.role) +
+  $('app').innerHTML = (window.I18N ? '<div class="card"><div class="muted">語言</div>' + I18N.picker() + '<div class="mt" style="margin-top:6px">PDF 與試算表一律中文</div></div>' : '') +
+    '<div class="card"><div class="kv"><div>姓名</div><div><b>' + esc(m.person.name) + '</b></div><div>身分</div><div>' + esc(m.person.role) +
     '</div><div>部門</div><div>' + esc(m.depts.map(function (d) { return d.id; }).join('、')) + '</div></div></div>' +
     '<div class="card"><div class="muted">我的簽名（送出時自動帶入）</div>' + (m.signature ? '<div class="sigimgs"><img src="' + esc(m.signature.image) + '" alt="橫式簽名"><img class="v" src="' + esc(m.signature.imageV) + '" alt="直式簽名"></div>' : '<div>尚未簽名</div>') +
     '<div><button class="btn ghost sm" onclick="go(\'sign\',{})">' + ic('pen', 18) + '重新簽名</button></div></div>' +

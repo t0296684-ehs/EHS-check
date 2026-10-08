@@ -1,0 +1,466 @@
+{
+ "version": "",
+ "chapters": [
+  {
+   "no": 1,
+   "title": "Getting started",
+   "who": "Everyone",
+   "color": "#F47B20",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "1-1",
+     "title": "First sign-in",
+     "lead": "Open the link from the EHS Center in your phone browser. We suggest \"Add to Home screen\" so it opens like an app.",
+     "shots": [
+      [
+       "01_選部門",
+       "Choose department"
+      ],
+      [
+       "02_選姓名輸碼",
+       "Choose name, enter PIN"
+      ]
+     ],
+     "steps": [
+      "Tap <b>your department</b>.",
+      "Tap <b>your name</b> in the list.",
+      "Enter the <b>4-digit PIN</b> from the EHS Center.",
+      "Tap <b>\"Confirm, I am ○○○\"</b> at the bottom. You sign in only once; afterwards it opens straight to Home."
+     ],
+     "tip": "Keep your PIN to yourself. If you forget it, ask the EHS Center to reset it.",
+     "warn": true
+    },
+    {
+     "no": "1-2",
+     "title": "Signature (only once)",
+     "lead": "Your signature is saved and added automatically each time you submit — no daily signing.",
+     "shots": [
+      [
+       "03_簽名頁",
+       "Horizontal signature"
+      ],
+      [
+       "04_簽名上傳",
+       "You can also upload a photo"
+      ],
+      [
+       "05_直式預覽",
+       "Check the vertical signature"
+      ]
+     ],
+     "steps": [
+      "In the box, <b>sign your full name horizontally</b> with your finger; or sign with a black pen on white paper, take a photo and tap <b>\"Upload signature photo\"</b> — the background is removed automatically.",
+      "Tap <b>\"Next: vertical signature\"</b>; the system turns it vertical and shows you.",
+      "If every character is complete and in order, tap <b>\"Use this vertical one\"</b>. If not, tap <b>\"I will sign myself\"</b> and sign top to bottom in the box."
+     ],
+     "tip": "To change your signature later: Home → \"Settings\" → \"My signature\".",
+     "warn": false
+    },
+    {
+     "no": "1-3",
+     "title": "Understanding Home",
+     "lead": "The top of Home tells you how many things are left today. Just work through \"To do\" from top to bottom.",
+     "shots": [
+      [
+       "06_首頁",
+       "Inspector Home"
+      ]
+     ],
+     "steps": [
+      "<b>Dark blue box</b>: how many things are left today and the daily-check progress bar.",
+      "<b>To do</b>: today's forms, returned items to fix, periodic inspections due soon, monthly submission — <b>work from top to bottom</b>.",
+      "<b>Tiles below</b>: My forms, Ask a coworker, Notices, Calendar, Monthly records, Reminders, Settings.",
+      "<b>\"Online / Offline\"</b> at top right: you can still fill in offline; it uploads when the network is back."
+     ],
+     "tip": "",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 2,
+   "title": "Inspector",
+   "who": "Check before work every day, submit once a month",
+   "color": "#2E7D5B",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "2-1",
+     "title": "Daily checks",
+     "lead": "Before work, open today's form, check each item and submit.",
+     "shots": [
+      [
+       "07_填寫",
+       "Open today's form"
+      ],
+      [
+       "08_異常說明",
+       "Abnormal items need a note"
+      ],
+      [
+       "09_送出後",
+       "Back to Home after submitting"
+      ]
+     ],
+     "steps": [
+      "On Home, under \"To do\", tap <b>\"Start checking\"</b>.",
+      "If everything is fine, tap <b>\"All OK\"</b> to tick all at once. For a problem item tap <b>\"Abnormal\"</b>; a note box appears — <b>describe the problem and what you did</b> (required).",
+      "If there is no work that day, tap <b>\"No work today\"</b>.",
+      "The bottom button shows the next step: items left, items needing a note. When all is done it becomes <b>\"Submit this form\"</b>.",
+      "Your signature is added when you submit. To change it the same day, open the same form, edit and submit again."
+     ],
+     "tip": "Use \"Not ticked\" / \"Abnormal\" at the top to show only those items — handy for long forms.",
+     "warn": false
+    },
+    {
+     "no": "2-2",
+     "title": "Calendar · Fill in missed days",
+     "lead": "Tap a missed day on the calendar to fill it in.",
+     "shots": [
+      [
+       "10_月曆",
+       "This month's calendar"
+      ]
+     ],
+     "steps": [
+      "On Home tap <b>\"Calendar · Fill in missed days\"</b>.",
+      "Green = checked, red = abnormal, grey dashed = weekday with no record.",
+      "Tap <b>the missed day</b> to fill it in (back to the 1st of last month).",
+      "Switch forms at the top. \"Table (by item)\" shows every item for the whole month."
+     ],
+     "tip": "Please check and fill in on the same day. Late entries record the time and are visible to supervisors and EHS.",
+     "warn": true
+    },
+    {
+     "no": "2-3",
+     "title": "My forms",
+     "lead": "Every form assigned to you and periodic inspection deadlines, on one page.",
+     "shots": [
+      [
+       "11_我的表單",
+       "My forms"
+      ]
+     ],
+     "steps": [
+      "On Home tap <b>\"My forms\"</b>.",
+      "<b>Daily checks</b>: whether today's is done.",
+      "<b>Periodic inspections</b>: monthly, yearly and 2-yearly forms with last date and next deadline; Home reminds you 30 days before.",
+      "Tap any form to start."
+     ],
+     "tip": "Yearly and 2-yearly inspections have no fixed day — inspect on site before the deadline, then fill in.",
+     "warn": false
+    },
+    {
+     "no": "2-4",
+     "title": "Yearly and 2-yearly inspections (photos and notes required)",
+     "lead": "Forms that need a detailed on-site inspection — local exhaust, chemical equipment, ovens, boilers, elevators — must include evidence.",
+     "shots": [
+      [
+       "12_每年表",
+       "Tick each item"
+      ],
+      [
+       "13_佐證",
+       "Photos + inspection notes"
+      ]
+     ],
+     "steps": [
+      "These forms have <b>no \"All OK\"</b> — <b>inspect each item on site and tick them one by one</b>.",
+      "Scroll to <b>\"Inspection evidence\"</b> at the bottom and write <b>inspection notes</b> (at least 15 characters: what you checked, how, and the readings).",
+      "Tap <b>\"Take / choose photo\"</b> and take at least 2: the parts checked, meter readings or the nameplate. They upload right away (network needed); tap × at top right to remove a wrong one.",
+      "When everything is in, the bottom button becomes \"Submit this form\". Supervisors see the notes and photos, and they are printed in the monthly PDF."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "2-5",
+     "title": "Ask a coworker to fill in (on leave)",
+     "lead": "When you're on leave, a coworker can fill in that day's daily check.",
+     "shots": [
+      [
+       "14_請人代填",
+       "Create a fill-in link"
+      ]
+     ],
+     "steps": [
+      "On Home tap <b>\"Ask a coworker to fill in\"</b> and choose the day (up to 7 days ahead).",
+      "Tap <b>\"Create fill-in link\"</b> and send it to your coworker on LINE.",
+      "The coworker doesn't sign in; they open the link, fill in the day's form, and <b>sign by hand on the spot</b> when sending.",
+      "The link only works on that day and expires at 23:59."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "2-6",
+     "title": "Claim forms",
+     "lead": "You can claim forms or equipment that are open for your section but not yet assigned to you.",
+     "shots": [
+      [
+       "15_領取表單",
+       "Claim forms"
+      ]
+     ],
+     "steps": [
+      "At the bottom of \"My forms\" tap <b>\"Claim other forms or equipment in this section\"</b>.",
+      "Find the form or equipment and tap <b>\"Claim\"</b>.",
+      "It then appears on Home. To cancel, ask your supervisor or the EHS Center."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "2-7",
+     "title": "Monthly submission (once a month)",
+     "lead": "After each month, the whole section's records go to the supervisor for review. Any one person can send them.",
+     "shots": [
+      [
+       "16_月份頁",
+       "Check the whole month"
+      ],
+      [
+       "17_送審確認",
+       "Check before sending"
+      ],
+      [
+       "18_已送審",
+       "Sent to the supervisor"
+      ]
+     ],
+     "steps": [
+      "From the 1st of the next month, Home shows <b>\"Submit the records for month ○\"</b> (due by the 5th).",
+      "Check the calendar for missed days and fill them in, then tap <b>\"Month done — lock and send to the supervisor\"</b>.",
+      "The check page lists how many days each form was done. Tick <b>\"I have checked nothing is missing\"</b> and tap <b>\"Confirm and submit\"</b>.",
+      "After sending it is locked and <b>cannot be changed</b>; to change it, the supervisor must <b>return</b> it. Before the supervisor reviews it, the sender can withdraw it."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "2-8",
+     "title": "Notices and announcements",
+     "lead": "Assignment changes, returns and EHS Center announcements all appear in the app.",
+     "shots": [
+      [
+       "20_收到廣播",
+       "Announcement at the top of Home"
+      ],
+      [
+       "21_通知",
+       "Read full text on the Notices page"
+      ]
+     ],
+     "steps": [
+      "EHS Center <b>announcements</b> appear in a red box at the top of Home. Tap <b>\"Read full text\"</b>.",
+      "After you read it, it leaves Home; you can see it again in <b>\"Notices\"</b>.",
+      "Changes to your forms or equipment and returned months are also explained in Notices."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "2-9",
+     "title": "Issue tracking (corrective actions)",
+     "lead": "Items marked \"Abnormal\" move to \"Issue tracking\" automatically. An issue closes only when you record how it was fixed.",
+     "shots": [
+      [
+       "30_異常附照片",
+       "You can attach photos of issues"
+      ],
+      [
+       "31_異常追蹤",
+       "Issue list"
+      ],
+      [
+       "32_填寫改善",
+       "Record the fix and close"
+      ]
+     ],
+     "steps": [
+      "When you mark an item <b>\"Abnormal\"</b>, besides the note you can tap <b>\"Add photo (optional)\"</b> to photograph the problem.",
+      "After submitting, the item appears in <b>\"Issue tracking\"</b> (red box on Home; the supervisor is notified). If it happens again before being fixed, it is added to the same issue, not duplicated.",
+      "When fixed, tap <b>\"Record fix\"</b> in \"Issue tracking\": write the <b>corrective action</b>, choose the <b>date fixed</b>, and optionally add a photo.",
+      "Tap <b>\"Fixed — close\"</b>; the person who found it and the supervisor are notified."
+     ],
+     "tip": "If you marked \"Abnormal\" by mistake, change it back to OK the same day and resend; the issue is cancelled automatically.",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 3,
+   "title": "Unit supervisor",
+   "who": "See progress, review monthly, assign work in your department",
+   "color": "#2457A6",
+   "roles": [
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "3-1",
+     "title": "Home and section status",
+     "lead": "See at a glance which sections have not checked today, where the issues are and how many reviews are waiting.",
+     "shots": [
+      [
+       "22_主管首頁",
+       "Supervisor Home"
+      ]
+     ],
+     "steps": [
+      "<b>To do</b>: months waiting for your review are listed here. Tap <b>\"Start review\"</b>.",
+      "<b>Section status</b>: one card per section; collapsed it shows today's progress, expanded it shows who did each form and how many days this month.",
+      "Sections with issues are listed first."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "3-2",
+     "title": "Monthly review",
+     "lead": "After inspectors submit, you review, sign and approve; then it goes to EHS for archiving.",
+     "shots": [
+      [
+       "23_審核",
+       "Review the month's records"
+      ]
+     ],
+     "steps": [
+      "Switch forms at the top to see the calendar or item table; for periodic inspections open the <b>photos</b> and notes.",
+      "If all is fine tap <b>\"Approve and sign\"</b>; your signature is added and a PDF is created.",
+      "If there is a problem tap <b>\"Return\"</b> with a reason; inspectors fix it and resend."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "3-3",
+     "title": "Department",
+     "lead": "Assign who handles which forms and equipment in your department; adjust here when staff change.",
+     "shots": [
+      [
+       "25_部門管理人員",
+       "People: who handles what"
+      ],
+      [
+       "26_部門管理設備",
+       "Equipment and inspection deadlines"
+      ],
+      [
+       "27_改負責人",
+       "Change owner"
+      ]
+     ],
+     "steps": [
+      "On Home tap <b>\"Department\"</b>; it has three tabs: <b>People, Forms, Equipment</b>.",
+      "<b>People</b>: whether each person has signed in and signed, and what they handle; tap a person to tick their forms and equipment.",
+      "<b>Forms / Equipment</b>: current owner, last periodic inspection and deadline; tap an item to change its owner.",
+      "Then tap <b>\"Effective today\"</b> (changes now) or <b>\"From next month\"</b> (no change this month, switches on the 1st). People involved are notified."
+     ],
+     "tip": "To add or disable people, forms or equipment, ask the EHS Center.",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 4,
+   "title": "EHS",
+   "who": "Final archive check, send announcements",
+   "color": "#6B4FA0",
+   "roles": [
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "4-1",
+     "title": "Archive",
+     "lead": "After the supervisor approves, EHS checks the PDF and archives it — the month is complete.",
+     "shots": [
+      [
+       "28_環安衛首頁",
+       "Waiting to archive"
+      ],
+      [
+       "29_歸檔",
+       "Approve and archive"
+      ]
+     ],
+     "steps": [
+      "On Home under \"To do\" tap <b>\"View PDF and archive\"</b>.",
+      "Tap <b>\"Open PDF\"</b> to check; if fine tap <b>\"Approve and archive\"</b>, otherwise return it.",
+      "PDFs are saved to Drive and the NAS automatically."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "4-2",
+     "title": "Announcements",
+     "lead": "Send notices to everyone, selected departments or people, and see who hasn't read them.",
+     "shots": [
+      [
+       "19_廣播",
+       "Send announcement"
+      ]
+     ],
+     "steps": [
+      "On Home tap <b>\"Announcements\"</b>.",
+      "Choose <b>recipients</b>: everyone, selected departments (option: \"Only to supervisors\"), or selected people.",
+      "Write a <b>title</b> (shown at the top of Home) and <b>content</b>; tick \"Also email\" if needed.",
+      "Tap <b>\"Send announcement\"</b>. Under \"Sent announcements\" see how many have read it; open one to see who has not."
+     ],
+     "tip": "",
+     "warn": false
+    }
+   ]
+  }
+ ],
+ "faq": [
+  [
+   "Can I fill in without a network?",
+   "Yes. It is saved on the phone and shows \"waiting to upload\"; it uploads automatically when online and will not be lost."
+  ],
+  [
+   "Made a mistake?",
+   "Open the same form the same day, edit and send again. If the month is already locked, ask your supervisor to return it first."
+  ],
+  [
+   "New phone or cleared the browser?",
+   "Just sign in again with your PIN; your signature is stored in the system, no need to sign again."
+  ],
+  [
+   "Forgot your PIN?",
+   "Ask the EHS Center to reset it. The old PIN will stop working."
+  ],
+  [
+   "Checks on your day off?",
+   "Send a link with \"Ask a coworker to fill in\", or fill it in on the calendar when you are back (marked as late entry)."
+  ],
+  [
+   "New app version?",
+   "Go back to Home when done and the app updates itself; records not yet uploaded are kept."
+  ],
+  [
+   "Can't see a form?",
+   "It is not assigned to you. Go to \"My forms\" → \"Claim\", or ask your supervisor to assign it in \"Department\"."
+  ],
+  [
+   "Do yearly forms always need photos?",
+   "Yes. Yearly and 2-yearly inspections need site evidence: at least 2 photos + notes before they can be sent."
+  ],
+  [
+   "Must every issue be closed?",
+   "Yes. It stays in \"Issue tracking\" until a corrective action is recorded; supervisors and EHS see how many are open."
+  ]
+ ]
+}
