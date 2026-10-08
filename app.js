@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.8.0';
+var APP_VERSION = '0.9.0';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -729,9 +729,16 @@ PAGES.home = function () {
   var t = today(), ehs = isEhs(), mgr = isMgr(), multi = m.depts.length > 1;
   var dn = function (d) { return multi ? d + '・' : ''; };
   var tasks = [];
-  // 0. 未讀通知
-  if (m.unread) tasks.push({ tag: '新通知', title: '有 ' + m.unread + ' 則新通知', meta: (m.notices || []).filter(function (x) { return !x.read; }).slice(0, 2).map(function (x) { return x.title; }).join('、'),
+  // 0. 環安衛廣播（未讀的放最上面，點開就是全文）
+  (m.notices || []).filter(function (x) { return !x.read && x.type === '廣播'; }).slice(0, 3).forEach(function (x) {
+    tasks.push({ red: true, tag: '環安衛中心廣播・' + x.time.slice(5).replace('-', '/'), title: x.title, meta: bcBody(x.body).slice(0, 60), btn: '查看全文', on: "go('notice')" });
+  });
+  // 0.5 其他未讀通知
+  var unreadOther = (m.notices || []).filter(function (x) { return !x.read && x.type !== '廣播'; });
+  if (unreadOther.length) tasks.push({ tag: '新通知', title: '有 ' + unreadOther.length + ' 則新通知', meta: unreadOther.slice(0, 2).map(function (x) { return x.title; }).join('、'),
     btn: '查看通知', on: "go('notice')" });
+  // 0.8 異常追蹤：還沒填改善的（檢點人員、單位負責人）
+  if (!ehs && m.tracksOpen) tasks.push({ red: true, tag: '異常追蹤', title: '有 ' + m.tracksOpen + ' 件異常待改善', meta: '改善好了填寫處理方式就能結案', btn: '去處理', on: "S.tk=null;go('track')" });
   // 1. 被退回
   if (!ehs) m.months.forEach(function (x) {
     if (x.status === '退回' && !mgrOf(x.dept)) tasks.push({ red: true, tag: dn(x.dept) + '被退回，要修正', title: ymLabel(x.period) + '的檢點紀錄', meta: '退回原因：' + (x.reason || '（未填寫）'), btn: '去修正並重新送出', on: goMonth(x.dept, x.period) });
@@ -841,11 +848,14 @@ PAGES.home = function () {
     tl += tile('chat', '請人代填', "go('shareMake')", '', '休假時給同事限時連結');
   if (!ehs && !mgr && m.claimable.length) tl += tile('plus', '領取表單', "go('claim')", '', '本課其他表、其他設備');
   if (mgr || ehs) tl += tile('review', '審核紀錄', "go('packages')");
-  if (mgr || ehs) tl += tile('swap', '本課管理', "S.team=null;go('team')", '', '人員、表單、設備與負責人');
+  if (mgr || ehs) tl += tile('swap', '部門管理', "S.team=null;go('team')", '', '人員、表單、設備與負責人');
+  if (ehs) tl += tile('bell', '廣播', "S.bc=null;go('bc')", '', '發通知給指定的人');
+  tl += tile('warn', '異常追蹤', "S.tk=null;go('track')", m.tracksOpen ? pill('ng', '', m.tracksOpen + ' 件待改善') : '', '異常改善與結案');
   tl += tile('bell', '通知', "go('notice')", m.unread ? pill('ng', '', m.unread + ' 則未讀') : '');
   if (!ehs) { var d1 = m.depts.length === 1 ? m.depts[0].id : '';
     tl += tile('cal', '月曆・補填', d1 ? goMonth(d1, t.slice(0, 7)) : "go('months')", '', d1 ? '本月每天的紀錄，漏填的點日期補' : '選部門看月曆、補填'); }
   tl += tile('review', '月結紀錄', "go('months')");
+  tl += tile('info', '使用教學', "go('guide')", '', '一步一步看怎麼操作');
   tl += tile('clock', '提醒設定', "go('remind')");
   tl += tile('sliders', '設定', "go('settings')");
   h += '<div class="tiles">' + tl + '</div><div class="ver">v' + APP_VERSION + '</div>';
@@ -1001,8 +1011,9 @@ PAGES.notice = function () {
   var h = '<div class="muted upnote">最近 60 天和您有關的通知。單位負責人、環安衛另外會收到 Email。</div>';
   if (!list.length) h += '<div class="empty">目前沒有通知</div>';
   else h += '<div class="list">' + list.map(function (x) {
-    return '<div class="li nt' + (x.read ? '' : ' unread') + '"><span class="mn"><span class="mt">' + esc((x.type || '') + '・' + (x.dept ? x.dept + '・' : '') + x.time.slice(5).replace('-', '/')) + '</span>' +
-      '<span class="nm">' + (x.read ? '' : '<i class="ndot"></i>') + esc(x.title) + '</span><span class="mt nb">' + esc(x.body) + '</span></span></div>';
+    var bc = x.type === '廣播';
+    return '<div class="li nt' + (x.read ? '' : ' unread') + (bc ? ' bcn' : '') + '"><span class="mn"><span class="mt">' + esc((bc ? '環安衛中心廣播' : (x.type || '') + (x.dept ? '・' + x.dept : '')) + '・' + x.time.slice(5).replace('-', '/')) + '</span>' +
+      '<span class="nm">' + (x.read ? '' : '<i class="ndot"></i>') + esc(x.title) + '</span><span class="mt nb">' + esc(bc ? bcBody(x.body) : x.body) + '</span></span></div>';
   }).join('') + '</div>';
   $('app').innerHTML = h;
   var ids = list.filter(function (x) { return !x.read; }).map(function (x) { return x.id; });
@@ -1011,6 +1022,190 @@ PAGES.notice = function () {
     var raw = lsGet(LS.ME, null); if (raw) { (raw.notices || []).forEach(function (x) { x.read = true; }); raw.unread = 0; lsSet(LS.ME, raw); }
   }).catch(function () {});
 };
+
+/** 廣播內容最後一行是「——發送人（廣播ID）」：畫面上只留發送人。 */
+function bcBody(b) { return String(b || '').replace(/（B\d+[0-9A-Z]{4}）$/, ''); }
+
+// ───────────── 廣播（環安衛）：選對象 → 寫標題內容 → 發送；下面看已發的、誰還沒讀 ─────────────
+PAGES.bc = function () {
+  setTitle('廣播');
+  if (!S.bc) {
+    $('app').innerHTML = loading('讀取人員名單…');
+    Promise.all([api('bcPeople', {}), api('bcList', {})]).then(function (r) {
+      S.bc = { depts: r[0].depts, list: r[1].list, mode: 'all', depts2: {}, names: {}, mgrOnly: false, title: '', body: '', mail: false, open: {} };
+      if (S.page === 'bc') render();
+    }).catch(function (e) { $('app').innerHTML = '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">' + esc(e.message) + '</div></div></div></div>'; });
+    return;
+  }
+  var b = S.bc, h = '';
+  h += '<div class="sec">1. 發給誰</div><div class="seg">' + [['all', '全部人員'], ['dept', '指定部門'], ['name', '指定人員']].map(function (t) {
+    return '<button class="' + (b.mode === t[0] ? 'on' : '') + '" onclick="S.bc.mode=' + jsq(t[0]) + ';render()">' + t[1] + '</button>'; }).join('') + '</div>';
+  if (b.mode === 'dept') h += '<div class="chips wrap">' + b.depts.map(function (d) {
+    return '<button class="chip' + (b.depts2[d.id] ? ' on' : '') + '" onclick="S.bc.depts2[' + jsq(d.id) + ']=!S.bc.depts2[' + jsq(d.id) + '];render()">' + esc(d.id) + '・' + d.people.length + ' 人</button>'; }).join('') + '</div>';
+  if (b.mode !== 'name') h += '<label class="ck"><input type="checkbox"' + (b.mgrOnly ? ' checked' : '') + ' onchange="S.bc.mgrOnly=this.checked;render()">只發給單位負責人</label>';
+  if (b.mode === 'name') h += b.depts.map(function (d) {
+    return '<div class="sec">' + esc(d.id) + '</div><div class="card">' + d.people.map(function (x) {
+      return '<label class="ck"><input type="checkbox"' + (b.names[x.name] ? ' checked' : '') + ' onchange="S.bc.names[' + jsq(x.name) + ']=this.checked;render()"><span>' + esc(x.name) +
+        (x.role !== '檢點人員' ? '<small class="muted">　' + esc(x.role) + '</small>' : '') + '</span></label>'; }).join('') + '</div>'; }).join('');
+  h += '<div class="sec">2. 內容</div><div class="card ev"><label class="nl" for="bcT">標題（同仁首頁最上面會顯示）</label>' +
+    '<input id="bcT" class="field" maxlength="60" placeholder="例：10/15 消防演練，13:30 前廣場集合" value="' + esc(b.title) + '" oninput="S.bc.title=this.value;bcBar()">' +
+    '<label class="nl" for="bcB">內容</label><textarea id="bcB" class="note plain" maxlength="1000" placeholder="時間、地點、要做什麼" oninput="S.bc.body=this.value;bcBar()">' + esc(b.body) + '</textarea>' +
+    '<label class="ck"><input type="checkbox"' + (b.mail ? ' checked' : '') + ' onchange="S.bc.mail=this.checked">另外寄 Email 給有信箱的人</label></div>';
+  h += '<div class="sec">已發的廣播<small>點一則看誰還沒讀</small></div>' + (b.list.length ? '<div class="list">' + b.list.map(function (x) {
+    var rd = x.n - x.unread.length, op = b.open[x.id];
+    return '<button class="li" onclick="S.bc.open[' + jsq(x.id) + ']=!S.bc.open[' + jsq(x.id) + '];render()"><span class="mn"><span class="nm">' + esc(x.title) + '</span>' +
+      '<span class="mt">' + esc(x.time.slice(5).replace('-', '/') + '・' + x.to + (x.mail ? '・有寄信' : '')) + '</span>' +
+      (op ? '<span class="mt nb">' + esc(x.body) + '</span><span class="mt' + (x.unread.length ? ' wn' : '') + '">' + esc(x.unread.length ? '還沒讀：' + x.unread.join('、') : '全部都讀了') + '</span>' : '') + '</span>' +
+      pill(rd === x.n ? 'ok' : 'warn', rd === x.n ? 'check' : '', '已讀 ' + rd + '/' + x.n) + '</button>'; }).join('') + '</div>' : '<div class="empty">還沒有發過廣播</div>');
+  $('app').innerHTML = h;
+  bcBar();
+};
+function bcCount() {
+  var b = S.bc, set = {};
+  b.depts.forEach(function (d) { d.people.forEach(function (x) {
+    var hit = b.mode === 'all' || (b.mode === 'dept' && b.depts2[d.id]);
+    if (b.mode === 'name' ? b.names[x.name] : hit && (!b.mgrOnly || x.role === '單位負責人')) set[x.name] = 1; }); });
+  delete set[S.me.person.name];
+  return Object.keys(set).length;
+}
+function bcBar() {
+  if (S.page !== 'bc' || !S.bc) return;
+  var n = bcCount(), ok = n && S.bc.title.trim() && S.bc.body.trim();
+  bar('<button class="btn"' + (ok ? '' : ' disabled') + ' onclick="bcSend()">' + ic('bell', 22, 2.6) + (!n ? '先選要發給誰' : ok ? '發送廣播（' + n + ' 人）' : '寫好標題和內容就能發（' + n + ' 人）') + '</button>');
+}
+function bcSend() {
+  var b = S.bc, n = bcCount();
+  if (!confirm('發送「' + b.title.trim() + '」給 ' + n + ' 人？發出後不能收回。')) return;
+  if (!navigator.onLine) return toast('沒有網路，廣播要連上網路才能發', 'err', 3500);
+  var to = b.mode === 'all' ? { all: true } : b.mode === 'dept' ? { depts: Object.keys(b.depts2).filter(function (k) { return b.depts2[k]; }) } : { names: Object.keys(b.names).filter(function (k) { return b.names[k]; }) };
+  if (b.mode !== 'name' && b.mgrOnly) to.roles = ['單位負責人'];
+  busyOn('發送中…');
+  api('broadcast', { title: b.title, body: b.body, to: to, mail: b.mail }).then(function (r) {
+    busyOff(); b.list = r.list; b.title = ''; b.body = ''; toast('已發送給 ' + r.n + ' 人', 'ok', 3000); window.scrollTo(0, 0); render();
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
+}
+
+// ───────────── 異常追蹤：檢點打了異常就自動開案；改善好了填處理方式＋完成日（可附照片）就結案 ─────────────
+function tkLoad() { return api('tracks', {}).then(function (r) { S.tk = r; S.me.tracksOpen = r.open.length; return r; }); }
+function tkDates(x) {
+  var d = x.dates.map(md);
+  return (d.length > 3 ? d.slice(0, 2).join('、') + '…' + d[d.length - 1] : d.join('、')) + (d.length > 1 ? '（' + d.length + ' 天）' : '');
+}
+function tkPhotos(ids, label) {
+  return ids && ids.length ? '<span class="mt">' + esc(label) + '：' + ids.map(function (id, i) { return '<button class="lnk" onclick="event.stopPropagation();photoView(' + jsq(id) + ')">照片 ' + (i + 1) + '</button>'; }).join('　') + '</span>' : '';
+}
+function tkTitle(x) { return (x.formName || '').replace(/（[^）]*）$/, '') + (x.object ? '・' + x.object : x.form.indexOf('@') > 0 ? '・' + x.form.split('@')[1] : ''); }
+PAGES.track = function () {
+  setTitle('異常追蹤');
+  if (!S.tk) {
+    $('app').innerHTML = loading('讀取異常追蹤…');
+    tkLoad().then(function () { if (S.page === 'track') render(); })
+      .catch(function (e) { $('app').innerHTML = '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">' + esc(e.message) + '</div></div></div></div>'; });
+    return;
+  }
+  var tab = S.arg.tab || 'open', list = tab === 'open' ? S.tk.open : S.tk.closed, multi = S.me.depts.length > 1 || isEhs();
+  var h = '<div class="seg2" role="tablist"><button class="' + (tab === 'open' ? 'on' : '') + '" onclick="S.arg.tab=\'open\';render()">待改善 ' + S.tk.open.length + '</button>' +
+    '<button class="' + (tab === 'closed' ? 'on' : '') + '" onclick="S.arg.tab=\'closed\';render()">已結案 ' + S.tk.closed.length + '</button></div>';
+  if (tab === 'open') h += '<div class="muted upnote">檢點時打了「異常」的項目會自動列在這裡。改善好了，點「填寫改善」寫處理方式就能結案。同一個項目還沒結案前再異常，會記在同一件。</div>';
+  h += list.length ? list.map(function (x) {
+    var head = '<div class="tkh"><span class="nm">' + esc(tkTitle(x)) + '</span>' + (x.state === '已結案' ? pill('ok', 'check', '已結案') : pill('ng', 'warn', x.mark || '異常')) + '</div>';
+    var body = '<div class="tki">' + esc(x.item.replace(/^\d+\.\s*/, '')) + '</div>' + (x.note ? '<div class="tkn">' + esc(x.note) + '</div>' : '') +
+      '<span class="mt">' + esc((multi ? x.dept + '・' : '') + '發現：' + tkDates(x) + '・' + x.finder) + '</span>' + tkPhotos(x.photos, '異常照片');
+    if (x.state === '已結案') body += '<div class="tkf"><b>改善：</b>' + esc(x.fix) + '<span class="mt">' + esc(md(x.fixDate) + ' 完成・' + x.fixer) + '</span>' + tkPhotos(x.fixPhotos, '改善照片') + '</div>';
+    else body += '<button class="btn line sm" onclick="go(\'trackFix\',{id:' + jsq(x.id) + '})">' + ic('pen', 18) + '填寫改善</button>';
+    return '<div class="card tk">' + head + body + '</div>';
+  }).join('') : '<div class="empty">' + (tab === 'open' ? '目前沒有待改善的異常' : '最近 90 天沒有結案的紀錄') + '</div>';
+  $('app').innerHTML = h;
+};
+PAGES.trackFix = function () {
+  var x = S.tk && S.tk.open.filter(function (y) { return y.id === S.arg.id; })[0];
+  if (!x) return back();
+  setTitle('填寫改善');
+  if (!S.tf || S.tf.id !== x.id) S.tf = { id: x.id, fix: '', date: today(), pics: [] };
+  var tf = S.tf, first = x.dates[0] || today();
+  var h = '<div class="card tk"><div class="tkh"><span class="nm">' + esc(tkTitle(x)) + '</span>' + pill('ng', 'warn', x.mark || '異常') + '</div>' +
+    '<div class="tki">' + esc(x.item.replace(/^\d+\.\s*/, '')) + '</div>' + (x.note ? '<div class="tkn">' + esc(x.note) + '</div>' : '') +
+    '<span class="mt">' + esc('發現：' + tkDates(x) + '・' + x.finder) + '</span>' + tkPhotos(x.photos, '異常照片') + '</div>';
+  h += '<div class="card ev"><label class="nl req" for="tfFix">改善措施（做了什麼處理）</label>' +
+    '<textarea id="tfFix" class="note plain" placeholder="例：已更換洗眼器加壓閥，試水壓正常" oninput="S.tf.fix=this.value;tfBar()">' + esc(tf.fix) + '</textarea>' +
+    '<label class="nl" for="tfDate">改善完成日期</label><input type="date" id="tfDate" class="field" value="' + esc(tf.date) + '" min="' + esc(first) + '" max="' + today() + '" onchange="S.tf.date=this.value">' +
+    '<label class="nl">改善後照片（選填）</label><div class="pics">' + tf.pics.map(function (p, i) {
+      return '<div class="pic"><img src="' + esc(p.t) + '" alt="改善照片 ' + (i + 1) + '"><button class="px" aria-label="移除這張" onclick="S.tf.pics.splice(' + i + ',1);keepY(render)">' + ic('x', 16, 3) + '</button></div>';
+    }).join('') + (tf.pics.length < 3 ? '<label class="pic add">' + ic('plus', 26, 2.6) + '<span>拍照／選照片</span><input type="file" accept="image/*" capture="environment" hidden onchange="tfPick(this)"></label>' : '') + '</div></div>';
+  $('app').innerHTML = h;
+  tfBar();
+};
+function tfBar() {
+  if (S.page !== 'trackFix') return;
+  var n = String(S.tf.fix || '').replace(/\s/g, '').length;
+  bar('<button class="btn"' + (n >= 5 ? '' : ' disabled') + ' onclick="tfSave()">' + ic('check', 22, 2.8) + (n >= 5 ? '改善完成，結案' : '寫好改善措施就能結案（至少 5 個字）') + '</button>');
+}
+function tfPick(inp) {
+  var file = inp.files && inp.files[0]; inp.value = '';
+  var x = S.tk.open.filter(function (y) { return y.id === S.tf.id; })[0], tf = S.tf;
+  photoUp(file, { deptId: x.dept, formId: x.form, purpose: 'fix' }, function (p) { if (S.tf !== tf) return; tf.pics.push(p); keepY(render); });
+}
+function tfSave() {
+  var tf = S.tf;
+  if (!navigator.onLine) return toast('沒有網路，結案要連上網路', 'err', 3500);
+  busyOn('結案中…');
+  api('trackClose', { id: tf.id, fix: tf.fix, fixDate: tf.date, photos: tf.pics.map(function (p) { return p.id; }) }).then(function (r) {
+    busyOff(); S.tk = r; S.me.tracksOpen = r.open.length; S.tf = null; toast('已結案', 'ok', 2500); back();
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
+}
+
+// ───────────── 使用教學（App 內直接看）：依身分顯示章節——檢點人員看第 1、2 章，單位負責人多第 3 章，環安衛全部 ─────────────
+// 內容跟 PDF 共用 guide/content.json；截圖在 guide/w/*.webp。
+function guideRole() { return isEhs() ? 'ehs' : isMgr() ? 'mgr' : 'op'; }
+function guideChaps() { return (S.guide.chapters || []).filter(function (c) { return c.roles.indexOf(guideRole()) >= 0; }); }
+function guideSecs() { var o = []; guideChaps().forEach(function (c) { c.sections.forEach(function (x) { o.push({ c: c, x: x }); }); }); return o; }
+PAGES.guide = function () {
+  setTitle('使用教學');
+  if (!S.guide) {
+    $('app').innerHTML = loading('讀取教學…');
+    fetch('guide/content.json?v=' + APP_VERSION, { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (j) { S.guide = j; if (S.page === 'guide') render(); })
+      .catch(function () { $('app').innerHTML = '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">教學要連上網路才能看，請稍後再試。</div></div></div></div>'; });
+    return;
+  }
+  var id = S.arg.sec;
+  if (id === 'faq') return guideFaq();
+  if (id) return guideSec(id);
+  var h = '<div class="gintro">依您的身分（' + esc(guideRole() === 'ehs' ? '環安衛' : guideRole() === 'mgr' ? '單位負責人' : '檢點人員') + '）列出要看的章節，點一節就能看，每節都有實際畫面。</div>';
+  h += guideChaps().map(function (c) {
+    return '<div class="gch" style="--c:' + esc(c.color) + '"><div class="gct"><span class="gcn">' + c.no + '</span><span><b>' + esc(c.title) + '</b><small>' + esc(c.who) + '</small></span></div>' +
+      '<div class="list">' + c.sections.map(function (x) {
+        return '<button class="li" onclick="gOpen(' + jsq(x.no) + ')"><span class="gno">' + esc(x.no) + '</span><span class="mn"><span class="nm">' + esc(x.title) + '</span></span>' + ic('chev', 18, 2.6) + '</button>';
+      }).join('') + '</div></div>';
+  }).join('');
+  h += '<button class="btn ghost" onclick="gOpen(\'faq\')">' + ic('info', 20, 2.4) + '常見問題</button>';
+  $('app').innerHTML = h;
+};
+function guideSec(id) {
+  var all = guideSecs(), i = all.findIndex(function (y) { return y.x.no === id; });
+  if (i < 0) return back();
+  var c = all[i].c, x = all[i].x;
+  setTitle(x.no + ' ' + x.title);
+  var h = '<div class="gtag" style="--c:' + esc(c.color) + '">第 ' + c.no + ' 章　' + esc(c.title) + '</div><h2 class="gh">' + esc(x.title) + '</h2>' +
+    (x.lead ? '<p class="glead">' + esc(x.lead) + '</p>' : '');
+  h += '<div class="gshots">' + x.shots.map(function (s) {
+    return '<figure><img src="guide/w/' + esc(s[0]) + '.webp?v=' + APP_VERSION + '" alt="' + esc(s[1]) + '" loading="lazy"><figcaption>' + esc(s[1]) + '</figcaption></figure>';
+  }).join('') + '</div>' + (x.shots.length > 1 ? '<div class="hint gsw">← 左右滑動看 ' + x.shots.length + ' 張畫面 →</div>' : '');
+  h += '<ol class="gst">' + x.steps.map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ol>';     // 內容是我們自己寫的教學文字（含 <b> 粗體）
+  if (x.tip) h += '<div class="box ' + (x.warn ? 'warn' : 'info') + '"><div class="r">' + ic(x.warn ? 'warn' : 'info', 22) + '<div class="bt"><div class="m">' + esc(x.tip) + '</div></div></div></div>';
+  $('app').innerHTML = h;
+  var prev = all[i - 1], next = all[i + 1];
+  bar('<div class="btns r12">' + (prev ? '<button class="btn ghost" onclick="gTo(' + jsq(prev.x.no) + ')">上一節</button>' : '<button class="btn ghost" onclick="back()">目錄</button>') +
+    (next ? '<button class="btn" onclick="gTo(' + jsq(next.x.no) + ')">下一節：' + esc(next.x.title.replace(/（.*$/, '')) + '</button>' : '<button class="btn" onclick="gTo(\'faq\')">常見問題</button>') + '</div>');
+}
+function guideFaq() {
+  setTitle('常見問題');
+  $('app').innerHTML = (S.guide.faq || []).map(function (q) { return '<div class="card gfaq"><b>' + esc(q[0]) + '</b><p>' + esc(q[1]) + '</p></div>'; }).join('') +
+    '<div class="muted upnote">還有問題請洽環安衛中心。</div>';
+  bar('<button class="btn ghost" onclick="back()">回教學目錄</button>');
+}
+function gOpen(no) { S.stack.push({ page: S.page, arg: S.arg }); S.arg = { sec: no }; window.scrollTo(0, 0); render(); }
+function gTo(no) { S.arg = { sec: no }; window.scrollTo(0, 0); render(); }
 
 // ───────────── 下月負責人：選表單（含設備）→ 左邊本月、右邊下月 → 下個月 1 日自動生效 ─────────────
 PAGES.nextOwners = function () {
@@ -1064,7 +1259,7 @@ function nextSave() {
     busyOff(); S.next = r; S.arg.want = null; toast('已儲存，' + Number(r.month.slice(5)) + ' 月 1 日生效；相關人員會收到通知', 'ok', 3500); render();
   }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
 }
-// ───────────── 本課管理（單位負責人、環安衛）：人員／表單／設備三個清單；誰負責什麼可以今天起改，或排到下月 1 日 ─────────────
+// ───────────── 部門管理（單位負責人、環安衛）：人員／表單／設備三個清單；誰負責什麼可以今天起改，或排到下月 1 日 ─────────────
 function teamDepts() { return S.me.depts.filter(function (d) { return mgrOf(d.id); }).map(function (d) { return d.id; }); }
 function teamLoad(dept) {
   return api('team', { deptId: dept }).then(function (r) { S.team = r; S.teamAt = Date.now(); return r; });
@@ -1074,7 +1269,7 @@ function perPill(x) {
 }
 function perLine(x) { return x.freq + (x.last ? '・上次 ' + x.last + (x.due ? '・下次 ' + x.due : '') : '') + (x.evidence ? '・需照片＋紀要' : ''); }
 PAGES.team = function () {
-  setTitle('本課管理');
+  setTitle('部門管理');
   var ds = teamDepts();
   if (!S.arg.dept) S.arg.dept = ds[0];
   if (!S.arg.tab) S.arg.tab = 'people';
@@ -1135,11 +1330,11 @@ PAGES.teamEdit = function () {
     return '<label class="ck"><input type="checkbox" ' + (want.indexOf(n) >= 0 ? 'checked' : '') + ' onchange="teamTick(' + jsq(n) + ',this.checked)">' + esc(n) + '</label>';
   }).join('') + (ops.length ? '' : '<div class="muted">本課還沒有檢點人員</div>') + '</div>';
   if (!want.length) h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">沒有負責人＝這' + (tg.kind === 'equip' ? '台設備' : '張表') + '本課不再使用（手機上看不到、不算缺漏）。</div></div></div></div>';
-  h += '<div class="muted upnote">「今天起」：馬上換人，今天以前的紀錄照舊歸原負責人。「' + mo + ' 1 日起」：這個月照舊，下個月自動換。當事人都會收到 App 通知。</div>';
+  h += '<div class="muted upnote">「今天起」：馬上換人，今天以前的紀錄照舊歸原負責人。「下月起」：這個月照舊，' + mo + ' 1 日自動換。當事人都會收到 App 通知。</div>';
   $('app').innerHTML = h;
   var same = want.slice().sort().join() === tg.now.slice().sort().join();
   bar('<div class="btns r21"><button class="btn" id="teNow" onclick="teamSave(\'now\')"' + (same ? ' disabled' : '') + '>' + ic('check', 22, 2.8) + '今天起生效</button>' +
-    '<button class="btn ghost" onclick="teamSave(\'next\')">' + esc(mo) + ' 1 日起</button></div>');
+    '<button class="btn ghost" onclick="teamSave(\'next\')">' + '下月起（' + esc(mo) + '）</button></div>');
 };
 function teamTick(n, on) { var w = S.arg.want || []; if (on && w.indexOf(n) < 0) w.push(n); if (!on) w = w.filter(function (x) { return x !== n; }); S.arg.want = w; render(); }
 function teamSave(when) {
@@ -1175,7 +1370,7 @@ PAGES.teamPerson = function () {
   $('app').innerHTML = '<div class="muted upnote">勾選 ' + esc(name) + ' 負責的表單與設備。同一項可以多人一起負責；取消勾選不會影響其他人。</div>' + sec('form', '表單') + sec('equip', '設備');
   var n = teamPersonDiff().length;
   bar('<div class="btns r21"><button class="btn"' + (n ? '' : ' disabled') + ' onclick="teamPersonSave(\'now\')">' + ic('check', 22, 2.8) + (n ? '今天起生效（' + n + ' 項）' : '沒有變更') + '</button>' +
-    '<button class="btn ghost"' + (n ? '' : ' disabled') + ' onclick="teamPersonSave(\'next\')">' + esc(mo) + ' 1 日起</button></div>');
+    '<button class="btn ghost"' + (n ? '' : ' disabled') + ' onclick="teamPersonSave(\'next\')">' + '下月起（' + esc(mo) + '）</button></div>');
 };
 function teamPersonDiff() {
   var tm = S.team, name = S.arg.name, pk = S.arg.pick || {};
@@ -1255,12 +1450,12 @@ function evHtml(f, fm) {
 }
 function evCount() { var el = $('evCnt'); if (!el) return; var n = String(S.fill.sum || '').replace(/\s/g, '').length; el.textContent = n + ' 字' + (n < SUMMARY_MIN ? '・還差 ' + (SUMMARY_MIN - n) + ' 字' : ''); }
 function evDel(i) { if (!confirm('移除這張照片？')) return; S.fill.pics.splice(i, 1); draftSave(); var y = window.scrollY; render(); window.scrollTo(0, y); }
-function evPick(inp) {
-  var file = inp.files && inp.files[0]; inp.value = '';
+/** 照片：壓到長邊 1600 的 JPEG 上傳（拍了就傳，要有網路），另做 240 的縮圖放畫面上。 */
+function photoUp(file, body, done) {
   if (!file) return;
   if (!navigator.onLine) return toast('沒有網路，照片要連上網路才能上傳', 'err', 3500);
   if (!/^image\//.test(file.type || 'image/')) return toast('請選照片檔', 'err');
-  var a = A(S.arg.key), fm = S.fill, url = URL.createObjectURL(file), img = new Image();
+  var url = URL.createObjectURL(file), img = new Image();
   busyOn('照片上傳中…');
   img.onerror = function () { URL.revokeObjectURL(url); busyOff(); toast('這張照片打不開，請重拍', 'err', 3500); };
   img.onload = function () {
@@ -1269,14 +1464,37 @@ function evPick(inp) {
       c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s); var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
       return { u: c.toDataURL('image/jpeg', q), w: c.width, h: c.height }; };
     var big = sc(1600, 0.72), th = sc(240, 0.6);
-    api('photoUp', { deptId: a.dept, formId: a.form, image: big.u, w: big.w, h: big.h }).then(function (r) {
-      busyOff(); if (S.fill !== fm) return;
-      fm.pics = (fm.pics || []).concat([{ id: r.id, t: th.u }]); draftSave();
-      var y = window.scrollY; render(); window.scrollTo(0, y); toast('已上傳第 ' + fm.pics.length + ' 張', 'ok', 1800);
-    }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
+    api('photoUp', Object.assign({ image: big.u, w: big.w, h: big.h }, body)).then(function (r) { busyOff(); done({ id: r.id, t: th.u }); })
+      .catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
   };
   img.src = url;
 }
+function keepY(fn) { var y = window.scrollY; fn(); window.scrollTo(0, y); }
+function evPick(inp) {
+  var file = inp.files && inp.files[0]; inp.value = '';
+  var a = A(S.arg.key), fm = S.fill;
+  photoUp(file, { deptId: a.dept, formId: a.form }, function (p) {
+    if (S.fill !== fm) return;
+    fm.pics = (fm.pics || []).concat([p]); draftSave(); keepY(render); toast('已上傳第 ' + fm.pics.length + ' 張', 'ok', 1800);
+  });
+}
+/** 異常項目可附照片（選填，最多 3 張）：跟著這次檢點送出，轉到「異常追蹤」。 */
+function ngPicsHtml(fm, seq) {
+  var pics = (fm.np || {})[seq] || [];
+  return '<div class="pics sm">' + pics.map(function (p, i) {
+    return '<div class="pic"><img src="' + esc(p.t) + '" alt="異常照片 ' + (i + 1) + '"><button class="px" aria-label="移除這張" onclick="ngDel(' + jsq(seq) + ',' + i + ')">' + ic('x', 16, 3) + '</button></div>';
+  }).join('') + (pics.length < 3 ? '<label class="pic add">' + ic('plus', 22, 2.6) + '<span>附照片</span><input type="file" accept="image/*" capture="environment" hidden onchange="ngPick(this,' + jsq(seq) + ')"></label>' : '') + '</div>' +
+    (navigator.onLine ? '' : '<div class="hint">沒網路可以先送出；照片之後在「異常追蹤」填改善時再附。</div>');
+}
+function ngPick(inp, seq) {
+  var file = inp.files && inp.files[0]; inp.value = '';
+  var a = A(S.arg.key), fm = S.fill;
+  photoUp(file, { deptId: a.dept, formId: a.form, purpose: 'ng' }, function (p) {
+    if (S.fill !== fm) return;
+    fm.np = fm.np || {}; fm.np[seq] = (fm.np[seq] || []).concat([p]); draftSave(); keepY(render);
+  });
+}
+function ngDel(seq, i) { if (!confirm('移除這張照片？')) return; S.fill.np[seq].splice(i, 1); draftSave(); keepY(render); }
 function photoView(id) {
   busyOn('讀取照片…');
   api('photoGet', { id: id }).then(function (r) {
@@ -1388,7 +1606,8 @@ PAGES.fill = function () {
           return '<button class="opt ' + optClass(o.k) + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="pick(' + jsq(it.seq) + ',' + jsq(o.k) + ')">' + (on ? ic(optIcon(o.k), 18, 3) : '') + esc(o.label) + '</button>';
         }).join('') + '</div>' +
         (needNote || (fm.n[it.seq] && f.type === '單張') ? '<div class="nwrap"><label class="nl' + (needNote ? ' req' : '') + '" for="n' + esc(it.seq) + '">' + (needNote ? '必填：' : '說明：') + esc(f.noteTitle || '請說明異常狀況與處理方式') + '</label>' +
-          '<textarea id="n' + esc(it.seq) + '" class="note' + (needNote ? '' : ' plain') + '" placeholder="' + esc(f.noteTitle || '請說明異常狀況與處理方式') + '" oninput="noteIn(' + jsq(it.seq) + ',this.value)">' + esc(fm.n[it.seq] || '') + '</textarea></div>' : '') +
+          '<textarea id="n' + esc(it.seq) + '" class="note' + (needNote ? '' : ' plain') + '" placeholder="' + esc(f.noteTitle || '請說明異常狀況與處理方式') + '" oninput="noteIn(' + jsq(it.seq) + ',this.value)">' + esc(fm.n[it.seq] || '') + '</textarea>' +
+          (v && isBad(f, v) && !S.share ? ngPicsHtml(fm, it.seq) : '') + '</div>' : '') +
         '</div>';
     });
     if (!shown) h += '<div class="empty">' + (ff === 'todo' ? '都勾完了，沒有未勾的項目' : '沒有異常的項目') + '</div>';
@@ -1464,6 +1683,8 @@ function submitFill() {
   var body = { deptId: a.dept, formId: a.form, object: a.object || '', kind: a.kind || '', date: fm.date,
                results: fm.noWork ? {} : fm.r, notes: fm.noWork ? {} : fm.n, extra: extra, noWork: fm.noWork };
   if (f.evidence && !a.daily) { body.summary = fm.sum || ''; body.photos = (fm.pics || []).map(function (p) { return p.id; }); }
+  if (!fm.noWork && fm.np) { body.ngPhotos = {}; Object.keys(fm.np).forEach(function (k) { if (isBad(f, fm.r[k]) && fm.np[k].length) body.ngPhotos[k] = fm.np[k].map(function (p) { return p.id; }); }); }
+  var nBad = fm.noWork ? 0 : f.items.filter(function (it) { return isBad(f, fm.r[it.seq]); }).length;
   var job = { id: newId(), token: lsGet(LS.TOKEN, ''), who: S.me && S.me.person ? S.me.person.name : '', key: a.key, body: body, created: Date.now(), status: 'pending',
               label: f.name + ' ' + md(fm.date) };
   obPut(job).then(function () {
@@ -1477,7 +1698,8 @@ function submitFill() {
     var left = (S.me.assigns || []).filter(function (x) { return x.daily && x.due && !x.due.todayDone && !pendingFor(x, today()); }).length;
     var msg = f.name + ' ' + md(body.date) + (body.date === today() && left ? '・今天還有 ' + left + ' 張' : '') + '（當天要改可以再打開這張）';
     S.sentMsg = '已送出 ' + msg;                          // 上傳成功時顯示這一句（不要被「已上傳 1 筆」蓋掉）
-    toast((navigator.onLine ? '已送出 ' : '已存在手機，有網路自動上傳：') + msg, 'ok', 3500); flush();
+    if (nBad) { msg += '；' + nBad + ' 項異常已轉到「異常追蹤」'; S.sentMsg = '已送出 ' + msg; }
+    toast((navigator.onLine ? '已送出 ' : '已存在手機，有網路自動上傳：') + msg, 'ok', nBad ? 5000 : 3500); flush();
   }).catch(function (e) {
     toast('手機存檔失敗：' + esc(e.message), 'err', 5000);
     if (btn) { btn.disabled = false; btn.className = 'btn'; btn.textContent = '再送一次'; }
@@ -2101,7 +2323,7 @@ function splashDone() {
 /** 註冊 Service Worker；回到 App 時順便檢查有沒有新版，換新版後在首頁自動重新載入（填寫中不打斷）。 */
 var SW_RELOAD = false;
 /** 後端說 App 太舊：在安全的畫面重新載入新版（填寫、簽名、代填中先不打斷，回到首頁等畫面再換）。待上傳的檢點在 IndexedDB、草稿在手機裡，重新載入不會丟。 */
-var SAFE_PAGES = ['home', 'login', 'url', 'notice', 'months', 'claim', 'pick', 'mine', 'team', 'settings', 'remind', 'packages'];
+var SAFE_PAGES = ['home', 'login', 'url', 'notice', 'months', 'claim', 'pick', 'mine', 'team', 'track', 'guide', 'settings', 'remind', 'packages'];
 function appUpdate() {
   if (S.updating) return;
   var last = 0; try { last = Number(sessionStorage.getItem('chk_upd') || 0); } catch (e) {}
