@@ -1,5 +1,5 @@
 {
- "version": "0.13.1",
+ "version": "0.13.2",
  "chapters": [
   {
    "no": 1,
@@ -78,6 +78,36 @@
       "<b>\"Online / Offline\"</b> at top right: you can still fill in offline; it uploads when the network is back."
      ],
      "tip": "",
+     "warn": false
+    },
+    {
+     "no": "1-4",
+     "title": "Android: put the App on your home screen",
+     "lead": "Once it is on your home screen you open it from the icon like any other app, without hunting for the link — and you need this to get reminder notifications later.",
+     "shots": [],
+     "steps": [
+      "Open the App link in <b>Chrome</b>. If you opened it inside LINE, first tap <b>⋮</b> at the top right → <b>Open in Chrome</b> (LINE's built-in browser cannot add to the home screen).",
+      "Tap the three dots <b>⋮</b> at the top right of Chrome.",
+      "Choose <b>Add to Home screen</b> or <b>Install app</b> (the wording differs by phone — tap whichever you see).",
+      "In the pop-up tap <b>Install</b> or <b>Add</b>; some phones ask again — tap <b>Add to Home screen</b>.",
+      "Go back to your home screen and find the App icon; always open the App from there. If it is not on the home screen, swipe up to the list of all apps."
+     ],
+     "tip": "On Samsung phones using the built-in Internet browser: tap <b>≡</b> at the bottom → <b>Add page to</b> → <b>Home screen</b>.",
+     "warn": false
+    },
+    {
+     "no": "1-5",
+     "title": "iPhone: put the App on your home screen",
+     "lead": "On iPhone you must use Safari to add it to the home screen.",
+     "shots": [],
+     "steps": [
+      "Open the App link in <b>Safari</b>. If you opened it inside LINE, tap <b>⋯</b> at the bottom right → <b>Open in Safari</b>.",
+      "Tap the <b>Share</b> button at the bottom centre (a square with an up arrow).",
+      "Scroll down and choose <b>Add to Home Screen</b>.",
+      "Tap <b>Add</b> at the top right.",
+      "Go back to the home screen and open the App from its icon."
+     ],
+     "tip": "On iPhone the home-screen App and Safari are separate: if you signed in in Safari, sign in once more after adding it (only once). Reminder notifications need iOS 16.4 or later.",
      "warn": false
     }
    ]
@@ -748,7 +778,8 @@
      "tip": "EHS updates the list every quarter and the App switches to the new one automatically. Before work, read SDS section 8 (protective equipment) and section 4 (first aid).",
      "warn": false
     }
-   ]
+   ],
+   "mod": "chem"
   }
  ],
  "faq": [

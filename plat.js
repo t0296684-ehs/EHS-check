@@ -43,7 +43,7 @@ function menuBtn() {
 }
 function platHero(say) {
   var m = S.me;
-  return '<div class="hero-in"><div class="hi"><div class="hn"><div class="h1">' + greet() + '，' + esc(m.person.name) + '</div><div class="hsub">' + esc(whoLine()) + '</div></div>' + netTag() + '</div>' +
+  return '<div class="hero-in">' + heroTop() + '<div class="hi"><div class="hn"><div class="h1">' + greet() + '，' + esc(m.person.name) + '</div><div class="hsub">' + esc(whoLine()) + '</div></div></div>' +
     (say ? '<div class="say">' + say + '</div>' : '') + '</div>';
 }
 
@@ -77,9 +77,7 @@ PLAT_PAGES.menu = function () {
       (on ? (badge[x.key] ? '<span class="mb">' + badge[x.key] + '</span>' : '') + ic('chev', 20, 2.6) : ic('lock', 20, 2.4)) + '</button>';
   }).join('') + '</div>';
   h += devCard();
-  var tl = tile('bell', '通知', "go('notice')", m.unread ? pill('ng', '', m.unread + ' 則未讀') : '') +
-    tile('info', '使用教學', "go('guide')", '', '一步一步看怎麼操作') + tile('sliders', '設定', "go('settings')");
-  h += '<div class="tiles">' + tl + '</div><div class="ver">v' + APP_VERSION + '</div>';
+  h += '<div class="ver">v' + APP_VERSION + '</div>';
   $('app').innerHTML = h;
 };
 /** 沒有權限：說明要向主管申請，可以直接按「申請開通」通知環安衛中心。 */
@@ -120,6 +118,12 @@ function shareLink(text, url) {
   else copyText(text + '\n' + url, '已複製，可以貼到 LINE');
 }
 function openUrl(url) { var w = window.open(url, '_blank', 'noopener'); if (!w) location.href = url; }
+/** 開原本的員和環保系統（空污）：兩個 App 在同一個網域，先把它的後台網址填好（它存在 ehs.gas_url），同仁就不用再輸入；
+ *  在同一個視窗開（iPhone 加到主畫面的 App 開新視窗會跑到 Safari，那邊沒有設定）。已經設過別的網址就不動。 */
+function openAir(url, gas, nav) {
+  try { if (gas && /^https:\/\/script\.google\.com\//.test(gas) && !localStorage.getItem('ehs.gas_url')) localStorage.setItem('ehs.gas_url', gas); } catch (e) {}
+  (nav || function (u) { location.href = u; })(url);
+}
 
 // ───────────── 環保抄表：系統清單 → 當天抄表（項目來自後台「抄表項目」）→ 月份與月結確認 ─────────────
 PLAT_PAGES.env = function () {
@@ -134,7 +138,7 @@ PLAT_PAGES.env = function () {
   var col = { '空污': '#1C5FB0', '水污': '#0E7490' }, icn = { '空污': 'wind', '水污': 'drop' };
   $('app').innerHTML = '<div class="mcards">' + S.envL.map(function (x) {
     var off = !x.url && !x.n, sub = x.url ? '開啟員和環保系統（抄法不變）' : x.n ? x.n + ' 項・' + (x.layers === 3 ? '抄表 → 主管確認 → 環安衛確認' : '抄表 → 環安衛確認') : '項目還沒設定';
-    return '<button class="mcard' + (off ? ' locked' : '') + '" style="--c:' + (col[x.sys] || '#3D4754') + '"' + (off ? ' disabled' : ' onclick="' + (x.url ? 'openUrl(' + jsq(x.url) + ')' : "S.env=null;go('envSys',{sys:" + jsq(x.sys) + '})') + '"') +
+    return '<button class="mcard' + (off ? ' locked' : '') + '" style="--c:' + (col[x.sys] || '#3D4754') + '"' + (off ? ' disabled' : ' onclick="' + (x.url ? 'openAir(' + jsq(x.url) + ',' + jsq(x.gas || '') + ')' : "S.env=null;go('envSys',{sys:" + jsq(x.sys) + '})') + '"') +
       '><span class="mi">' + ic(icn[x.sys] || 'clip', 30, 2.1) + '</span><span class="mx"><b>' + esc(x.name) + '</b><small>' + esc(sub) + '</small></span>' + ic(x.url ? 'ext' : 'chev', 20, 2.4) + '</button>';
   }).join('') + '</div><div class="muted upnote">空污目前開啟原本的「員和環保系統」；之後會整合進本系統。</div>';
 };
@@ -791,20 +795,11 @@ function pvSend() {
 
 // ───────────── 危害性化學品（v0.13.1）：查自己部（PU／BU）的危害性化學品，點進去看危害重點 ─────────────
 // 資料來自 NAS 危害性化學品清單，電腦排程整理後上傳，約一季更新一次；手機只讀。
-var GHS_PIC = {        // GHS 圖示：紅框菱形＋簡化符號（員工一眼認得）
-  flame: ['易燃', '<path d="M12 6c1.6 2.2 3.6 3.6 3.6 6.4a3.6 3.6 0 0 1-7.2 0c0-1.4.6-2.4 1.4-3.2.2 1.2.8 2 1.6 2.2-.4-2.4.2-4 .6-5.4z" fill="#111" stroke="none"/>'],
-  oxid: ['助燃', '<circle cx="12" cy="13.5" r="3" fill="none" stroke="#111" stroke-width="1.6"/><path d="M12 5.5c1 1.4 2 2.4 2 4a2 2 0 0 1-4 0c0-1.6 1-2.6 2-4z" fill="#111" stroke="none"/>'],
-  explode: ['爆炸', '<circle cx="12" cy="13" r="2.6" fill="#111" stroke="none"/><path d="M12 6v3M7 8l2 2.4M17 8l-2 2.4M6 13h3M15 13h3" stroke="#111" stroke-width="1.6"/>'],
-  gas: ['高壓氣體', '<rect x="9" y="7" width="6" height="11" rx="3" fill="#111" stroke="none"/><path d="M11 5.5h2v2h-2z" fill="#111" stroke="none"/>'],
-  corrode: ['腐蝕', '<path d="M7 7l2 3M10 6l1 3M6 15h12M8 15v3h8v-3" stroke="#111" stroke-width="1.6" fill="none"/>'],
-  skull: ['劇毒', '<circle cx="12" cy="10.5" r="3.6" fill="#111" stroke="none"/><path d="M10.4 14.5h3.2v2h-3.2zM7 17l10-3M7 14l10 3" stroke="#111" stroke-width="1.4"/>'],
-  health: ['健康危害', '<circle cx="12" cy="8" r="1.8" fill="#111" stroke="none"/><path d="M9 18l1-7h4l1 7M10 13.5l2 1.5 2-1.5" stroke="#111" stroke-width="1.6" fill="none"/>'],
-  warn: ['有害／刺激', '<path d="M12 7v6.5" stroke="#111" stroke-width="2.4"/><circle cx="12" cy="16.6" r="1.3" fill="#111" stroke="none"/>'],
-  env: ['危害環境', '<path d="M6 17h12M8 17V9l3 4 2-6 3 10" stroke="#111" stroke-width="1.5" fill="none"/>'],
-};
+// GHS 圖示：用聯合國 GHS 官方圖（維基共享資源，公有領域），檔案 ghs-<代號>.svg；不自己畫
+var GHS_PIC = { explode: ['爆炸'], flame: ['易燃'], oxid: ['助燃'], gas: ['高壓氣體'], corrode: ['腐蝕'], skull: ['劇毒'], health: ['健康危害'], warn: ['有害／刺激'], env: ['危害環境'] };
 function ghsIcon(k, size) {
   var g = GHS_PIC[k]; if (!g) return '';
-  return '<svg class="ghs" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-label="' + esc(g[0]) + '"><path d="M12 1.6L22.4 12 12 22.4 1.6 12z" fill="#fff" stroke="#D32F2F" stroke-width="1.9"/>' + g[1] + '</svg>';
+  return '<img class="ghs" src="ghs-' + k + '.svg" width="' + size + '" height="' + size + '" alt="' + esc(g[0]) + '">';
 }
 PLAT_PAGES.chem = function () {
   setTitle('危害性化學品');
@@ -841,7 +836,7 @@ function chemOpen(i) {
   var x = S.chem.list[i]; if (!x) return;
   var dd = document.createElement('div'); dd.id = 'pDlg'; dd.className = 'dlg';
   var row = function (k, v) { return v ? '<div class="chr"><b>' + esc(k) + '</b><span>' + esc(v) + '</span></div>' : ''; };
-  dd.innerHTML = '<div class="bx chd"><div class="mr"><b class="chn">' + esc(x.name) + '</b><button class="lnk" onclick="$(\'pDlg\').remove()">' + ic('x', 20, 2.6) + '</button></div>' +
+  dd.innerHTML = '<div class="bx chd"><div class="mr"><b class="chn">' + esc(x.name) + '</b><button class="chclose" aria-label="關閉" onclick="$(\'pDlg\').remove()">' + ic('x', 26, 2.8) + '</button></div>' +
     (x.other ? '<div class="muted">' + esc(x.other) + '</div>' : '') +
     (x.pic.length ? '<div class="chpics">' + x.pic.map(function (k) { return '<span>' + ghsIcon(k, 46) + '<small>' + esc(GHS_PIC[k][0]) + '</small></span>'; }).join('') + '</div>' : '') +
     (x.flag ? '<div class="chf">' + x.flag.split('、').map(function (f) { return '<span>' + esc(f) + '</span>'; }).join('') + '</div>' : '') +

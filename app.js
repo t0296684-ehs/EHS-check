@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.1';
+var APP_VERSION = '0.13.2';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -400,6 +400,16 @@ function render() {
   drawTop();
 }
 function netTag() { var on = navigator.onLine; return '<span class="net' + (on ? '' : ' off') + '" id="net"><i></i>' + (on ? '已連線' : '離線') + '</span>'; }
+/** 頁面最上方的常用鈕：通知固定在最右上角（有未讀顯示數字），使用教學、設定在它左邊。 */
+function bellBtn() {
+  var n = (S.me && S.me.unread) || 0;
+  return '<button class="tact" aria-label="通知" onclick="go(\'notice\')">' + ic('bell', 22, 2.3) + '<small>通知</small>' + (n ? '<i class="tbadge">' + (n > 99 ? '99+' : n) + '</i>' : '') + '</button>';
+}
+function heroTop() {
+  return '<div class="htop">' + netTag() + '<span class="htsp"></span>' + (window.menuBtn && S.cur !== 'menu' ? menuBtn() : '') +
+    '<button class="tact" aria-label="使用教學" onclick="go(\'guide\')">' + ic('info', 22, 2.3) + '<small>教學</small></button>' +
+    '<button class="tact" aria-label="設定" onclick="go(\'settings\')">' + ic('sliders', 22, 2.3) + '<small>設定</small></button>' + bellBtn() + '</div>';
+}
 function drawTop() {
   var t = $('top');
   if (S.hero) { t.className = 'hero'; t.innerHTML = devBanner() + S.hero; return; }
@@ -408,7 +418,7 @@ function drawTop() {
   var mb = !showBack && S.me && !S.share && window.menuBtn && ['login', 'url', 'proxy', 'sign', 'psign', 'menu'].indexOf(S.cur) < 0 ? menuBtn() : '';
   t.className = 'topbar';
   t.innerHTML = devBanner() + '<div class="tb">' + (showBack ? '<button class="tb-back" id="back" aria-label="返回" onclick="back()">' + ic('back', 24, 2.6) + '</button>' : '<span class="tb-sp"></span>') +
-    '<div class="tb-t"><div class="tb-ttl" id="ttl">' + esc(S.title) + '</div>' + (S.me ? '<div class="tb-sub">' + esc(whoLine()) + '</div>' : '') + '</div>' + mb + netTag() + '</div>' + (S.topExtra || '');
+    '<div class="tb-t"><div class="tb-ttl" id="ttl">' + esc(S.title) + '</div>' + (S.me ? '<div class="tb-sub">' + esc(whoLine()) + '</div>' : '') + '</div>' + mb + netTag() + (S.me && !S.share && ['login', 'url', 'proxy', 'sign', 'psign', 'notice'].indexOf(S.cur) < 0 ? bellBtn() : '') + '</div>' + (S.topExtra || '');
 }
 function setTitle(t) { S.title = t; document.title = t === '員和環安衛系統' ? t : t + '｜員和環安衛系統'; }
 function bar(html) { $('bar').innerHTML = '<div class="bar"><div class="in">' + html + '</div></div>'; padBar(); }
@@ -854,7 +864,7 @@ PAGES.home = function () {
     var parts = []; if (ok) parts.push(ok + ' 張已上傳'); if (up) parts.push(up + ' 張待上傳'); if (todo.length) parts.push(todo.length + ' 張還沒做');
     hs += '<div class="dbar" aria-hidden="true">' + segs + '</div><div class="hnote">每日檢點 ' + daily.length + ' 張：' + parts.join('、') + '</div>';
   }
-  S.hero = '<div class="hero-in"><div class="hi"><div class="hn"><div class="h1">' + greet() + '，' + esc(m.person.name) + '</div><div class="hsub">' + esc(sub) + '</div></div>' + menuBtn() + netTag() + '</div>' +
+  S.hero = '<div class="hero-in">' + heroTop() + '<div class="hi"><div class="hn"><div class="h1">' + greet() + '，' + esc(m.person.name) + '</div><div class="hsub">' + esc(sub) + '</div></div></div>' +
     '<div class="hs">' + hs + '</div></div>';
 
   // 內容
@@ -900,14 +910,11 @@ PAGES.home = function () {
   if (mgr || ehs) tl += tile('swap', '部門管理', "S.team=null;go('team')", '', '人員、表單、設備與負責人');
   if (ehs) tl += tile('bell', '廣播', "S.bc=null;go('bc')", '', '發通知給指定的人');
   tl += tile('warn', '異常追蹤', "S.tk=null;go('track')", m.tracksOpen ? pill('ng', '', m.tracksOpen + ' 件待改善') : '', '異常改善與結案');
-  tl += tile('bell', '通知', "go('notice')", m.unread ? pill('ng', '', m.unread + ' 則未讀') : '');
   if (!ehs) { var d1 = m.depts.length === 1 ? m.depts[0].id : '';
     if (d1 && demoDept(d1)) tl += tile('cal', '月曆', goMonth(d1, t.slice(0, 7)), '', '本月每天的紀錄');
     else tl += tile('cal', '月曆・補填', d1 ? goMonth(d1, t.slice(0, 7)) : "go('months')", '', d1 ? '本月每天的紀錄，漏填的點日期補' : '選部門看月曆、補填'); }
   tl += tile('review', '月結紀錄', "go('months')");
-  tl += tile('info', '使用教學', "go('guide')", '', '一步一步看怎麼操作');
   tl += tile('clock', '提醒設定', "go('remind')");
-  tl += tile('sliders', '設定', "go('settings')");
   h += '<div class="tiles">' + tl + '</div><div class="ver">v' + APP_VERSION + '</div>';
   $('app').innerHTML = h;
 };
