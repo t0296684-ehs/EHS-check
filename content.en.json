@@ -338,7 +338,7 @@
      "steps": [
       "Switch forms at the top to see the calendar or item table; for periodic inspections open the <b>photos</b> and notes.",
       "If all is fine tap <b>\"Approve and sign\"</b>; your signature is added and a PDF is created.",
-      "If there is a problem tap <b>\"Return\"</b> with a reason; inspectors fix it and resend."
+      "If something is wrong, tap <b>\"Return\"</b> and tell the inspector in person what to fix; they fix it and resend."
      ],
      "tip": "",
      "warn": false
@@ -448,7 +448,7 @@
   ],
   [
    "New app version?",
-   "Go back to Home when done and the app updates itself; records not yet uploaded are kept."
+   "When \"New app version\" pops up, tap \"Restart app\". Records not yet uploaded are kept."
   ],
   [
    "Can't see a form?",
@@ -462,5 +462,18 @@
    "Must every issue be closed?",
    "Yes. It stays in \"Issue tracking\" until a corrective action is recorded; supervisors and EHS see how many are open."
   ]
- ]
+ ],
+ "demoHide": {
+  "secs": [
+   "2-2"
+  ],
+  "steps": {
+   "2-7": [
+    1
+   ]
+  },
+  "faq": [
+   4
+  ]
+ }
 }
