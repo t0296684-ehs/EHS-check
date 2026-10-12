@@ -21,6 +21,7 @@ var MODS = [
   { key: 'env', name: '環保抄表', icon: 'wind', page: 'env', color: '#1C5FB0' },
   { key: 'cons', name: '施工申請', icon: 'helmet', page: 'cons', color: '#B45309' },
   { key: 'edu', name: '環安衛教育訓練', icon: 'book', page: 'edu', color: '#6B4FA0' },
+  { key: 'chem', name: '危害性化學品', icon: 'flask', page: 'chem', color: '#C62828', hide: true },   // 後端有清單才顯示
   { key: 'patrol', name: '現場巡視', icon: 'review', page: 'patrol', color: '#9A3A06', hide: true },   // hide：沒權限的人不顯示（環安衛專用）
 ];
 function plat() { return (S.me && S.me.plat) || null; }
@@ -64,10 +65,11 @@ PLAT_PAGES.menu = function () {
     check: checkSub(),
     env: '空污・水污',
     cons: '給廠商的申請連結・我承辦的案件',
-    edu: p.eduUnread ? p.eduUnread + ' 則還沒看' : '教育訓練與衛教文宣',
-    patrol: p.patrolN ? '本月已巡視 ' + p.patrolN + ' 次' : '本月還沒巡視（EF-00-012-A）',
+    edu: p.eduReady ? p.eduReady + ' 堂全員完成・待您確認匯入 NAS' : p.eduUnread ? p.eduUnread + ' 則還沒看' : '教育訓練與衛教文宣',
+    chem: '查作業現場的化學品與危害',
+    patrol: p.patrolN ? '本月已巡視 ' + p.patrolN + ' 次' : '本月還沒巡視（EF-00-012-B）',
   };
-  var badge = { check: (m.tracksOpen && !isEhs() ? m.tracksOpen : 0), edu: p.eduUnread, patrol: p.mods && p.mods.patrol && !p.patrolN && Number(today().slice(8)) >= 15 ? '!' : 0 };
+  var badge = { check: (m.tracksOpen && !isEhs() ? m.tracksOpen : 0), edu: p.eduReady ? '!' : p.eduUnread, patrol: p.mods && p.mods.patrol && !p.patrolN && Number(today().slice(8)) >= 15 ? '!' : 0 };
   var h = '<div class="mcards">' + MODS.filter(function (x) { return !x.hide || modOn(x.key); }).map(function (x) {
     var on = modOn(x.key);
     return '<button class="mcard' + (on ? '' : ' locked') + '" style="--c:' + x.color + '" onclick="' + (on ? 'goMod(' + jsq(x.key) + ')' : 'permAsk(' + jsq(x.key) + ')') + '">' +
@@ -506,7 +508,7 @@ PLAT_PAGES.eduPost = function () {
   var b = S.ep, course = b.cat === '教育訓練', h = '';
   h += '<div class="sec">1. 類別</div><div class="seg">' + ['教育訓練', '衛教文宣'].map(function (c) {
     return '<button class="' + (b.cat === c ? 'on' : '') + '" onclick="S.ep.cat=' + jsq(c) + ';S.ep.needAck=' + (c === '教育訓練') + ';render()">' + c + '</button>'; }).join('') + '</div>' +
-    '<div class="muted sm2">' + (course ? '教育訓練：同仁看完、作答後按「我已完成」，自動寫進教育訓練簽到表。' : '衛教文宣：看就好，不簽到。') + '</div>';
+    '<div class="muted sm2">' + (course ? '教育訓練＝要簽到表：同仁看完按「我已完成」自動簽到；全員完成後您確認，電腦產生 P-05-01-A 簽到表放 NAS。' : '衛教文宣＝不出簽到表：只在「閱讀紀錄」看誰還沒看過。') + '</div>';
   h += '<div class="sec">2. 內容</div><div class="card ev"><label class="nl" for="epT">標題</label><input id="epT" class="field" maxlength="60" placeholder="例：有機溶劑危害告知" value="' + esc(b.title) + '" oninput="S.ep.title=this.value;epBar()">' +
     '<label class="nl" for="epB">說明</label><textarea id="epB" class="note plain" maxlength="3000" placeholder="重點、要注意的事" oninput="S.ep.body=this.value;epBar()">' + esc(b.body) + '</textarea>';
   if (course) h += '<div class="btns r3"><div><label class="nl" for="epH">時數</label><input id="epH" class="field" inputmode="decimal" placeholder="1" value="' + esc(b.hours) + '" oninput="S.ep.hours=this.value"></div>' +
@@ -787,9 +789,73 @@ function pvSend() {
   }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 5000); });
 }
 
+// ───────────── 危害性化學品（v0.13.1）：查自己部（PU／BU）的危害性化學品，點進去看危害重點 ─────────────
+// 資料來自 NAS 危害性化學品清單，電腦排程整理後上傳，約一季更新一次；手機只讀。
+var GHS_PIC = {        // GHS 圖示：紅框菱形＋簡化符號（員工一眼認得）
+  flame: ['易燃', '<path d="M12 6c1.6 2.2 3.6 3.6 3.6 6.4a3.6 3.6 0 0 1-7.2 0c0-1.4.6-2.4 1.4-3.2.2 1.2.8 2 1.6 2.2-.4-2.4.2-4 .6-5.4z" fill="#111" stroke="none"/>'],
+  oxid: ['助燃', '<circle cx="12" cy="13.5" r="3" fill="none" stroke="#111" stroke-width="1.6"/><path d="M12 5.5c1 1.4 2 2.4 2 4a2 2 0 0 1-4 0c0-1.6 1-2.6 2-4z" fill="#111" stroke="none"/>'],
+  explode: ['爆炸', '<circle cx="12" cy="13" r="2.6" fill="#111" stroke="none"/><path d="M12 6v3M7 8l2 2.4M17 8l-2 2.4M6 13h3M15 13h3" stroke="#111" stroke-width="1.6"/>'],
+  gas: ['高壓氣體', '<rect x="9" y="7" width="6" height="11" rx="3" fill="#111" stroke="none"/><path d="M11 5.5h2v2h-2z" fill="#111" stroke="none"/>'],
+  corrode: ['腐蝕', '<path d="M7 7l2 3M10 6l1 3M6 15h12M8 15v3h8v-3" stroke="#111" stroke-width="1.6" fill="none"/>'],
+  skull: ['劇毒', '<circle cx="12" cy="10.5" r="3.6" fill="#111" stroke="none"/><path d="M10.4 14.5h3.2v2h-3.2zM7 17l10-3M7 14l10 3" stroke="#111" stroke-width="1.4"/>'],
+  health: ['健康危害', '<circle cx="12" cy="8" r="1.8" fill="#111" stroke="none"/><path d="M9 18l1-7h4l1 7M10 13.5l2 1.5 2-1.5" stroke="#111" stroke-width="1.6" fill="none"/>'],
+  warn: ['有害／刺激', '<path d="M12 7v6.5" stroke="#111" stroke-width="2.4"/><circle cx="12" cy="16.6" r="1.3" fill="#111" stroke="none"/>'],
+  env: ['危害環境', '<path d="M6 17h12M8 17V9l3 4 2-6 3 10" stroke="#111" stroke-width="1.5" fill="none"/>'],
+};
+function ghsIcon(k, size) {
+  var g = GHS_PIC[k]; if (!g) return '';
+  return '<svg class="ghs" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-label="' + esc(g[0]) + '"><path d="M12 1.6L22.4 12 12 22.4 1.6 12z" fill="#fff" stroke="#D32F2F" stroke-width="1.9"/>' + g[1] + '</svg>';
+}
+PLAT_PAGES.chem = function () {
+  setTitle('危害性化學品');
+  var C = S.chem;
+  if (!C) {
+    $('app').innerHTML = loading('讀取中…');
+    api('chemList', {}).then(function (r) { S.chem = r; S.chemQ = ''; S.chemP = r.parts[0] || 'PU'; if (S.page === 'chem') render(); })
+      .catch(function (e) { $('app').innerHTML = errBox('讀不到化學品清單', e.message); });
+    return;
+  }
+  var q = (S.chemQ || '').trim().toLowerCase(), part = C.parts.length > 1 ? S.chemP : C.parts[0];
+  var list = C.list.filter(function (x) { return x.part === part && (!q || (x.name + ' ' + x.other + ' ' + x.cas + ' ' + x.idx + ' ' + x.use).toLowerCase().indexOf(q) >= 0); });
+  var h = '<div class="card chh"><div class="chm"><b>' + (part === 'PU' ? 'PU 部' : 'BU 建材部') + '</b><span>' + '共 ' + C.list.filter(function (x) { return x.part === part; }).length + ' 項' + '</span>' +
+    (C.updated ? '<span>' + esc(md(C.updated)) + '</span><span>更新</span>' : '') + '</div><div class="muted sm2">點一項看危害重點；SDS 正本在現場資料夾，依「索引碼」找。</div>' +
+    (C.parts.length > 1 ? '<div class="seg2">' + C.parts.map(function (p) { return '<button class="' + (p === part ? 'on' : '') + '" onclick="S.chemP=' + jsq(p) + ';render()">' + esc(p === 'PU' ? 'PU 部' : 'BU 建材部') + '</button>'; }).join('') + '</div>' : '') +
+    '<input id="chQ" class="field" type="search" placeholder="搜尋品名、CAS、索引碼" value="' + esc(S.chemQ || '') + '" oninput="S.chemQ=this.value;chemList()"></div>';
+  h += '<div id="chL"></div>';
+  $('app').innerHTML = h;
+  chemList();
+};
+function chemList() {
+  var C = S.chem, q = (S.chemQ || '').trim().toLowerCase(), part = C.parts.length > 1 ? S.chemP : C.parts[0];
+  var list = C.list.filter(function (x) { return x.part === part && (!q || (x.name + ' ' + x.other + ' ' + x.cas + ' ' + x.idx + ' ' + x.use).toLowerCase().indexOf(q) >= 0); });
+  var el = $('chL'); if (!el) return;
+  var grp = null;
+  el.innerHTML = list.length ? list.map(function (x) {
+    var i = C.list.indexOf(x), head = '';
+    if (x.sheet !== grp) { head = (grp === null ? '' : '</div>') + '<div class="chg">' + esc(x.sheet) + '</div><div class="list">'; grp = x.sheet; }
+    return head + '<button class="li chi" onclick="chemOpen(' + i + ')"><span class="mn"><span class="nm">' + esc(x.name) + '</span><span class="mt">' + (x.other ? '<span>' + esc(x.other) + '</span>' : '') + (x.idx ? '<span class="chx"><i>索引碼</i> ' + esc(x.idx) + '</span>' : '') + '</span></span>' +
+      '<span class="chp">' + (x.pic.length ? x.pic.slice(0, 3).map(function (k) { return ghsIcon(k, 26); }).join('') : '') + '</span>' + ic('chev', 18, 2.6) + '</button>';
+  }).join('') + '</div>' : '<div class="empty">' + (q ? '找不到「' + esc(S.chemQ) + '」' : '目前沒有資料') + '</div>';
+}
+function chemOpen(i) {
+  var x = S.chem.list[i]; if (!x) return;
+  var dd = document.createElement('div'); dd.id = 'pDlg'; dd.className = 'dlg';
+  var row = function (k, v) { return v ? '<div class="chr"><b>' + esc(k) + '</b><span>' + esc(v) + '</span></div>' : ''; };
+  dd.innerHTML = '<div class="bx chd"><div class="mr"><b class="chn">' + esc(x.name) + '</b><button class="lnk" onclick="$(\'pDlg\').remove()">' + ic('x', 20, 2.6) + '</button></div>' +
+    (x.other ? '<div class="muted">' + esc(x.other) + '</div>' : '') +
+    (x.pic.length ? '<div class="chpics">' + x.pic.map(function (k) { return '<span>' + ghsIcon(k, 46) + '<small>' + esc(GHS_PIC[k][0]) + '</small></span>'; }).join('') + '</div>' : '') +
+    (x.flag ? '<div class="chf">' + x.flag.split('、').map(function (f) { return '<span>' + esc(f) + '</span>'; }).join('') + '</div>' : '') +
+    '<div class="chsec">危害分類</div>' + (x.haz.length ? '<ul class="chz">' + x.haz.map(function (h) { return '<li>' + esc(h) + '</li>'; }).join('') + '</ul>' :
+      '<div class="muted">系統讀不到這份 SDS 的危害分類，請看現場 SDS 第二項。</div><div class="chr"><b>SDS 索引碼</b><span>' + esc(x.idx || '—') + '</span></div>') +
+    '<div class="chsec">基本資料</div>' + row('SDS 索引碼', x.idx) + row('CAS No.', x.cas) + row('使用情形', x.use) + row('製造商／供應商', x.maker) + row('清單分頁', x.sheet) +
+    '<div class="tip">作業前看 SDS 第八項（防護具）、第四項（急救）；不舒服馬上告訴主管。</div></div>';
+  document.body.appendChild(dd);
+  dd.addEventListener('click', function (e) { if (e.target === dd) dd.remove(); });
+}
+
 // ───────────── 開發者模式（環安衛）：用任何同仁的畫面操作、找出他卡在哪一步；只看不送出 ─────────────
 // 只讀的動作帶 viewAs 給後端；會寫入的（送出、簽名、核准、上傳…）在手機上就攔下，後端也只放行這份清單。
-var DEV_READ = ['me', 'overview', 'notices', 'dayView', 'monthView', 'packages', 'tracks', 'photoGet', 'getPdf', 'team', 'nextList',
+var DEV_READ = ['me', 'chemList', 'overview', 'notices', 'dayView', 'monthView', 'packages', 'tracks', 'photoGet', 'getPdf', 'team', 'nextList',
                 'eduList', 'eduGet', 'eduFile', 'consCases', 'envMe', 'envMonth', 'ping'];
 var DEV_SELF = ['bootstrap', 'devLogs'];                       // 這些用開發者自己的身分
 function devBanner() {

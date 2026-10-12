@@ -1,5 +1,5 @@
 {
- "version": "0.13.0",
+ "version": "0.13.1",
  "chapters": [
   {
    "no": 1,
@@ -711,6 +711,41 @@
       "The approver can <b>\"Confirm\"</b> or <b>\"Return\"</b>; returned months can be corrected and sent again."
      ],
      "tip": "",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 9,
+   "title": "Hazardous chemicals",
+   "who": "Everyone",
+   "color": "#C62828",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "9-1",
+     "title": "Look up chemicals at your workplace",
+     "lead": "Tap \"Hazardous chemicals\" in the main menu to see every chemical on your division's list (PU or BU).",
+     "shots": [
+      [
+       "c01_化學品清單",
+       "Grouped like the list, with search"
+      ],
+      [
+       "c02_化學品明細",
+       "Tap to see the key hazards"
+      ]
+     ],
+     "steps": [
+      "Tap <b>\"Hazardous chemicals\"</b> in the main menu and scroll; you can also search by name, CAS or index code.",
+      "The red diamonds on the right are GHS hazard pictograms (flammable, corrosive, health hazard…).",
+      "Tap an item to see its <b>hazard classes</b> and basic info; the original SDS is in the binder on site — find it by the <b>index code</b>."
+     ],
+     "tip": "EHS updates the list every quarter and the App switches to the new one automatically. Before work, read SDS section 8 (protective equipment) and section 4 (first aid).",
      "warn": false
     }
    ]
