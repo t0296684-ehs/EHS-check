@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.12.0';
+var APP_VERSION = '0.13.0';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -1179,7 +1179,7 @@ PAGES.trackFix = function () {
   h += '<div class="card ev"><label class="nl req" for="tfFix">改善措施（做了什麼處理）</label>' +
     '<textarea id="tfFix" class="note plain" placeholder="例：已更換洗眼器加壓閥，試水壓正常" oninput="S.tf.fix=this.value;tfBar()">' + esc(tf.fix) + '</textarea>' +
     '<label class="nl" for="tfDate">改善完成日期</label><input type="date" id="tfDate" class="field" value="' + esc(tf.date) + '" min="' + esc(first) + '" max="' + today() + '" onchange="S.tf.date=this.value">' +
-    '<label class="nl">改善後照片（選填）</label><div class="pics">' + tf.pics.map(function (p, i) {
+    '<label class="nl' + (x.form === 'PATROL' ? ' req' : '') + '">改善後照片' + (x.form === 'PATROL' ? '（現場巡視缺失要附，會放進查核紀錄附頁）' : '（選填）') + '</label><div class="pics">' + tf.pics.map(function (p, i) {
       return '<div class="pic"><img src="' + esc(p.t) + '" alt="改善照片 ' + (i + 1) + '"><button class="px" aria-label="移除這張" onclick="S.tf.pics.splice(' + i + ',1);keepY(render)">' + ic('x', 16, 3) + '</button></div>';
     }).join('') + (tf.pics.length < 3 ? '<label class="pic add">' + ic('plus', 26, 2.6) + '<span>拍照／選照片</span><input type="file" accept="image/*" capture="environment" hidden onchange="tfPick(this)"></label>' : '') + '</div></div>';
   $('app').innerHTML = h;
@@ -1187,13 +1187,14 @@ PAGES.trackFix = function () {
 };
 function tfBar() {
   if (S.page !== 'trackFix') return;
-  var n = String(S.tf.fix || '').replace(/\s/g, '').length;
-  bar('<button class="btn"' + (n >= 5 ? '' : ' disabled') + ' onclick="tfSave()">' + ic('check', 22, 2.8) + (n >= 5 ? '改善完成，結案' : '寫好改善措施就能結案（至少 5 個字）') + '</button>');
+  var n = String(S.tf.fix || '').replace(/\s/g, '').length, x = S.tk.open.filter(function (y) { return y.id === S.tf.id; })[0];
+  var pic = !(x && x.form === 'PATROL') || S.tf.pics.length > 0, go_ = n >= 5 && pic;   // 現場巡視缺失要附改善後照片
+  bar('<button class="btn"' + (go_ ? '' : ' disabled') + ' onclick="tfSave()">' + ic('check', 22, 2.8) + (go_ ? '改善完成，結案' : n < 5 ? '寫好改善措施就能結案（至少 5 個字）' : '附上改善後照片就能結案') + '</button>');
 }
 function tfPick(inp) {
   var file = inp.files && inp.files[0]; inp.value = '';
   var x = S.tk.open.filter(function (y) { return y.id === S.tf.id; })[0], tf = S.tf;
-  photoUp(file, { deptId: x.dept, formId: x.form, purpose: 'fix' }, function (p) { if (S.tf !== tf) return; tf.pics.push(p); keepY(render); });
+  photoUp(file, { deptId: x.dept, formId: x.form, purpose: 'fix' }, function (p) { if (S.tf !== tf) return; tf.pics.push(p); keepY(render); tfBar(); });
 }
 function tfSave() {
   var tf = S.tf;
@@ -1217,7 +1218,9 @@ PAGES.guide = function () {
   setTitle('使用教學');
   if (!S.guide) {
     $('app').innerHTML = loading('讀取教學…');
-    var gl = window.I18N && I18N.lang() !== 'zh' ? I18N.lang() : '', gget = function (f) { return fetch('guide/' + f + '?v=' + APP_VERSION, { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); };
+    var gl = window.I18N && I18N.lang() !== 'zh' ? I18N.lang() : '', gget = function (f) {   // GitHub 網頁上傳會把資料夾攤平：先讀根目錄，讀不到再讀 guide/
+      var one = function (u) { return fetch(u + '?v=' + APP_VERSION, { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); };
+      return one(f).catch(function () { return one('guide/' + f); }); };
     (gl ? gget('content.' + gl + '.json').catch(function () { return gget('content.json'); }) : gget('content.json'))   // 英文／泰文教學；沒有就用中文
       .then(function (j) { S.guide = j; if (S.page === 'guide') render(); })
       .catch(function () { $('app').innerHTML = '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">教學要連上網路才能看，請稍後再試。</div></div></div></div>'; });
@@ -1244,7 +1247,7 @@ function guideSec(id) {
   var h = '<div class="gtag" style="--c:' + esc(c.color) + '">第 ' + c.no + ' 章　' + esc(c.title) + '</div><h2 class="gh">' + esc(x.title) + '</h2>' +
     (x.lead ? '<p class="glead">' + esc(x.lead) + '</p>' : '');
   h += '<div class="gshots">' + x.shots.map(function (s) {
-    return '<figure><img src="guide/w/' + esc(s[0]) + '.webp?v=' + APP_VERSION + '" alt="' + esc(s[1]) + '" loading="lazy"><figcaption>' + esc(s[1]) + '</figcaption></figure>';
+    return '<figure><img src="' + esc(s[0]) + '.webp?v=' + APP_VERSION + '" onerror="this.onerror=null;this.src=\'guide/w/' + esc(s[0]) + '.webp?v=' + APP_VERSION + '\'" alt="' + esc(s[1]) + '" loading="lazy"><figcaption>' + esc(s[1]) + '</figcaption></figure>';
   }).join('') + '</div>' + (x.shots.length > 1 ? '<div class="hint gsw">← 左右滑動看 ' + x.shots.length + ' 張畫面 →</div>' : '');
   var hideSt = (gHide().steps || {})[x.no] || [];
   h += '<ol class="gst">' + x.steps.filter(function (s, k) { return hideSt.indexOf(k) < 0; }).map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ol>';     // 內容是我們自己寫的教學文字（含 <b> 粗體）
@@ -1521,7 +1524,8 @@ function photoUp(file, body, done) {
       c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s); var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
       return { u: c.toDataURL('image/jpeg', q), w: c.width, h: c.height }; };
     var big = sc(1600, 0.72), th = sc(240, 0.6);
-    api('photoUp', Object.assign({ image: big.u, w: big.w, h: big.h }, body)).then(function (r) { busyOff(); done({ id: r.id, t: th.u }); })
+    var act = body.__api || 'photoUp'; body = Object.assign({}, body); delete body.__api;   // 現場巡視用 patrolPhoto
+    api(act, Object.assign({ image: big.u, w: big.w, h: big.h }, body)).then(function (r) { busyOff(); done({ id: r.id, t: th.u }); })
       .catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
   };
   img.src = url;

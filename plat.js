@@ -21,6 +21,7 @@ var MODS = [
   { key: 'env', name: '環保抄表', icon: 'wind', page: 'env', color: '#1C5FB0' },
   { key: 'cons', name: '施工申請', icon: 'helmet', page: 'cons', color: '#B45309' },
   { key: 'edu', name: '環安衛教育訓練', icon: 'book', page: 'edu', color: '#6B4FA0' },
+  { key: 'patrol', name: '現場巡視', icon: 'review', page: 'patrol', color: '#9A3A06', hide: true },   // hide：沒權限的人不顯示（環安衛專用）
 ];
 function plat() { return (S.me && S.me.plat) || null; }
 function modOn(k) { var p = plat(); return p && p.mods ? !!p.mods[k] : (k === 'check' || k === 'edu'); }
@@ -64,9 +65,10 @@ PLAT_PAGES.menu = function () {
     env: '空污・水污',
     cons: '給廠商的申請連結・我承辦的案件',
     edu: p.eduUnread ? p.eduUnread + ' 則還沒看' : '教育訓練與衛教文宣',
+    patrol: p.patrolN ? '本月已巡視 ' + p.patrolN + ' 次' : '本月還沒巡視（EF-00-012-A）',
   };
-  var badge = { check: (m.tracksOpen && !isEhs() ? m.tracksOpen : 0), edu: p.eduUnread };
-  var h = '<div class="mcards">' + MODS.map(function (x) {
+  var badge = { check: (m.tracksOpen && !isEhs() ? m.tracksOpen : 0), edu: p.eduUnread, patrol: p.mods && p.mods.patrol && !p.patrolN && Number(today().slice(8)) >= 15 ? '!' : 0 };
+  var h = '<div class="mcards">' + MODS.filter(function (x) { return !x.hide || modOn(x.key); }).map(function (x) {
     var on = modOn(x.key);
     return '<button class="mcard' + (on ? '' : ' locked') + '" style="--c:' + x.color + '" onclick="' + (on ? 'goMod(' + jsq(x.key) + ')' : 'permAsk(' + jsq(x.key) + ')') + '">' +
       '<span class="mi">' + ic(x.icon, 30, 2.1) + '</span><span class="mx"><b>' + esc(x.name) + '</b><small>' + esc(on ? subs[x.key] : '沒有權限・點這裡申請') + '</small></span>' +
@@ -487,7 +489,8 @@ function eduDone() {
     }, '']]);
 }
 
-// 環安衛：發布（課程：時數、講師、期限、教材語言、測驗；文宣：要不要確認）
+// 環安衛：發布（課程：時數、講師、期限、主題、教材語言、測驗；文宣：要不要確認）
+var EDU_TOPICS = ['一般安全衛生教育訓練', '危害辨識教育訓練', '呼吸防護教育訓練', '安全防災教育訓練', '環安衛教育訓練', '堆高機回訓', '新進人員教育訓練'];
 PLAT_PAGES.eduPost = function () {
   setTitle('發布教育訓練');
   if (!isEhs()) return back();
@@ -495,7 +498,7 @@ PLAT_PAGES.eduPost = function () {
     $('app').innerHTML = loading('讀取人員名單…');
     api('bcPeople', {}).then(function (r) {
       S.ep = { depts: r.depts, cat: '教育訓練', title: '', body: '', link: '', files: [], mode: 'all', depts2: {}, names: {}, mgrOnly: false, needAck: true, mail: false, up: 0,
-               hours: '', teacher: S.me.person.name, due: '', quiz: [] };
+               hours: '', teacher: S.me.person.name, due: '', quiz: [], topic: '' };
       if (S.page === 'eduPost') render();
     }).catch(function (e) { $('app').innerHTML = errBox('讀不到人員名單', e.message); });
     return;
@@ -509,6 +512,8 @@ PLAT_PAGES.eduPost = function () {
   if (course) h += '<div class="btns r3"><div><label class="nl" for="epH">時數</label><input id="epH" class="field" inputmode="decimal" placeholder="1" value="' + esc(b.hours) + '" oninput="S.ep.hours=this.value"></div>' +
     '<div><label class="nl" for="epR">講師</label><input id="epR" class="field" value="' + esc(b.teacher) + '" oninput="S.ep.teacher=this.value"></div>' +
     '<div><label class="nl" for="epD">完成期限</label><input id="epD" class="field" type="date" value="' + esc(b.due) + '" onchange="S.ep.due=this.value"></div></div>';
+  if (course) h += '<label class="nl" for="epTp">主題（NAS 歷年教育訓練資料裡的資料夾名稱）</label><input id="epTp" class="field" list="eduTopics" placeholder="例：一般安全衛生教育訓練" value="' + esc(b.topic) + '" oninput="S.ep.topic=this.value">' +
+    '<datalist id="eduTopics">' + EDU_TOPICS.map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist><div class="muted sm2">簽到表與教材會放在 歷年教育訓練資料／民國年／主題；同主題的課會放同一個資料夾。</div>';
   h += '<label class="nl">' + (course ? '教材' : '附件') + '（PDF、JPG、PNG，每個 10MB 以內，最多 5 個）</label>' +
     (b.files.length ? '<div class="list">' + b.files.map(function (f, i) {
       return '<div class="li">' + ic(/^image/.test(f.mime) ? 'img' : 'pdf', 22, 2.2) + '<span class="mn"><span class="nm">' + esc(f.name) + '</span><span class="mt">' + fsz(f.size) + '</span></span>' +
@@ -578,7 +583,7 @@ function epSend() {
   if (b.mode !== 'name' && b.mgrOnly) to.roles = ['單位負責人'];
   busyOn('發布中…');
   api('eduPost', { cat: b.cat, title: b.title, body: b.body, link: b.link.trim(), files: b.files, to: to, needAck: b.needAck, mail: b.mail,
-                   hours: b.hours, teacher: b.teacher, due: b.due, quiz: b.quiz }).then(function (r) {
+                   hours: b.hours, teacher: b.teacher, due: b.due, quiz: b.quiz, topic: b.topic.trim() || b.title.trim() }).then(function (r) {
     busyOff(); toast('已發布給 ' + r.n + ' 人', 'ok', 3000); S.ep = null; S.edu = null; S.es = null; back();
   }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
 }
@@ -601,13 +606,185 @@ PLAT_PAGES.eduStats = function () {
       '<span class="nm">' + esc(x.title) + '</span><span class="mt">打開 ' + x.opened + '/' + x.n + (x.course ? '・完成 ' + x.done + '/' + x.n + (x.quiz ? '・測驗 ' + x.quiz + ' 題' : '') + (x.due ? '・期限 ' + md(x.due) : '') : x.needAck ? '・確認 ' + x.acked + '/' + x.n : '') + '</span>' +
       (op ? '<span class="mt' + (x.notDone.length ? ' wn' : '') + '">' + esc(x.notDone.length ? nd + x.notDone.join('、') : '全部都完成了') + '</span>' : '') + '</button>' +
       '<span class="cs2">' + pill(done === x.n ? 'ok' : 'warn', done === x.n ? 'check' : '', lab + done + '/' + x.n) +
+      (x.course ? (/^待匯出/.test(x.exported) ? pill('info', '', '待匯入 NAS') : /^已匯出/.test(x.exported) ? pill('ok', 'check', '已匯入 NAS') : '') : '') +
+      (x.course && x.done && !/^待匯出/.test(x.exported) ? '<button class="lnk" onclick="eduArch(' + jsq(x.id) + ',' + x.done + ',' + x.n + ')">' + (/^已匯出/.test(x.exported) ? '再匯入一次' : '確認簽到完成・匯入 NAS') + '</button>' : '') +
       '<button class="lnk" onclick="eduHide(' + jsq(x.id) + ',' + (off ? 'true' : 'false') + ')">' + (off ? '重新上架' : '下架') + '</button></span></div>';
   }).join('') + '</div><div class="muted upnote">完成紀錄存在後台「教育訓練簽到」分頁（含簽名），電腦每天匯出成 NAS 的教育訓練簽到表。</div>';
 };
+/** 確認簽到完成 → 待匯入；電腦每天 09:15 把簽到表（P-05-01-A，分 BU／PU，含簽名）與教材放進 NAS 歷年教育訓練資料／民國年／主題 */
+function eduArch(id, done, n) {
+  if (!confirm((done < n ? '還有 ' + (n - done) + ' 人沒完成，沒完成的不會列在簽到表。\n\n' : '') + '確認這堂課的簽到完成，匯入 NAS？\n電腦每天 09:15 會把簽到表（P-05-01-A，分 BU／PU）和教材放進「歷年教育訓練資料／民國年／主題」。')) return;
+  api('eduArchive', { id: id }).then(function (r) { S.es = null; toast('已確認，' + r.n + ' 人；明天 09:15 前匯入 NAS', 'ok', 4000); render(); })
+    .catch(function (e) { toast(esc(e.message), 'err', 4500); });
+}
 function eduHide(id, show) {
   if (!show && !confirm('下架後同仁就看不到這則（閱讀紀錄會保留）。確定下架？')) return;
   api('eduHide', { id: id, show: show }).then(function () { S.es = null; S.edu = null; toast(show ? '已重新上架' : '已下架', 'ok'); render(); })
     .catch(function (e) { toast(esc(e.message), 'err', 4000); });
+}
+
+// ───────────── 現場巡視（環安衛，OSH-17）：EF-00-012-B 現場查核紀錄表 ─────────────
+// 巡視清單（本月幾次、近 12 個月）→ 開始巡視：基本資料、16 項 ○／×／－、× 的項目填缺失：
+// 責任單位（BU A～C 區、PU 製1～製5…）、常見缺失與法規條號都用點的，自己再補文字與照片 → 送出：缺失自動開「異常追蹤」；
+// 紀錄由電腦填回 EF-00-012-B 存 NAS，缺失全部改善完成後再存一份「改善完成」版。
+var PV_KEY = 'chk.patrol';
+PLAT_PAGES.patrol = function () {
+  setTitle('現場巡視');
+  if (!modOn('patrol')) return back();
+  var P = S.pv;
+  if (!P) {
+    $('app').innerHTML = loading('讀取中…');
+    api('patrolInfo', {}).then(function (r) { S.pv = r; if (S.page === 'patrol') render(); })
+      .catch(function (e) { $('app').innerHTML = errBox('讀不到巡視紀錄', e.message); });
+    return;
+  }
+  var t = today(), ms = [], d = new Date(Number(t.slice(0, 4)), Number(t.slice(5, 7)) - 1, 1);
+  for (var i = 0; i < 12; i++) { ms.unshift(d.getFullYear() + '-' + pad(d.getMonth() + 1)); d.setMonth(d.getMonth() - 1); }
+  var draft = lsGet(PV_KEY, null);
+  var h = '<div class="card"><div class="mr"><b>本月巡視</b>' + (P.list.length ? pill('ok', 'check', P.list.length + ' 次') : pill('ng', '', '還沒巡視')) + '</div>' +
+    '<div class="pvm">' + ms.map(function (m) { var n = P.months[m] || 0; return '<span class="' + (n ? 'ok' : m < t.slice(0, 7) ? 'ng' : '') + '"><b>' + Number(m.slice(5)) + '月</b>' + n + '</span>'; }).join('') + '</div>' +
+    '<div class="muted sm2">EF-00-012-B 現場查核紀錄表：每月至少一次（可抽查部分區域）。缺失會自動開「異常追蹤」給責任單位，紀錄每天由電腦存進 NAS 08 款現場查核紀錄。</div></div>';
+  if (P.list.length) h += '<div class="sec">本月紀錄</div><div class="list">' + P.list.map(function (x) {
+    var st = !x.defects ? pill('ok', 'check', '全部符合') : x.closed >= x.defects ? pill('ok', 'check', '缺失已全部改善') : pill('warn', '', '已改善 ' + x.closed + ' / ' + x.defects);
+    return '<div class="li cs"><span class="mn"><span class="mt">' + esc(md(x.date) + ' ' + x.time + '・' + x.cat) + '</span><span class="nm">' + esc(x.areas.join('、')) + '</span>' +
+      '<span class="mt">' + esc(x.exported ? (/^已匯出/.test(x.exported) ? (/改善完成 已匯出/.test(x.exported) ? '已存 NAS（含改善完成版）' : '已存 NAS') : x.exported) : '等電腦存 NAS') + '</span></span>' + st + '</div>';
+  }).join('') + '</div>';
+  $('app').innerHTML = h;
+  bar('<button class="btn" onclick="pvStart()">' + ic('review', 22, 2.4) + (draft ? '繼續填寫巡視（' + md(draft.date) + '）' : '開始巡視') + '</button>');
+};
+function pvStart() {
+  var d = lsGet(PV_KEY, null), now = new Date(), U = S.pv.units.map(function (u) { return u.name; });
+  if (!d) d = { date: today(), time: pad(now.getHours()) + ':' + pad(now.getMinutes()) + '～', cat: S.pv.cats[0], areas: [], with_: '', res: {}, defects: [] };
+  d.areas = (d.areas || []).filter(function (a) { return U.indexOf(a) >= 0; });            // 舊版草稿的區域（PU 部、BU 部…）不沿用
+  if (S.pv.cats.indexOf(d.cat) < 0) d.cat = S.pv.cats[0];
+  d.defects = (d.defects || []).map(function (x) {
+    return { item: x.item, unit: U.indexOf(x.unit) >= 0 ? x.unit : '', place: x.place || '', picks: x.picks || [], extra: x.extra != null ? x.extra : (x.fact || ''),
+             laws: x.laws || [], lawNote: x.lawNote != null ? x.lawNote : (x.law || ''), due: x.due || '', photos: x.photos || [] };
+  });
+  delete d.cosign;
+  S.pd = d; go('patrolNew');
+}
+function pvSave() { if (S.pd && !S.dev) lsSet(PV_KEY, S.pd); }
+/** 一筆缺失的缺失事實＝點選的常見缺失＋自己補的文字 */
+function pvFact(x) {
+  var it = S.pv.items[x.item - 1], a = x.picks.map(function (k) { return it.d[k][0]; });
+  if (x.extra.trim()) a.push(x.extra.trim());
+  return a.join('；');
+}
+function pvUnitChips(on, click, only) {
+  var parts = [], us = S.pv.units.filter(function (u) { return !only || only.indexOf(u.name) >= 0; });
+  us.forEach(function (u) { if (parts.indexOf(u.part) < 0) parts.push(u.part); });
+  return parts.map(function (pt) {
+    return '<div class="pvg"><span class="pvgl">' + esc(pt) + '</span><div class="chips wrap">' + us.filter(function (u) { return u.part === pt; }).map(function (u) {
+      return '<button class="chip' + (on(u.name) ? ' on' : '') + '" onclick="' + click(u.name) + '">' + esc(u.name.replace(/^(BU|PU) /, '')) + '</button>';
+    }).join('') + '</div></div>';
+  }).join('');
+}
+function pvLawName(c) { return String(c).replace('§', ' 第 ') + ' 條'; }
+PLAT_PAGES.patrolNew = function () {
+  setTitle('現場巡視');
+  var P = S.pv, d = S.pd; if (!P || !d) return back();
+  var h = '<div class="sec">一、巡視基本資料</div><div class="card ev">' +
+    '<div class="btns"><div><label class="nl" for="pvD">巡視日期</label><input id="pvD" class="field" type="date" max="' + today() + '" value="' + esc(d.date) + '" onchange="S.pd.date=this.value;pvSave()"></div>' +
+    '<div><label class="nl" for="pvT">巡視時間</label><input id="pvT" class="field" value="' + esc(d.time) + '" placeholder="09:00～10:00" oninput="S.pd.time=this.value;pvSave()"></div></div>' +
+    '<label class="nl">巡視類別</label><div class="chips wrap">' + P.cats.map(function (c) { return '<button class="chip' + (d.cat === c ? ' on' : '') + '" onclick="S.pd.cat=' + jsq(c) + ';pvSave();keepY(render)">' + esc(c) + '</button>'; }).join('') + '</div>' +
+    '<label class="nl">巡視區域（可複選；抽查就勾這次去的區域）</label>' +
+    pvUnitChips(function (n) { return d.areas.indexOf(n) >= 0; }, function (n) { return 'pvArea(' + jsq(n) + ')'; }) +
+    '<label class="nl" for="pvW">會同人員（選填）</label><input id="pvW" class="field" value="' + esc(d.with_) + '" placeholder="例：曾柏維（BU）" oninput="S.pd.with_=this.value;pvSave()"></div>';
+  var n = P.items.filter(function (x, i) { return d.res[i + 1]; }).length;
+  h += '<div class="sec">二、查核重點<small>' + n + ' / ' + P.items.length + '</small></div><button class="btn ghost" onclick="pvAllOk()">' + ic('check', 18, 3) + '還沒填的全部「○ 符合」</button>' +
+    P.items.map(function (it, i) { var k = i + 1, v = d.res[k];
+      return '<div class="card pvi' + (v === 'ng' ? ' over' : '') + '" id="pv_' + k + '"><b>' + k + '. ' + esc(it.t) + '</b><div class="seg">' +
+        [['ok', '○ 符合'], ['ng', '× 待改善'], ['na', '－ 未實查']].map(function (o) { return '<button class="' + (v === o[0] ? 'on' + (o[0] === 'ng' ? ' ngc' : '') : '') + '" onclick="pvRes(' + k + ',' + jsq(o[0]) + ')">' + o[1] + '</button>'; }).join('') + '</div></div>';
+    }).join('');
+  var ngs = Object.keys(d.res).filter(function (k) { return d.res[k] === 'ng'; }).map(Number).sort(function (a, b) { return a - b; });
+  h += '<div class="sec">三、發現缺失與改善要求</div>';
+  if (!ngs.length) h += '<div class="muted upnote">打「×」的項目會在這裡填缺失。</div>';
+  d.defects.forEach(function (x, j) {
+    var it = P.items[x.item - 1], J = 'S.pd.defects[' + j + ']', u = P.units.filter(function (y) { return y.name === x.unit; })[0];
+    var few = d.areas.length && !x.allU && (!x.unit || d.areas.indexOf(x.unit) >= 0);   // 先只列這次巡視的區域，不夠再展開
+    h += '<div class="card ev pvd" id="pvd_' + j + '"><div class="mr"><b>缺失 ' + (j + 1) + '・第 ' + x.item + ' 項</b><button class="lnk" onclick="pvDelDef(' + j + ')">刪除</button></div><div class="muted sm2">' + esc(it.t) + '</div>' +
+      '<label class="nl">責任單位</label>' + pvUnitChips(function (nm) { return x.unit === nm; }, function (nm) { return J + '.unit=' + jsq(nm) + ';pvSave();keepY(render)'; }, few ? d.areas : null) +
+      (few ? '<button class="lnk" onclick="' + J + '.allU=1;keepY(render)">其他單位…</button>' : '') +
+      (u && !u.app ? '<div class="muted sm2">這個單位還沒用 App，缺失由環安衛中心追蹤。</div>' : '') +
+      '<label class="nl">缺失事實（點選，可複選）</label><div class="pvpk">' + it.d.map(function (p, k) { var on = x.picks.indexOf(k) >= 0;
+        return '<button class="pvp' + (on ? ' on' : '') + '" onclick="pvPick(' + j + ',' + k + ')">' + (on ? ic('check', 14, 3) : '') + '<span>' + esc(p[0]) + '</span>' + (p[1] ? '<small>' + esc(pvLawName(p[1])) + '</small>' : '') + '</button>'; }).join('') + '</div>' +
+      '<textarea class="note plain" placeholder="補充說明（選填）：位置、數量、看到的情形" oninput="' + J + '.extra=this.value;pvSave();pvBar()">' + esc(x.extra) + '</textarea>' +
+      '<label class="nl">法規依據（點選，可複選）</label><div class="chips wrap">' + it.law.map(function (c) { var on = x.laws.indexOf(c) >= 0;
+        return '<button class="chip' + (on ? ' on' : '') + '" onclick="pvLaw(' + j + ',' + jsq(c) + ')">' + esc(pvLawName(c)) + '</button>'; }).join('') + '</div>' +
+      '<input class="field" value="' + esc(x.lawNote) + '" placeholder="其他法規或公司規定（選填）" oninput="' + J + '.lawNote=this.value;pvSave()">' +
+      '<label class="nl">位置／設備（選填）</label><input class="field" value="' + esc(x.place) + '" placeholder="例：二樓攪拌區 3 號槽" oninput="' + J + '.place=this.value;pvSave()">' +
+      '<label class="nl">改善期限</label><div class="btns"><input class="field" type="date" value="' + esc(x.due) + '" onchange="' + J + '.due=this.value;pvSave();keepY(render)">' +
+      '<div class="chips wrap">' + [[7, '1 週'], [14, '2 週'], [30, '1 個月']].map(function (o) { return '<button class="chip' + (x.due === pvDue(o[0]) ? ' on' : '') + '" onclick="' + J + '.due=pvDue(' + o[0] + ');pvSave();keepY(render)">' + o[1] + '</button>'; }).join('') + '</div></div>' +
+      '<label class="nl">現場照片</label><div class="pics sm">' + x.photos.map(function (ph, k) { return '<div class="pic"><img src="' + esc(ph.t) + '" alt="照片"><button class="px" aria-label="移除這張" onclick="' + J + '.photos.splice(' + k + ',1);pvSave();keepY(render)">' + ic('x', 16, 3) + '</button></div>'; }).join('') +
+      (x.photos.length < 4 ? '<label class="pic add">' + ic('plus', 22, 2.6) + '<span>拍照</span><input type="file" accept="image/*" capture="environment" hidden onchange="pvPic(this,' + j + ')"></label>' : '') + '</div></div>';
+  });
+  if (ngs.length) h += '<div class="btns">' + ngs.map(function (k) { return '<button class="btn ghost" onclick="pvAddDef(' + k + ')">' + ic('plus', 16, 2.4) + '第 ' + k + ' 項再加一筆</button>'; }).join('') + '</div>';
+  h += '<div class="muted upnote">送出時帶入您的簽名（' + esc(S.me.person.name) + '）。</div>';
+  $('app').innerHTML = h;
+  pvBar();
+};
+function pvDue(n) { var x = new Date(S.pd.date + 'T00:00:00'); x.setDate(x.getDate() + n); return ymd(x); }
+function pvArea(a) { var d = S.pd, i = d.areas.indexOf(a); if (i >= 0) d.areas.splice(i, 1); else d.areas.push(a); pvSave(); keepY(render); }
+function pvRes(k, v) {
+  var d = S.pd; d.res[k] = v;
+  if (v === 'ng' && !d.defects.some(function (x) { return x.item === k; })) pvAddDef(k, true);
+  if (v !== 'ng') d.defects = d.defects.filter(function (x) { return x.item !== k || x.picks.length || x.extra.trim() || x.photos.length; });
+  pvSave(); keepY(render);
+}
+function pvAllOk() { var d = S.pd; for (var k = 1; k <= S.pv.items.length; k++) if (!d.res[k]) d.res[k] = 'ok'; pvSave(); keepY(render); }
+function pvAddDef(k, silent) {
+  var d = S.pd;
+  d.defects.push({ item: k, unit: d.areas.length === 1 ? d.areas[0] : '', place: '', picks: [], extra: '', laws: [], lawNote: '', due: pvDue(14), photos: [] });   // 只巡一個區域就先帶那個單位
+  d.defects.sort(function (a, b) { return a.item - b.item; });
+  pvSave(); if (!silent) keepY(render);
+}
+/** 點常見缺失：勾／取消，順便把對應的法條帶進「法規依據」（取消時，沒有其他勾選用到的條文就拿掉） */
+function pvPick(j, k) {
+  var x = S.pd.defects[j], it = S.pv.items[x.item - 1], i = x.picks.indexOf(k), law = it.d[k][1];
+  if (i >= 0) {
+    x.picks.splice(i, 1);
+    if (law && !x.picks.some(function (q) { return it.d[q][1] === law; })) x.laws = x.laws.filter(function (c) { return c !== law; });
+  } else {
+    x.picks.push(k); x.picks.sort(function (a, b) { return a - b; });
+    if (law && x.laws.indexOf(law) < 0) x.laws.push(law);
+  }
+  pvSave(); keepY(render);
+}
+function pvLaw(j, c) { var x = S.pd.defects[j], i = x.laws.indexOf(c); if (i >= 0) x.laws.splice(i, 1); else x.laws.push(c); pvSave(); keepY(render); }
+function pvDelDef(j) { if (!confirm('刪除這筆缺失？')) return; S.pd.defects.splice(j, 1); pvSave(); keepY(render); }
+function pvPic(inp, j) {
+  var file = inp.files && inp.files[0]; inp.value = '';
+  photoUp(file, { __api: 'patrolPhoto' }, function (p) { S.pd.defects[j].photos.push(p); pvSave(); keepY(render); });
+}
+function pvMissing() {
+  var d = S.pd, m = [];
+  if (!d.areas.length) m.push(['勾巡視區域', null]);
+  for (var k = 1; k <= S.pv.items.length; k++) if (!d.res[k]) { m.push(['第 ' + k + ' 項還沒填', 'pv_' + k]); break; }
+  d.defects.forEach(function (x, j) {
+    if (!x.unit) m.push(['缺失 ' + (j + 1) + ' 要選責任單位', 'pvd_' + j]);
+    else if (pvFact(x).replace(/\s/g, '').length < 4) m.push(['缺失 ' + (j + 1) + ' 要點選或寫缺失事實', 'pvd_' + j]);
+    else if (!x.due) m.push(['缺失 ' + (j + 1) + ' 要選改善期限', 'pvd_' + j]);
+  });
+  return m;
+}
+function pvBar() {
+  if (S.page !== 'patrolNew') return;
+  var m = pvMissing();
+  bar(m.length ? '<button class="btn" onclick="pvJump()">' + ic('down', 22, 2.6) + esc(m[0][0]) + '</button>' : '<button class="btn" onclick="pvSend()">' + ic('check', 22, 3) + '送出巡視紀錄</button>');
+}
+function pvJump() { var m = pvMissing()[0]; if (m && m[1] && $(m[1])) $(m[1]).scrollIntoView({ behavior: 'smooth', block: 'center' }); else toast(m ? m[0] : '', 'err'); }
+function pvSend() {
+  var d = S.pd;
+  if (S.dev) return devBlock('現場巡視紀錄');
+  if (!confirm('送出這次巡視？' + (d.defects.length ? '缺失會開「異常追蹤」通知責任單位。' : ''))) return;
+  if (!navigator.onLine) return toast('沒有網路，巡視紀錄要連上網路才能送出（已存在手機）', 'err', 4000);
+  busyOn('送出中…');
+  api('patrolSave', { date: d.date, time: d.time, cat: d.cat, areas: d.areas, with_: d.with_, results: d.res,
+    defects: d.defects.map(function (x) { return { item: x.item, unit: x.unit, place: x.place, fact: pvFact(x), laws: x.laws, lawNote: x.lawNote, due: x.due, photos: x.photos.map(function (p) { return p.id; }) }; }) }).then(function (r) {
+    busyOff(); lsDel(PV_KEY); S.pd = null; S.pv = null;
+    toast('已送出' + (r.tracks ? '，' + r.tracks + ' 項缺失已開異常追蹤' + (r.self && r.self.length ? '（' + r.self.join('、') + ' 由環安衛中心追蹤）' : '') : '，全部符合'), 'ok', 5000); back();
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 5000); });
 }
 
 // ───────────── 開發者模式（環安衛）：用任何同仁的畫面操作、找出他卡在哪一步；只看不送出 ─────────────

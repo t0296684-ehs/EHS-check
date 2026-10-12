@@ -1,5 +1,5 @@
 {
- "version": "0.12.0",
+ "version": "0.13.0",
  "chapters": [
   {
    "no": 1,
@@ -299,7 +299,7 @@
      "steps": [
       "When you mark an item <b>\"Abnormal\"</b>, besides the note you can tap <b>\"Add photo (optional)\"</b> to photograph the problem.",
       "After submitting, the item appears in <b>\"Issue tracking\"</b> (red box on Home; the supervisor is notified). If it happens again before being fixed, it is added to the same issue, not duplicated.",
-      "When fixed, tap <b>\"Record fix\"</b> in \"Issue tracking\": write the <b>corrective action</b>, choose the <b>date fixed</b>, and optionally add a photo.",
+      "When fixed, tap <b>\"Record fix\"</b> in \"Issue tracking\": write the <b>corrective action</b>, choose the <b>date fixed</b>, and add a photo after the fix (required for site inspection findings).",
       "Tap <b>\"Fixed — close\"</b>; the person who found it and the supervisor are notified."
      ],
      "tip": "If you marked \"Abnormal\" by mistake, change it back to OK the same day and resend; the issue is cancelled automatically.",
@@ -452,7 +452,7 @@
       "<b>Health info</b>: reading only, no sign-in; you can ask staff to tap \"I have read it\".",
       "Choose recipients and tap <b>\"Post\"</b>. <b>\"Read records\"</b> shows who has finished; remove items you no longer need."
      ],
-     "tip": "Sign-in records (with signatures) are kept in the back office and exported daily to the NAS as training sign-in sheets.",
+     "tip": "When everyone has finished, tap \"Confirm sign-in complete · export to NAS\" in the reading record. At 09:15 the next day the computer files the sign-in sheets (P-05-01-A, BU / PU) and materials in the training archive by year and topic.",
      "warn": false
     },
     {
@@ -480,6 +480,29 @@
       "At steps that would <b>submit, sign or approve</b>, <b>\"This step would submit\"</b> appears and nothing is sent. Tap <b>\"End\"</b> on the orange bar to go back to yourself."
      ],
      "tip": "Who viewed whose screens and when is logged in the back office. Phone error reports are kept for 90 days.",
+     "warn": false
+    },
+    {
+     "no": "4-5",
+     "title": "Site inspection (monthly)",
+     "lead": "Inspect at least once a month (you can rotate through areas). Findings are filled in by tapping; the system opens issue tracking and files the record as EF-00-012-B on the NAS.",
+     "shots": [
+      [
+       "p12_巡視清單",
+       "This month and the last 12 months"
+      ],
+      [
+       "p13_缺失點選",
+       "Tap the responsible unit, common findings and regulations"
+      ]
+     ],
+     "steps": [
+      "In the main menu tap <b>\"Site inspection\"</b> → <b>\"Start inspection\"</b> and tick the <b>areas</b> you visit (BU areas A–C, PU lines 1–5…).",
+      "Mark each of the 16 checkpoints <b>○ OK / × Needs fixing / － Not checked</b>; tap <b>\"Mark the rest ○ OK\"</b> for the rest.",
+      "Each \"×\" item opens a finding card: tap the <b>responsible unit</b> and the <b>common finding</b> (the regulation is filled in for you), then add notes, a due date and photos if needed.",
+      "Tap <b>\"Send inspection record\"</b>: findings go to the unit's \"Issue tracking\" and its supervisor gets an email. Units not on the App yet (e.g. areas B and C) are closed by EHS in issue tracking."
+     ],
+     "tip": "Every day at 09:15 the computer files the record as EF-00-012-B on the NAS; when all findings are fixed it saves a \"fixes complete\" copy with the after photos. If you leave halfway, the draft stays on the phone.",
      "warn": false
     }
    ]
