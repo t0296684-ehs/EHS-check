@@ -1,6 +1,15 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
+var PLAT_VER = '0.13.3';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+/** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
+ *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
+function platHeal() {
+  try { if (Date.now() - Number(sessionStorage.getItem('chk_heal') || 0) < 60000) return; sessionStorage.setItem('chk_heal', String(Date.now())); } catch (e) { return; }
+  var go = function () { location.reload(); };
+  if (window.caches && caches.keys) caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }).then(go, go); else go();
+}
+window.addEventListener('load', function () { if (typeof APP_VERSION === 'string' && APP_VERSION !== PLAT_VER) platHeal(); });
 var PLAT_ICON = {
   grid: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
@@ -43,7 +52,7 @@ function menuBtn() {
 }
 function platHero(say) {
   var m = S.me;
-  return '<div class="hero-in">' + heroTop() + '<div class="hi"><div class="hn"><div class="h1">' + greet() + '，' + esc(m.person.name) + '</div><div class="hsub">' + esc(whoLine()) + '</div></div></div>' +
+  return '<div class="hero-in">' + (window.heroTop ? heroTop() : '') + '<div class="hi"><div class="hn"><div class="h1">' + greet() + '，' + esc(m.person.name) + '</div><div class="hsub">' + esc(whoLine()) + '</div></div></div>' +
     (say ? '<div class="say">' + say + '</div>' : '') + '</div>';
 }
 
@@ -836,7 +845,7 @@ function chemOpen(i) {
   var x = S.chem.list[i]; if (!x) return;
   var dd = document.createElement('div'); dd.id = 'pDlg'; dd.className = 'dlg';
   var row = function (k, v) { return v ? '<div class="chr"><b>' + esc(k) + '</b><span>' + esc(v) + '</span></div>' : ''; };
-  dd.innerHTML = '<div class="bx chd"><div class="mr"><b class="chn">' + esc(x.name) + '</b><button class="chclose" aria-label="關閉" onclick="$(\'pDlg\').remove()">' + ic('x', 26, 2.8) + '</button></div>' +
+  dd.innerHTML = '<div class="bx chd"><button class="chclose" aria-label="關閉" onclick="$(\'pDlg\').remove()">' + ic('x', 26, 2.8) + '</button><div class="mr"><b class="chn">' + esc(x.name) + '</b></div>' +
     (x.other ? '<div class="muted">' + esc(x.other) + '</div>' : '') +
     (x.pic.length ? '<div class="chpics">' + x.pic.map(function (k) { return '<span>' + ghsIcon(k, 46) + '<small>' + esc(GHS_PIC[k][0]) + '</small></span>'; }).join('') + '</div>' : '') +
     (x.flag ? '<div class="chf">' + x.flag.split('、').map(function (f) { return '<span>' + esc(f) + '</span>'; }).join('') + '</div>' : '') +
