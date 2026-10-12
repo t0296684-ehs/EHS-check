@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.10.2';
+var APP_VERSION = '0.12.0';
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
 var DEFAULT_GAS = 'https://script.google.com/macros/s/AKfycbxXn_HbSkWw8nWxfbTOgnzll6PjBqGGEbizxfgQvZSKLqVhGO8zQFJyBKdAacqiDT5-/exec';
 // 每次呼叫帶隨機 rid，回應的 rid 對不上就當連線失敗重送。
@@ -23,7 +23,8 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
 /** 放進 onclick="fn(…)" 的字串參數：JSON 字串再做 HTML 跳脫，名稱裡有引號也不會壞 */
 function jsq(s) { return esc(JSON.stringify(String(s == null ? '' : s))); }
 function lsGet(k, d) { try { var v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
-function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function lsSet(k, v) { if (S && S.dev && (k === LS.ME || k === LS.DRAFT)) return; try {   // 開發者模式：不把別人的資料、草稿存進這支手機
+   localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
 function gasUrl() { return lsGet(LS.GAS, '') || DEFAULT_GAS; }
 function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -71,6 +72,7 @@ var ICON = {
   wifioff: '<path d="M3 3l18 18"/><path d="M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5-2.7M14.5 10.4A10 10 0 0 1 19 13M2 9.5a15 15 0 0 1 4.5-2.8M12 20h.01"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'
 };
+Object.assign(ICON, window.PLAT_ICON || {});
 function ic(n, s, w) {
   s = s || 20;
   return '<svg class="ic" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2.4) +
@@ -105,12 +107,14 @@ function busyGuard(e) { e.preventDefault(); e.returnValue = '還在處理中，�
 function loading(t) { return '<div class="loading"><span class="spin"></span>' + esc(t) + '</div>'; }
 /** 重要錯誤：停留在畫面上的卡片（不會自己消失） */
 function errBox(title, msg, btns) {
+  if (window.clientErr) clientErr(title + (msg ? '：' + msg : ''));
   return '<div class="box err" role="alert"><div class="r">' + ic('err', 24) + '<div class="bt"><b>' + esc(title) + '</b>' +
     (msg ? '<div class="m">' + esc(msg) + '</div>' : '') + '</div></div>' + (btns || '') + '</div>';
 }
 
 var toastTimer = null;
 function toast(msg, type, ms) {
+  if (type === 'err' && window.clientErr) clientErr(msg);             // 錯誤自動回報（開發者模式看得到哪一步卡住）
   var old = document.querySelector('.toast'); if (old) old.remove();
   var d = document.createElement('div'); d.className = 'toast ' + (type || ''); d.setAttribute('role', 'status');
   d.innerHTML = (type === 'ok' ? ic('check', 20, 3) : type === 'err' ? ic('err', 20) : '') + '<span>' + msg + '</span>';
@@ -127,9 +131,15 @@ function api(action, body, opt) {
   if (!url) return Promise.reject(new Error('還沒設定系統網址'));
   var waits = opt.noRetry ? [] : [2000, 4000, 8000];
   var i = 0;
+  // 開發者模式：只讀的動作帶 viewAs（以那位同仁身分看）；會寫入的動作在手機上就攔下，後端也會再擋一次
+  var devAs = {};
+  if (S.dev && DEV_SELF.indexOf(action) < 0) {
+    if (DEV_READ.indexOf(action) < 0) { var de = new Error('開發者模式：這一步會送出資料，已攔下（' + S.dev.name + ' 按下去就會送出）'); de.biz = true; de.dev = true; devBlock(); return Promise.reject(de); }
+    devAs = { viewAs: S.dev.name };
+  }
   function once() {
     var rid = newId();
-    var payload = JSON.stringify(Object.assign({ action: action, token: opt.token === '-' ? '' : (opt.token || lsGet(LS.TOKEN, '')) }, body || {}, { rid: rid, appVer: APP_VERSION }));
+    var payload = JSON.stringify(Object.assign({ action: action, token: opt.token === '-' ? '' : (opt.token || lsGet(LS.TOKEN, '')) }, body || {}, { rid: rid, appVer: APP_VERSION }, devAs));
     return fetch(url, { method: 'POST', redirect: 'follow', body: payload }).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();
@@ -156,11 +166,30 @@ var DB = null;
 function db() {
   if (DB) return Promise.resolve(DB);
   return new Promise(function (res, rej) {
-    var q = indexedDB.open('chk_db', 1);
-    q.onupgradeneeded = function () { q.result.createObjectStore('outbox', { keyPath: 'id' }); };
+    var q = indexedDB.open('chk_db', 2);
+    q.onupgradeneeded = function () {                    // v2：多一個 kv（登入的備份）
+      var d = q.result;
+      if (!d.objectStoreNames.contains('outbox')) d.createObjectStore('outbox', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv', { keyPath: 'id' });
+    };
     q.onsuccess = function () { DB = q.result; res(DB); };
     q.onerror = function () { rej(q.error); };
   });
+}
+/** 登入備份（Jason：員工登入一次就好）：權杖同時存在 localStorage 和 IndexedDB；某一邊被清掉，打開 App 時用另一邊補回，不用再輸入啟用碼。 */
+function kvTx(mode, fn) {
+  return db().then(function (d) { return new Promise(function (res, rej) {
+    var t = d.transaction('kv', mode), st = t.objectStore('kv'), out = fn(st);
+    t.oncomplete = function () { res(out && out.result); }; t.onerror = function () { rej(t.error); };
+  }); });
+}
+function authSave() { var tok = lsGet(LS.TOKEN, ''); if (!tok || S.dev) return Promise.resolve(); return kvTx('readwrite', function (st) { st.put({ id: 'auth', token: tok, me: lsGet(LS.ME, null), at: Date.now() }); }).catch(function () {}); }
+function authClear() { return kvTx('readwrite', function (st) { st.delete('auth'); }).catch(function () {}); }
+function authRestore() {
+  if (lsGet(LS.TOKEN, '')) return authSave();
+  return kvTx('readonly', function (st) { return st.get('auth'); }).then(function (a) {
+    if (a && a.token) { lsSet(LS.TOKEN, a.token); if (a.me && !lsGet(LS.ME, null)) lsSet(LS.ME, a.me); }
+  }).catch(function () {});
 }
 function obTx(mode, fn) {
   return db().then(function (d) {
@@ -179,6 +208,7 @@ function obRefresh() { return obAll().then(function (a) { S.outbox = a; }).catch
 var flushTimer = null;
 var AUTH_RE = /失效|名單|選擇您的身分/;
 function flush() {
+  if (S.dev) return Promise.resolve();                               // 開發者模式中不送待上傳（避免帶到別人的身分）
   if (S.flushing || !navigator.onLine || !gasUrl() || !lsGet(LS.TOKEN, '')) return Promise.resolve();   // 登出中先不送，重新登入後換上新的登入再送
   S.flushing = true;
   if (S.page === 'home') render();
@@ -188,7 +218,7 @@ function flush() {
     jobs.filter(function (j) { return j.status === 'pending'; }).forEach(function (j) {
       p = p.then(function () {
         if (stop) return;
-        return api('submitCheck', Object.assign({ submitId: j.id }, j.body), { token: j.token, quiet: true }).then(function () {
+        return api(j.action || 'submitCheck', Object.assign({ submitId: j.id }, j.body), { token: j.token, quiet: true }).then(function () {   // 環保抄表的待上傳 action＝envSubmit
           sent++; return obDel(j.id);
         }).catch(function (e) {
           j.tries = (j.tries || 0) + 1; j.message = e.message;
@@ -261,7 +291,7 @@ function kickToLogin(msg) {
   return obAll().then(function (a) {
     return Promise.all(a.filter(function (j) { return !j.who && j.token === tok && name; }).map(function (j) { j.who = name; return obPut(j); }));
   }).catch(function () {}).then(function () {
-    lsDel(LS.TOKEN); lsDel(LS.ME); S.me = null; S.stack = [];
+    lsDel(LS.TOKEN); lsDel(LS.ME); authClear(); S.me = null; S.stack = [];
     go('login', {}, true); toast(esc(msg), 'err');
     return obRefresh();
   });
@@ -311,8 +341,11 @@ function refreshMe() {
     setClock(m.serverNow); S.me = normMe(m); lsSet(LS.ME, m);
     if (m.pendingReview) loadPkgs(true); else S.pkgs = [];
     if (m.person && m.person.role !== '檢點人員') ovLoad(true);
-    if (['home', 'settings', 'pick', 'months', 'notice', 'claim', 'mine'].indexOf(S.page) >= 0) render();
+    // 第一次拿到平台資料（剛從舊版升上來）：還停在日常檢點首頁、沒有往下點過，就換到該去的地方（主選單或唯一的功能）
+    if (!S.landed) { S.landed = true; var L = landing(); if (S.page === 'home' && !S.stack.length && L !== 'home') return go(L, {}, true); }
+    if (['home', 'menu', 'settings', 'pick', 'months', 'notice', 'claim', 'mine'].indexOf(S.page) >= 0) render();
   }).catch(function (e) {
+    if (S.dev) return toast(esc(e.message), 'err', 4000);
     if (e.biz && AUTH_RE.test(e.message)) kickToLogin(e.message);
   });
 }
@@ -351,7 +384,7 @@ function go(page, arg, replace) {
   window.scrollTo(0, 0);
   render();
 }
-function back() { var p = S.stack.pop() || { page: 'home', arg: {} }; S.page = p.page; S.arg = p.arg; window.scrollTo(0, 0); render(); }
+function back() { var p = S.stack.pop() || { page: window.landing ? landing() : 'home', arg: {} }; S.page = p.page; S.arg = p.arg; window.scrollTo(0, 0); render(); }
 
 function render() {
   var p = S.page;
@@ -360,6 +393,7 @@ function render() {
   else if (!lsGet(LS.TOKEN, '') && p !== 'login') p = 'login';
   else if (p !== 'login' && p !== 'sign' && S.me && !(S.me.signature && S.me.signature.imageV)) { p = 'sign'; if (S.page !== 'sign') { S.page = 'sign'; S.arg = {}; } }
   var fn = PAGES[p] || PAGES.home;
+  if (window.trailPush) trailPush(p);
   S.cur = p; S.hero = null; S.topExtra = '';
   $('bar').innerHTML = ''; padBar();
   fn();
@@ -368,17 +402,25 @@ function render() {
 function netTag() { var on = navigator.onLine; return '<span class="net' + (on ? '' : ' off') + '" id="net"><i></i>' + (on ? '已連線' : '離線') + '</span>'; }
 function drawTop() {
   var t = $('top');
-  if (S.hero) { t.className = 'hero'; t.innerHTML = S.hero; return; }
+  if (S.hero) { t.className = 'hero'; t.innerHTML = devBanner() + S.hero; return; }
   var showBack = S.stack.length && ['home', 'login', 'url', 'proxy'].indexOf(S.cur) < 0;
+  // 沒有「返回」的功能首頁（例：只有一個功能的人直接進來）右上角放「主選單」，任何功能都回得去
+  var mb = !showBack && S.me && !S.share && window.menuBtn && ['login', 'url', 'proxy', 'sign', 'psign', 'menu'].indexOf(S.cur) < 0 ? menuBtn() : '';
   t.className = 'topbar';
-  t.innerHTML = '<div class="tb">' + (showBack ? '<button class="tb-back" id="back" aria-label="返回" onclick="back()">' + ic('back', 24, 2.6) + '</button>' : '<span class="tb-sp"></span>') +
-    '<div class="tb-t"><div class="tb-ttl" id="ttl">' + esc(S.title) + '</div>' + (S.me ? '<div class="tb-sub">' + esc(whoLine()) + '</div>' : '') + '</div>' + netTag() + '</div>' + (S.topExtra || '');
+  t.innerHTML = devBanner() + '<div class="tb">' + (showBack ? '<button class="tb-back" id="back" aria-label="返回" onclick="back()">' + ic('back', 24, 2.6) + '</button>' : '<span class="tb-sp"></span>') +
+    '<div class="tb-t"><div class="tb-ttl" id="ttl">' + esc(S.title) + '</div>' + (S.me ? '<div class="tb-sub">' + esc(whoLine()) + '</div>' : '') + '</div>' + mb + netTag() + '</div>' + (S.topExtra || '');
 }
 function setTitle(t) { S.title = t; document.title = t === '員和環安衛系統' ? t : t + '｜員和環安衛系統'; }
 function bar(html) { $('bar').innerHTML = '<div class="bar"><div class="in">' + html + '</div></div>'; padBar(); }
 function padBar() { var b = $('bar').firstChild; document.documentElement.style.setProperty('--barh', (b ? b.offsetHeight : 0) + 'px'); }
 
 var PAGES = {};
+Object.assign(PAGES, window.PLAT_PAGES || {});            // 平台層頁面（plat.js：主選單、環保抄表、施工申請、教育訓練）
+// plat.js 沒載到（例如 GitHub 漏傳）：退回只有日常檢點的舊行為，App 照常能用
+if (!window.landing) {
+  window.landing = function () { return 'home'; }; window.plat = function () { return null; }; window.modOn = function (k) { return k === 'check'; };
+  window.menuBtn = function () { return ''; }; window.devBanner = function () { return ''; };
+}
 
 // ───────────── 設定網址 ─────────────
 PAGES.url = function () {
@@ -436,8 +478,8 @@ function doBind() {
     return;
   }
   api('bind', { name: sel.name, pin: pin, device: navigator.userAgent.slice(0, 80) }).then(function (d) {
-    setClock(d.me.serverNow); lsSet(LS.TOKEN, d.token); lsSet(LS.ME, d.me); S.me = normMe(d.me); S.stack = [];
-    go(d.me.signature ? 'home' : 'sign', {}, true);
+    setClock(d.me.serverNow); lsSet(LS.TOKEN, d.token); lsSet(LS.ME, d.me); authSave(); S.me = normMe(d.me); S.stack = [];
+    S.landed = true; go(d.me.signature ? landing() : 'sign', {}, true);
     toast('歡迎，' + esc(d.me.person.name), 'ok');
     rebindJobs(d.me.person.name, d.token);
   }).catch(function (e) {
@@ -695,7 +737,7 @@ function sigNext() {
   api('saveSignature', { image: SIG.h, imageV: img }).then(function (r) {
     S.me.signature = { id: r.id, image: SIG.h, imageV: img };
     var raw = lsGet(LS.ME, null); if (raw) { raw.signature = S.me.signature; lsSet(LS.ME, raw); }
-    toast('簽名已存', 'ok'); S.stack = []; go('home', {}, true);
+    toast('簽名已存', 'ok'); S.stack = []; go(landing(), {}, true);
   }).catch(function (e) { toast(esc(e.message), 'err', 4000); btn.disabled = false; btn.className = 'btn'; btn.textContent = '再試一次'; });
 }
 
@@ -738,6 +780,12 @@ PAGES.home = function () {
   var unreadOther = (m.notices || []).filter(function (x) { return !x.read && x.type !== '廣播'; });
   if (unreadOther.length) tasks.push({ tag: '新通知', title: '有 ' + unreadOther.length + ' 則新通知', meta: unreadOther.slice(0, 2).map(function (x) { return window.I18N ? I18N.tr(x.title) : x.title; }).join(window.I18N && I18N.lang() !== 'zh' ? ' · ' : '、'),   // 兩則標題各自翻譯再接起來（接起來的整句字典比不到）
     btn: '查看通知', on: "go('notice')" });
+  // 0.5 一次補填做到一半（中途離開）：接著補
+  var bfq = bfGet();
+  if (bfq && !ehs) tasks.push({ red: true, tag: '補填中', title: '還有 ' + (bfq.list.length - bfq.i) + ' 張要補填', meta: '下一張：' + md(bfq.list[bfq.i].date) + ' ' + bfq.list[bfq.i].name, btn: '繼續補填', on: 'bfOpen()' });
+  // 0.6 環安衛教育訓練還沒看的（只有日常檢點一個功能的人平常都停在這頁，所以在這裡也提醒）
+  var eu = (plat() || {}).eduUnread || 0;
+  if (!ehs && eu) tasks.push({ tag: '環安衛教育訓練', title: '有 ' + eu + ' 則新的教育訓練、衛教文宣', meta: '打開看完，要確認的按「我已閱讀」', btn: '去看看', on: "go('edu')" });
   // 0.8 異常追蹤：還沒填改善的（檢點人員、單位負責人）
   if (!ehs && m.tracksOpen) tasks.push({ red: true, tag: '異常追蹤', title: '有 ' + m.tracksOpen + ' 件異常待改善', meta: '改善好了填寫處理方式就能結案', btn: '去處理', on: "S.tk=null;go('track')" });
   // 1. 被退回
@@ -806,7 +854,7 @@ PAGES.home = function () {
     var parts = []; if (ok) parts.push(ok + ' 張已上傳'); if (up) parts.push(up + ' 張待上傳'); if (todo.length) parts.push(todo.length + ' 張還沒做');
     hs += '<div class="dbar" aria-hidden="true">' + segs + '</div><div class="hnote">每日檢點 ' + daily.length + ' 張：' + parts.join('、') + '</div>';
   }
-  S.hero = '<div class="hero-in"><div class="hi"><div class="hn"><div class="h1">' + greet() + '，' + esc(m.person.name) + '</div><div class="hsub">' + esc(sub) + '</div></div>' + netTag() + '</div>' +
+  S.hero = '<div class="hero-in"><div class="hi"><div class="hn"><div class="h1">' + greet() + '，' + esc(m.person.name) + '</div><div class="hsub">' + esc(sub) + '</div></div>' + menuBtn() + netTag() + '</div>' +
     '<div class="hs">' + hs + '</div></div>';
 
   // 內容
@@ -1159,7 +1207,7 @@ function tfSave() {
 // ───────────── 使用教學（App 內直接看）：依身分顯示章節——檢點人員看第 1、2 章，單位負責人多第 3 章，環安衛全部 ─────────────
 // 內容跟 PDF 共用 guide/content.json；截圖在 guide/w/*.webp。
 function guideRole() { return isEhs() ? 'ehs' : isMgr() ? 'mgr' : 'op'; }
-function guideChaps() { return (S.guide.chapters || []).filter(function (c) { return c.roles.indexOf(guideRole()) >= 0; }); }
+function guideChaps() { return (S.guide.chapters || []).filter(function (c) { return c.roles.indexOf(guideRole()) >= 0 && (!c.mod || modOn(c.mod)); }); }   // c.mod：有那個功能權限才列（例：施工申請）
 /** 示範區的人登入：教學不出現補填相關的節、步驟、常見問題（content.json 的 demoHide） */
 function guideDemo() { var ds = (S.me && S.me.depts) || []; return ds.length > 0 && ds.every(function (d) { return demoDept(d.id); }); }
 function gHide() { return guideDemo() ? (S.guide.demoHide || {}) : {}; }
@@ -1580,7 +1628,7 @@ PAGES.fill = function () {
   }
 
   var metaTxt = [deptOf(a.dept), a.object, a.kind].filter(String).join('｜');
-  var h = '<div class="meta">' + esc(metaTxt) + '</div>' + (S.share || demoDept(a.dept) ? '<div class="dwrap"><div class="lbl">檢查日期 ' + pill('ok', '', md(fm.date) + '（' + wk(fm.date) + '）') + '</div></div>' :
+  var h = bfBanner() + '<div class="meta">' + esc(metaTxt) + '</div>' + (S.share || demoDept(a.dept) || bfCur() ? '<div class="dwrap"><div class="lbl">檢查日期 ' + pill('ok', '', md(fm.date) + '（' + wk(fm.date) + '）') + '</div></div>' :
     '<div class="dwrap"><div class="lbl"><label for="dt">檢查日期</label>' + (fm.date === t ? pill('ok', '', '今天') : pill('warn', '', '補登')) + '</div>' +
     '<input type="date" class="field" id="dt" value="' + esc(fm.date) + '" max="' + t + '" min="' + minD + '" onchange="fillDate(this.value)">' +
     '<div class="hint">要補填其他天，建議從「月曆・補填」點日期；最早到 ' + md(minD) + '</div></div>' +
@@ -1686,6 +1734,7 @@ function submitFill() {
     if (!a.daily && evNeed(f, fm)) { evJump(); return toast('請補上檢查佐證（照片、紀要）', 'err'); }
   }
   if (S.share) { draftSave(); return go('psign', { key: a.key }); }
+  if (S.dev) return devBlock('這張檢點表');                         // 開發者模式：前面的檢查都照真的跑，到送出這一步攔下
   var btn = $('fillBtn'); if (btn) { btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>存到手機中…'; }
   var extra = {};
   (f.extra || []).forEach(function (x, i) { if (fm.x[i]) extra[x] = fm.x[i]; });
@@ -1703,6 +1752,7 @@ function submitFill() {
     S.fill = null; S.stack = []; S.page = 'home'; S.arg = {};
     return obRefresh();
   }).then(function () {
+    if (bfAfterSave(a.key, body.date)) { flush(); return; }       // 一次補填：直接帶出下一張
     window.scrollTo(0, 0); render();
     var left = (S.me.assigns || []).filter(function (x) { return x.daily && x.due && !x.due.todayDone && !pendingFor(x, today()); }).length;
     var msg = f.name + ' ' + md(body.date) + (body.date === today() && left ? '・今天還有 ' + left + ' 張' : '') + '（當天要改可以再打開這張）';
@@ -1743,6 +1793,7 @@ function monthRender() {
       (v.status === '填寫中' || v.status === '退回' ? '在 Google 試算表檢視／編輯' : '在 Google 試算表檢視（已鎖定，不能修改）') + '</a>' : '') +
     (v.status === '填寫中' || v.status === '退回' ? '<div class="muted sm2">在試算表填的內容，要回到這裡按「確認」才會帶入電子簽名、才能送審。</div>' : '') + '</div>';
   h += confirmBlock(v);
+  h += bfButton(v);                                              // 一次補填全部漏填
   var pend = (S.outbox || []).filter(function (j) { return j.body.deptId === v.dept && j.body.date.slice(0, 7) === v.period; });
   if (pend.length) h += '<div class="strip info">' + ic('cloud', 24, 2.2) + '<div class="stx"><span>手機裡還有 <b>' + pend.length + ' 筆</b>這個月的檢點沒上傳完</span><small>上傳完才會出現在下面</small></div>' +
     '<button class="btn sm" onclick="flush().then(function(){render()})">立即上傳</button></div>';
@@ -2315,7 +2366,7 @@ function logoutNow(name, tok, left) {
     return Promise.all(a.filter(function (j) { return j.token === tok && !j.who; }).map(function (j) { j.who = name; return obPut(j); }));
   }).catch(function () {}).then(function () {
     api('logout', {}, { quiet: true, noRetry: true }).catch(function () {});   // 讓伺服器端這支手機的登入作廢
-    lsDel(LS.TOKEN); lsDel(LS.ME); S.me = null; S.boot = null; S.pkgs = null; S.stack = []; go('login', {}, true);
+    lsDel(LS.TOKEN); lsDel(LS.ME); authClear(); S.me = null; S.boot = null; S.pkgs = null; S.stack = []; go('login', {}, true);
     return obRefresh();
   });
 }
@@ -2384,6 +2435,67 @@ function swReg() {
 }
 /** 請瀏覽器把這個 App 的資料（待上傳、草稿、登入）列為保存，不要在空間不足或久沒開時自動清掉。 */
 function keepStorage() { try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {} }
+// ───────────── 一次補填全部（Jason 10/12：補完一張要再點日期很麻煩）─────────────
+// 月份頁按「一次補填全部漏填」→ 把這個月我負責、平日沒紀錄的（日期 × 表）排成待辦 → 一張一張帶出，送出後自動跳下一張。
+// 待辦存在手機（chk.bf），中途關掉 App 也接得回來；首頁有「補填中，還有 N 張」。
+var BF_KEY = 'chk.bf';
+function bfGet() { var b = lsGet(BF_KEY, null); return b && b.list && b.i < b.list.length ? b : null; }
+function bfSet(b) { if (b) lsSet(BF_KEY, b); else lsDel(BF_KEY); }
+function bfCollect(v) {
+  if (isEhs() || !(v.status === '填寫中' || v.status === '退回') || demoDept(v.dept)) return [];
+  var t = today(), minD = (function () { var z = nowD(); z.setDate(1); z.setMonth(z.getMonth() - 1); return ymd(z); })(), out = [];
+  (v.model.daily || []).forEach(function (x) {
+    var f = S.me.forms[x.form]; if (!f) return;
+    var a = (S.me.assigns || []).filter(function (y) { return y.daily && y.dept === v.dept && y.form === x.form; })[0];
+    if (!a) return;
+    blankDays(x, v.period).forEach(function (d) {
+      var date = v.period + '-' + pad(d);
+      if (date < minD || date >= t || pendingFor(a, date)) return;
+      out.push({ key: a.key, date: date, name: f.name });
+    });
+  });
+  return out.sort(function (p, q) { return p.date < q.date ? -1 : p.date > q.date ? 1 : p.name < q.name ? -1 : 1; });
+}
+function bfButton(v) {
+  var list = bfCollect(v); if (!list.length) return '';
+  var days = list.map(function (x) { return x.date; }).filter(function (d, i, a) { return a.indexOf(d) === i; });
+  return '<div class="card bfc"><div class="mr"><b>漏填 ' + list.length + ' 張</b><span class="muted">' + days.length + ' 天：' + esc(days.slice(0, 6).map(md).join('、') + (days.length > 6 ? '…' : '')) + '</span></div>' +
+    '<button class="btn" onclick="bfStart()">' + ic('pen', 20, 2.4) + '一次補填全部（' + list.length + ' 張）</button>' +
+    '<div class="muted sm2">一張一張帶出，送出後自動跳下一張；那天沒上班就按「今日無作業」。</div></div>';
+}
+function bfStart() {
+  var v = S.view, list = bfCollect(v); if (!list.length) return;
+  if (!confirm('要補填 ' + list.length + ' 張嗎？會一張一張帶出，送出後自動跳下一張。\n\n請確認這些天確實有做檢查；沒上班的那天按「今日無作業」。')) return;
+  bfSet({ dept: v.dept, period: v.period, list: list, i: 0, done: 0, skip: 0 });
+  bfOpen();
+}
+function bfOpen() { var b = bfGet(); if (!b) return; var x = b.list[b.i]; S.stack = []; openFill(x.key, x.date); }
+function bfCur() { var b = bfGet(); return b && S.fill && b.list[b.i] && b.list[b.i].key === S.fill.key && b.list[b.i].date === S.fill.date ? b : null; }
+function bfBanner() {
+  var b = bfCur(); if (!b) return '';
+  return '<div class="bfbar"><div class="bft"><b>補填 ' + (b.i + 1) + ' / ' + b.list.length + '</b><span>' + esc(md(b.list[b.i].date) + '（' + wk(b.list[b.i].date) + '）') + '</span></div>' +
+    '<div class="bfb"><button class="btn ghost sm" onclick="bfSkip()">跳過這張</button><button class="btn ghost sm" onclick="bfStop()">結束補填</button></div></div>';
+}
+/** 送出（存進手機）之後：還有下一張就直接打開，沒有就結束。回傳 true＝已經接手畫面。 */
+function bfAfterSave(key, date) {
+  var b = bfGet(); if (!b || !b.list[b.i] || b.list[b.i].key !== key || b.list[b.i].date !== date) return false;
+  b.i++; b.done++;
+  if (b.i < b.list.length) { bfSet(b); var x = b.list[b.i]; toast('已存，下一張：' + md(x.date) + ' ' + x.name, 'ok', 2500); bfOpen(); return true; }
+  bfSet(null); toast('補填完成，共 ' + b.done + ' 張；有網路會自動上傳', 'ok', 4000);
+  S.stack = []; go('month', { dept: b.dept, period: b.period }, true); return true;
+}
+function bfSkip() {
+  var b = bfGet(); if (!b) return;
+  b.i++; b.skip++;
+  if (b.i < b.list.length) { bfSet(b); bfOpen(); }
+  else { bfSet(null); toast('補填結束（補 ' + b.done + ' 張，跳過 ' + b.skip + ' 張）', 'ok', 3500); S.stack = []; go('month', { dept: b.dept, period: b.period }, true); }
+}
+function bfStop() {
+  var b = bfGet(); if (!b) return;
+  if (!confirm('結束補填？還沒補的 ' + (b.list.length - b.i) + ' 張之後可以在月曆再補。')) return;
+  bfSet(null); S.fill = null; S.stack = []; go('month', { dept: b.dept, period: b.period }, true);
+}
+
 (function init() {
   keepStorage();
   setTimeout(splashDone, 3000);
@@ -2394,9 +2506,12 @@ function keepStorage() { try { if (navigator.storage && navigator.storage.persis
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) swReg();
     return;
   }
-  S.me = lsGet(LS.ME, null); if (S.me) S.me = normMe(S.me);
   var deep = new URLSearchParams(location.search).get('r');
-  obRefresh().then(function () {
+  authRestore().then(function () {                                // 登入被清掉時從備份補回
+    S.me = lsGet(LS.ME, null); if (S.me) S.me = normMe(S.me);
+    if (S.me && S.page === 'home') { S.page = landing(); S.landed = !!plat(); }      // 打開 App：有兩個以上功能先到主選單
+    return obRefresh();
+  }).then(function () {
     render();                                   // 先用手機裡的資料畫出來，不等 Google
     splashDone();
     flush();

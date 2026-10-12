@@ -422,6 +422,57 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 /* ── 直式簽名預覽 ── */
 .vprev{gap:8px;min-height:420px;justify-content:center}.vpv{display:flex;justify-content:center;background:#fff;border:1.5px dashed var(--line2);border-radius:14px;padding:10px}
 .vpv img{max-height:240px;max-width:60%;object-fit:contain}
+
+/* ── 平台層（plat.js）：主選單、功能卡、權限、施工申請、教育訓練 ── */
+.mbtn{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:14px;font-weight:700;white-space:nowrap;flex-shrink:0;position:relative}
+.tb .mbtn{margin-right:8px}
+.mdot{position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;background:#FF5A4E;border:2px solid var(--navy)}
+.mcards{display:flex;flex-direction:column;gap:12px}
+.mcard{display:flex;align-items:center;gap:14px;width:100%;padding:16px;border-radius:20px;background:var(--card);text-align:left;color:var(--navy);box-shadow:0 2px 8px rgba(20,35,60,.06);min-height:84px}
+.mcard .mi{width:56px;height:56px;border-radius:16px;background:var(--c);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mcard .mx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mcard b{font-size:19px;font-weight:900}
+.mcard small{font-size:14px;color:var(--sub);font-weight:500}
+.mcard .mb{min-width:26px;height:26px;padding:0 8px;border-radius:13px;background:var(--ng);color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.mcard.locked{background:#F4F6F9;color:#8A94A3;box-shadow:none}
+.mcard.locked .mi{background:#C9D0DA}
+.mcard.locked small{color:#8A94A3}
+.dlg{position:fixed;inset:0;z-index:101;background:rgba(20,35,60,.78);display:flex;align-items:center;justify-content:center;padding:24px}
+.dlg .bx{background:#fff;border-radius:20px;padding:26px 22px;max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--navy)}
+.dlg b{font-size:20px}.dlg p{margin:0 0 6px;color:var(--ink);font-size:16px}
+.fcard .fh{display:flex;align-items:center;gap:10px}
+.fcard .fn{width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fcard b{font-size:17px}
+.btns.r3{grid-template-columns:1fr 1fr 1fr}
+.btns.r3 .btn{font-size:14px;padding:8px 6px;min-height:52px;flex-direction:column;gap:2px}
+.li.cs{align-items:flex-start}
+.li.cs .mn{display:flex;flex-direction:column;gap:3px;text-align:left;flex:1;min-width:0}
+.li.cs .btn{margin-top:8px;min-height:46px;font-size:15px}
+.li.cs .cs2{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
+.li.off{opacity:.55}
+.edi .edb{white-space:pre-wrap;font-size:17px;line-height:1.6}
+.edimg{display:block;width:100%;border-radius:14px;margin-top:8px}
+.donebar{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;border-radius:16px;background:var(--okbg);color:var(--okT);font-weight:800}
+.filebtn{cursor:pointer}
+.devbar{display:flex;align-items:center;gap:8px;background:#FFB020;color:#3A2600;font-weight:800;font-size:14px;padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top));margin:calc(-20px - env(safe-area-inset-top)) -20px 12px}
+#top.topbar .devbar{margin:0}
+.devbar span{flex:1;min-width:0}
+.devbar button{background:#3A2600;color:#fff;border-radius:999px;padding:5px 12px;font-weight:800;font-size:13px}
+.bfbar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--orBg);border:2px solid var(--orange);border-radius:16px;padding:10px 12px;margin-bottom:10px}
+.bfbar .bft{display:flex;flex-direction:column}.bfbar .bft b{font-size:17px;color:var(--orT)}.bfbar .bft span{font-size:14px;color:var(--ink)}
+.bfbar .bfb{display:flex;gap:6px}.bfbar .btn.sm{min-height:40px;padding:6px 10px;font-size:14px;width:auto}
+.bfc .mr{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.dlg .dbtns{display:flex;flex-direction:column;gap:8px;width:100%;margin-top:6px}
+.dlg .kv{display:flex;justify-content:space-between;gap:10px;width:100%;padding:10px 12px;border-radius:12px;background:var(--bg)}
+.dlg .sm{font-size:14px;color:var(--sub)}
+.dlg .sigprev{max-width:100%;max-height:90px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px}
+.envi .eh{display:flex;flex-direction:column;gap:2px}.envi .eh b{font-size:17px}.envi .eh small{font-size:13px;color:var(--sub)}
+.envi.over{box-shadow:inset 0 0 0 2px var(--ng)}
+.field.num{font-size:22px;font-weight:700;text-align:right}
+.calcv{font-size:20px;font-weight:800;color:var(--navy);text-align:right;padding:8px 4px}.calcv.bad{color:var(--ng)}
+.quiz.bad{box-shadow:inset 0 0 0 2px var(--ng)}
+.quiz .ck .field{flex:1}
+.li .sel{width:auto;min-height:40px;padding:4px 8px;font-size:14px}
 </style>
 </head>
 <body>
@@ -433,6 +484,7 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 <div id="bar"></div>
 <script src="i18n_dict.js"></script>
 <script src="i18n.js"></script>
+<script src="plat.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

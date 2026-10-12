@@ -1,5 +1,5 @@
 {
- "version": "",
+ "version": "0.12.0",
  "chapters": [
   {
    "no": 1,
@@ -129,13 +129,23 @@
       [
        "10_月曆",
        "This month's calendar"
+      ],
+      [
+       "b01_一次補填",
+       "Fill in all at once"
+      ],
+      [
+       "b02_補填中",
+       "Filling in"
       ]
      ],
      "steps": [
       "On Home tap <b>\"Calendar · Fill in missed days\"</b>.",
       "Green = checked, red = abnormal, grey dashed = weekday with no record.",
       "Tap <b>the missed day</b> to fill it in (back to the 1st of last month).",
-      "Switch forms at the top. \"Table (by item)\" shows every item for the whole month."
+      "Switch forms at the top. \"Table (by item)\" shows every item for the whole month.",
+      "Missed several days: on the month page tap <b>\"Fill in all\"</b>. Forms open one by one and <b>jump to the next</b> after you send.",
+      "The orange box shows your progress. You can <b>skip</b> a form or <b>stop</b>; if you leave, Home shows <b>\"Continue\"</b>."
      ],
      "tip": "Please check and fill in on the same day. Late entries record the time and are visible to supervisors and EHS.",
      "warn": true
@@ -418,6 +428,264 @@
       "Choose <b>recipients</b>: everyone, selected departments (option: \"Only to supervisors\"), or selected people.",
       "Write a <b>title</b> (shown at the top of Home) and <b>content</b>; tick \"Also email\" if needed.",
       "Tap <b>\"Send announcement\"</b>. Under \"Sent announcements\" see how many have read it; open one to see who has not."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "4-3",
+     "title": "Post training and see read records",
+     "lead": "Send training or health info (text + PDF/pictures + link) to staff and see who opened and confirmed it.",
+     "shots": [
+      [
+       "p07_發布文宣",
+       "Post new item"
+      ],
+      [
+       "p08_閱讀紀錄",
+       "Read records"
+      ]
+     ],
+     "steps": [
+      "Menu → <b>\"EHS training\"</b> → <b>\"Post new item\"</b>.",
+      "<b>Training</b>: hours, instructor, due date; upload Chinese and Thai versions and pick the language; add a quiz (up to 10 questions, all correct to pass). \"I have completed it\" signs staff in automatically.",
+      "<b>Health info</b>: reading only, no sign-in; you can ask staff to tap \"I have read it\".",
+      "Choose recipients and tap <b>\"Post\"</b>. <b>\"Read records\"</b> shows who has finished; remove items you no longer need."
+     ],
+     "tip": "Sign-in records (with signatures) are kept in the back office and exported daily to the NAS as training sign-in sheets.",
+     "warn": false
+    },
+    {
+     "no": "4-4",
+     "title": "Developer mode (find where staff got stuck)",
+     "lead": "When someone reports a problem, go through the app with their screens to see what they see and where they got stuck. View only — nothing is sent in their name.",
+     "shots": [
+      [
+       "p09_錯誤回報",
+       "Error reports"
+      ],
+      [
+       "p10_開發者畫面",
+       "Using a colleague's screens"
+      ],
+      [
+       "p11_攔下送出",
+       "Submitting is stopped"
+      ]
+     ],
+     "steps": [
+      "At the bottom of the Menu tap <b>\"Developer mode\"</b>. People with <b>error reports in the last 30 days</b> are listed first.",
+      "Tap a person to see their error messages, which screen, and the screens they went through before.",
+      "Tap <b>\"Enter as ○○○\"</b>: an orange bar appears and you now see their screens; follow their steps.",
+      "At steps that would <b>submit, sign or approve</b>, <b>\"This step would submit\"</b> appears and nothing is sent. Tap <b>\"End\"</b> on the orange bar to go back to yourself."
+     ],
+     "tip": "Who viewed whose screens and when is logged in the back office. Phone error reports are kept for 90 days.",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 5,
+   "title": "Menu",
+   "who": "One app for all EHS work",
+   "color": "#14233C",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "5-1",
+     "title": "Menu and features",
+     "lead": "Daily checks, environmental readings, contractor work requests and training are all in one app. Open it and pick what to do.",
+     "shots": [
+      [
+       "p02_主選單",
+       "Menu"
+      ],
+      [
+       "p01_主選單按鈕",
+       "\"Menu\" at top right"
+      ]
+     ],
+     "steps": [
+      "If you have two or more features, the app opens at the <b>Menu</b>. Tap what you need.",
+      "If you only have daily checks, the app opens straight there. <b>\"Menu\" at top right</b> takes you back any time.",
+      "Each card shows how many things are left today; a <b>red number</b> means not handled yet.",
+      "A <b>red dot</b> on the Menu button means new training you have not read."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "5-2",
+     "title": "Features you cannot use yet",
+     "lead": "Grey cards with a lock are features you do not have access to yet.",
+     "shots": [
+      [
+       "p03_沒有權限",
+       "No access"
+      ]
+     ],
+     "steps": [
+      "Tap a grey card and <b>\"No access\"</b> appears.",
+      "Tell your supervisor first; <b>\"Request access\"</b> notifies the EHS Center.",
+      "After the EHS Center turns it on, <b>close and reopen the app</b>."
+     ],
+     "tip": "Everyone has EHS training; no request needed.",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 6,
+   "title": "EHS training",
+   "who": "Read training and health info",
+   "color": "#6B4FA0",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "6-1",
+     "title": "Courses and sign-in",
+     "lead": "For training, read the material, answer the quiz and tap \"I have completed it\" to sign in automatically. Health info only needs reading.",
+     "shots": [
+      [
+       "p04_文宣",
+       "Open an item"
+      ],
+      [
+       "p05_已確認",
+       "Read confirmed"
+      ]
+     ],
+     "steps": [
+      "On the Menu tap <b>\"EHS training\"</b>; Home also reminds you of courses to finish.",
+      "Open a course and read the material (PDF, pictures). If there is a Thai version and your phone is set to Thai, you see it first.",
+      "If there is a quiz, <b>all answers must be correct</b>; wrong ones turn red — read again and retry.",
+      "Tap <b>\"I have completed it (use my signature)\"</b>; your stored signature is <b>added to the training sign-in sheet</b>.",
+      "Health info only needs reading; tap <b>\"I have read it\"</b> where asked."
+     ],
+     "tip": "Materials need internet. Overdue courses are shown in red.",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 7,
+   "title": "Contractor work requests",
+   "who": "When a contractor comes to work on site",
+   "color": "#B45309",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "mod": "cons",
+   "sections": [
+    {
+     "no": "7-1",
+     "title": "Send links to contractors",
+     "lead": "When a contractor will work here, send them the request links by LINE from this page.",
+     "shots": [
+      [
+       "p06_施工申請",
+       "Contractor work requests"
+      ],
+      [
+       "p12_帶入承辦人",
+       "Asks before adding your details"
+      ]
+     ],
+     "steps": [
+      "On the Menu tap <b>\"Contractor work requests\"</b>.",
+      "<b>New contractor</b>: send <b>\"Contractor registration (Form 1)\"</b>. They then get a commitment letter to stamp and return.",
+      "<b>Each job</b>: send <b>\"Work request (Form 2)\"</b>; the contractor fills it <b>3 working days before</b>. Before sending, the app asks whether to <b>add you as the person in charge</b>; then the case appears under My cases.",
+      "Tap <b>\"Send to contractor\"</b> and choose LINE, or <b>\"Copy link\"</b> and paste it."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "7-2",
+     "title": "Steps: what the contractor and I each do",
+     "lead": "After Form 2, everyone signs and EHS approves before the contractor may enter.",
+     "shots": [
+      [
+       "p06_施工申請",
+       "My cases"
+      ],
+      [
+       "p13_App內簽名",
+       "Sign in the app"
+      ]
+     ],
+     "steps": [
+      "<b>Contractor</b>: after Form 2 they get an email with signing links. The <b>supervisor signs first</b>, then <b>each worker scans and signs</b>.",
+      "<b>You (person in charge)</b>: after the workers sign, <b>\"Sign in the app\"</b> appears under My cases and uses your stored signature after you confirm. When all workers have signed you can <b>\"Submit for review\"</b> right there.",
+      "Once all have signed it is submitted; <b>EHS approves</b>, and the contractor gets an approval email before entering.",
+      "For <b>hot work, lifting, confined space or work at height</b>, the contractor fills a permit on the day (the system emails the link).",
+      "If the contractor <b>did not get the signing email</b>, send the <b>resend link</b> at the bottom; it goes to their registered email."
+     ],
+     "tip": "Status: waiting for signatures → workers signing → in review → approved. If returned, remind the contractor to complete it.",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 8,
+   "title": "Environmental readings",
+   "who": "Air and wastewater readings",
+   "color": "#0E7490",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "mod": "env",
+   "sections": [
+    {
+     "no": "8-1",
+     "title": "Daily readings",
+     "lead": "Air readings open the existing system for now; wastewater (new plant) readings are done in this app.",
+     "shots": [
+      [
+       "e01_環保抄表",
+       "Environmental readings"
+      ],
+      [
+       "e02_超出範圍",
+       "Out of range needs a note"
+      ]
+     ],
+     "steps": [
+      "On the Menu tap <b>\"Environmental readings\"</b> and choose <b>air</b> or <b>wastewater</b>.",
+      "For cumulative meters (flow meter, power meter), enter <b>the number on the meter</b>; the system works out <b>daily usage</b>.",
+      "Out of range, equipment marked <b>✕</b>, or a problem found: the card <b>turns red</b> and you must write <b>the cause and action</b> to send.",
+      "The bottom button shows how many are left; when done tap <b>\"Send\"</b>. Without internet it is saved on the phone and uploaded later. To correct the same day, open it again and resend."
+     ],
+     "tip": "Items and ranges are set in the back office and will be updated after the trial-run approval.",
+     "warn": false
+    },
+    {
+     "no": "8-2",
+     "title": "Month-end confirmation",
+     "lead": "After each month, send it for confirmation; once confirmed it is locked.",
+     "shots": [
+      [
+       "e03_本月紀錄",
+       "This month's records"
+      ]
+     ],
+     "steps": [
+      "On the readings page tap <b>\"This month's records\"</b> to see each day and any problems; tap a day to view or fill it.",
+      "From the 1st of the next month tap <b>\"Send month ○ for confirmation\"</b>.",
+      "Now two steps: <b>reader sends → EHS confirms</b>. When others take over it becomes three: reader → supervisor → EHS.",
+      "The approver can <b>\"Confirm\"</b> or <b>\"Return\"</b>; returned months can be corrected and sent again."
      ],
      "tip": "",
      "warn": false
