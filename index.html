@@ -32,6 +32,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .tb{display:flex;align-items:center;gap:2px;padding:8px 14px 10px 4px;max-width:720px;margin:0 auto;min-height:62px}
 .mnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px}.mnav b{font-size:18px;color:var(--navy);text-align:center;flex:1;white-space:nowrap}.mnav .mnb{width:auto;min-width:96px;min-height:48px;padding:6px 12px;font-size:16px;gap:2px;flex:0 0 auto}.mnav .mnb:disabled{opacity:.35}
 html,body{overscroll-behavior-x:none}.calcard{touch-action:pan-y}
+html{touch-action:manipulation}.li,.btn,.tact,.tb-back,.chip{transition:transform .08s,background-color .08s}.li:active{background:#F1F4F8}.btn:active:not(:disabled),.tb-back:active{transform:scale(.97)}
 .calcard.slideL{animation:slL .22s ease-out}.calcard.slideR{animation:slR .22s ease-out}@keyframes slL{from{transform:translateX(40px);opacity:.3}to{transform:none;opacity:1}}@keyframes slR{from{transform:translateX(-40px);opacity:.3}to{transform:none;opacity:1}}
 .tb-back{width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:12px}
 .tb-sp{width:12px;flex-shrink:0}

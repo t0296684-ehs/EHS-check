@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.13.6';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.13.7';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -68,6 +68,7 @@ PLAT_PAGES.menu = function () {
   setTitle('員和環安衛系統');
   var m = S.me;
   if (!m) { $('app').innerHTML = loading('載入中…'); return; }
+  if (!S.pf && window.prefetch) setTimeout(prefetch, 1200);
   var p = plat() || { mods: { check: true, edu: true }, eduUnread: 0 };
   S.hero = platHero('今天要做什麼？');
   var subs = {
@@ -140,7 +141,7 @@ PLAT_PAGES.env = function () {
   if (!modOn('env')) { $('app').innerHTML = lockedBox('env'); return; }
   if (!S.envL) {
     $('app').innerHTML = loading('讀取中…');
-    api('envMe', {}).then(function (r) { S.envL = r.systems; if (S.page === 'env') render(); })
+    apiR('envMe', {}).then(function (r) { S.envL = r.systems; if (S.page === 'env') render(); })
       .catch(function (e) { $('app').innerHTML = errBox('讀不到環保抄表', e.message) + '<button class="btn navy" onclick="render()">再試一次</button>'; });
     return;
   }
@@ -171,7 +172,7 @@ PLAT_PAGES.envSys = function () {
   var E = S.env;
   if (!E || E.sys !== sys || E.date !== date) {
     $('app').innerHTML = loading('讀取項目…');
-    api('envMe', { sys: sys, date: date }).then(function (d) {
+    apiR('envMe', { sys: sys, date: date }).then(function (d) {
       var v = {}, n = {}; Object.keys(d.values || {}).forEach(function (k) { v[k] = d.values[k].val; n[k] = d.values[k].note; });
       S.env = { sys: sys, date: date, d: d, v: v, n: n }; if (S.page === 'envSys') render();
     }).catch(function (e) { $('app').innerHTML = errBox('讀不到抄表項目', e.message); });
@@ -237,7 +238,7 @@ PLAT_PAGES.envMonth = function () {
   var M = S.envM;
   if (!M || M.sys !== sys || M.period !== per) {
     $('app').innerHTML = loading('讀取這個月的紀錄…');
-    api('envMonth', { sys: sys, period: per }).then(function (r) { S.envM = r; if (S.page === 'envMonth') render(); })
+    apiR('envMonth', { sys: sys, period: per }).then(function (r) { S.envM = r; if (S.page === 'envMonth') render(); })
       .catch(function (e) { $('app').innerHTML = errBox('讀不到紀錄', e.message); });
     return;
   }
@@ -325,7 +326,7 @@ function dlg(html, buttons) {
 }
 function consLoad() {
   if (!navigator.onLine) { S.cons = S.cons || { off: true, list: [] }; var el0 = $('consList'); if (el0) el0.innerHTML = consListHtml(); return; }
-  api('consCases', {}, { quiet: true }).then(function (r) { S.cons = { at: Date.now(), list: r.list, total: r.total, demo: r.demo }; var el = $('consList'); if (el && S.page === 'cons') el.innerHTML = consListHtml(); })
+  apiR('consCases', {}, { quiet: true }).then(function (r) { S.cons = { at: Date.now(), list: r.list, total: r.total, demo: r.demo }; var el = $('consList'); if (el && S.page === 'cons') el.innerHTML = consListHtml(); })
     .catch(function (e) { S.cons = { at: Date.now(), err: e.message, list: [] }; var el = $('consList'); if (el && S.page === 'cons') el.innerHTML = consListHtml(); });
 }
 function consListHtml() {
@@ -402,7 +403,7 @@ PLAT_PAGES.edu = function () {
   var e = S.edu;
   if (!e) {
     $('app').innerHTML = loading('讀取文宣…');
-    api('eduList', {}).then(function (r) { S.edu = { list: r.list, cats: r.cats, cat: '' }; if (S.page === 'edu') render(); })
+    apiR('eduList', {}).then(function (r) { S.edu = { list: r.list, cats: r.cats, cat: '' }; if (S.page === 'edu') render(); })
       .catch(function (x) { $('app').innerHTML = errBox('讀不到教育訓練', x.message) + '<button class="btn navy" onclick="render()">再試一次</button>'; });
     return;
   }
@@ -513,7 +514,7 @@ PLAT_PAGES.eduPost = function () {
   if (!isEhs()) return back();
   if (!S.ep) {
     $('app').innerHTML = loading('讀取人員名單…');
-    api('bcPeople', {}).then(function (r) {
+    apiR('bcPeople', {}).then(function (r) {
       S.ep = { depts: r.depts, cat: '教育訓練', title: '', body: '', link: '', files: [], mode: 'all', depts2: {}, names: {}, mgrOnly: false, needAck: true, mail: false, up: 0,
                hours: '', teacher: S.me.person.name, due: '', quiz: [], topic: '' };
       if (S.page === 'eduPost') render();
@@ -610,7 +611,7 @@ PLAT_PAGES.eduStats = function () {
   if (!isEhs()) return back();
   if (!S.es) {
     $('app').innerHTML = loading('讀取中…');
-    api('eduStats', {}).then(function (r) { S.es = { list: r.list, open: {} }; if (S.page === 'eduStats') render(); })
+    apiR('eduStats', {}).then(function (r) { S.es = { list: r.list, open: {} }; if (S.page === 'eduStats') render(); })
       .catch(function (e) { $('app').innerHTML = errBox('讀不到閱讀紀錄', e.message); });
     return;
   }
@@ -651,7 +652,7 @@ PLAT_PAGES.patrol = function () {
   var P = S.pv;
   if (!P) {
     $('app').innerHTML = loading('讀取中…');
-    api('patrolInfo', {}).then(function (r) { S.pv = r; if (S.page === 'patrol') render(); })
+    apiR('patrolInfo', {}).then(function (r) { S.pv = r; if (S.page === 'patrol') render(); })
       .catch(function (e) { $('app').innerHTML = errBox('讀不到巡視紀錄', e.message); });
     return;
   }
@@ -817,7 +818,7 @@ PLAT_PAGES.chem = function () {
   var C = S.chem;
   if (!C) {
     $('app').innerHTML = loading('讀取中…');
-    api('chemList', {}).then(function (r) { S.chem = r; S.chemQ = ''; S.chemP = r.parts[0] || 'PU'; if (S.page === 'chem') render(); })
+    apiR('chemList', {}).then(function (r) { S.chem = r; S.chemQ = ''; S.chemP = r.parts[0] || 'PU'; if (S.page === 'chem') render(); })
       .catch(function (e) { $('app').innerHTML = errBox('讀不到化學品清單', e.message); });
     return;
   }

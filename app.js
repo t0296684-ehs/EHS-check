@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.6';
+var APP_VERSION = '0.13.7';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -152,6 +152,7 @@ function api(action, body, opt) {
       if (j.rid !== rid && (RID_STRICT || j.rid !== undefined)) throw new Error('連線回應錯亂（rid 不符）');
       if (!j.success && j.update) { var ue = new Error(j.error || 'App 有新版本'); ue.biz = true; ue.update = true; appUpdate(); throw ue; }
       if (!j.success) { var err = new Error(j.error || '系統錯誤'); if (j.retry) err.server = true; else err.biz = true; throw err; }
+      if (RC_KEEP.indexOf(action) < 0) rcClear();          // 送出、審核、上傳…成功：看過的畫面暫存全部作廢，下次一定讀最新
       return j.data;
     }).catch(function (e) {
       if (e.biz || i >= waits.length + (e.server ? 2 : 0)) throw e;
@@ -162,6 +163,47 @@ function api(action, body, opt) {
     });
   }
   return once();
+}
+
+// ───────────── 讀取暫存（v0.13.7）：看過的畫面先用手機裡的資料立刻畫出來，背景再跟 Google 對一次，有變才重畫 ─────────────
+// 任何寫入成功後整個清掉；登入、登出、換人也清掉。開發者模式只放記憶體、不存手機。
+var RC_ACT = ['monthView', 'packages', 'tracks', 'eduList', 'eduStats', 'team', 'nextList', 'envMe', 'envMonth', 'consCases', 'chemList', 'patrolInfo', 'bcPeople', 'bcList', 'exportOpts'];
+var RC_KEEP = RC_ACT.concat(['me', 'overview', 'bootstrap', 'ping', 'clientLog', 'photoGet', 'eduFile', 'getPdf', 'exportPdf', 'dayView', 'devLogs']);   // 只讀的動作不清暫存
+var RC = null, RC_FRESH = 20000, RC_MAX = 40, RC_LS = 'chk.rc';
+function rcAll() { if (!RC) { RC = {}; if (!S.dev) try { RC = JSON.parse(localStorage.getItem(RC_LS) || '{}') || {}; } catch (e) { RC = {}; } } return RC; }
+function rcSave() {
+  var ks = Object.keys(RC).sort(function (a, b) { return RC[b].at - RC[a].at; });
+  ks.slice(RC_MAX).forEach(function (k) { delete RC[k]; });
+  if (!S.dev) try { localStorage.setItem(RC_LS, JSON.stringify(RC)); } catch (e) { try { localStorage.removeItem(RC_LS); } catch (x) {} }   // 空間不夠：只留記憶體
+}
+function rcClear() { RC = {}; try { localStorage.removeItem(RC_LS); } catch (e) {} }
+function rcKey(action, body) { return (S.dev ? 'dev:' + S.dev.name + '|' : '') + ((S.me && S.me.person && S.me.person.name) || '') + '|' + action + '|' + JSON.stringify(body || {}); }
+function rcIdle() { var a = document.activeElement; return !$('busy') && !document.querySelector('.dlg,.pview') && !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); }
+/** 只讀的 api：有暫存就馬上回暫存（20 秒內不再問 Google），背景更新完資料有變、而且人還在同一頁沒在打字，就重畫一次。 */
+function apiR(action, body, opt) {
+  var k = rcKey(action, body), c = rcAll()[k], page = S.page, arg = S.arg;
+  var get = function () {
+    return api(action, body, Object.assign({ quiet: !!c }, opt || {})).then(function (d) {
+      var js = JSON.stringify(d), changed = !c || c.js !== js;
+      rcAll()[k] = { at: Date.now(), js: js }; rcSave();
+      return { d: d, changed: changed };
+    });
+  };
+  if (!c) return get().then(function (r) { return r.d; });
+  if (Date.now() - c.at > RC_FRESH) get().then(function (r) { if (r.changed && S.page === page && S.arg === arg && rcIdle()) render(); }).catch(function () {});
+  return Promise.resolve(JSON.parse(c.js));
+}
+/** 打開 App 後趁空檔先把最常點的畫面讀好（本月月曆、教育訓練、異常追蹤），點進去就不用等。 */
+function prefetch() {
+  if (S.pf || !S.me || S.dev || S.share || !navigator.onLine || !(S.me.signature && S.me.signature.imageV)) return;
+  S.pf = true;
+  var per = today().slice(0, 7), q = [], mods = ((window.plat && plat()) || {}).mods || {};
+  if (!isEhs()) (S.me.depts || []).slice(0, 2).forEach(function (d) { q.push(['monthView', { deptId: d.id, period: per }]); });
+  if (S.me.pendingReview) q.push(['packages', {}]);
+  if (mods.edu) q.push(['eduList', {}]);
+  if (S.me.tracksOpen) q.push(['tracks', {}]);
+  var run = function () { var x = q.shift(); if (x && !S.dev) apiR(x[0], x[1], { quiet: true, noRetry: true }).then(run, run); };
+  run();
 }
 
 // ───────────── 待上傳區（IndexedDB）─────────────
@@ -294,7 +336,7 @@ function kickToLogin(msg) {
   return obAll().then(function (a) {
     return Promise.all(a.filter(function (j) { return !j.who && j.token === tok && name; }).map(function (j) { j.who = name; return obPut(j); }));
   }).catch(function () {}).then(function () {
-    lsDel(LS.TOKEN); lsDel(LS.ME); authClear(); S.me = null; S.stack = [];
+    lsDel(LS.TOKEN); lsDel(LS.ME); authClear(); rcClear(); S.me = null; S.stack = [];
     go('login', {}, true); toast(esc(msg), 'err');
     return obRefresh();
   });
@@ -357,7 +399,7 @@ var pkgLoading = false;
 function loadPkgs(force) {
   if (pkgLoading || (S.pkgs && !force)) return;
   pkgLoading = true;
-  api('packages', {}, { quiet: true }).then(function (list) { S.pkgs = list || []; if (S.page === 'home') render(); })
+  apiR('packages', {}, { quiet: true }).then(function (list) { S.pkgs = list || []; if (S.page === 'home') render(); })
     .catch(function () { if (!S.pkgs) S.pkgs = []; }).then(function () { pkgLoading = false; });
 }
 function A(key) { return (S.me.assigns || []).filter(function (a) { return a.key === key; })[0]; }
@@ -385,9 +427,15 @@ function go(page, arg, replace) {
   if (!replace && S.page !== page) S.stack.push({ page: S.page, arg: S.arg });
   S.page = page; S.arg = arg || {};
   window.scrollTo(0, 0);
-  render();
+  render(); pgIn(1);
 }
-function back() { var p = S.stack.pop() || { page: window.landing ? landing() : 'home', arg: {} }; S.page = p.page; S.arg = p.arg; window.scrollTo(0, 0); render(); }
+function back() { var p = S.stack.pop() || { page: window.landing ? landing() : 'home', arg: {} }; S.page = p.page; S.arg = p.arg; window.scrollTo(0, 0); render(); pgIn(-1); }
+/** 換頁的淡入（往前從右邊、返回從左邊滑一點點），跟一般 App 一樣有「換頁了」的感覺；系統設定減少動態效果就不做。 */
+function pgIn(dir) {
+  var a = $('app'); if (!a || !a.animate) return;
+  try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) {}
+  a.animate([{ opacity: 0.4, transform: 'translateX(' + (dir > 0 ? 14 : -14) + 'px)' }, { opacity: 1, transform: 'none' }], { duration: 170, easing: 'ease-out' });
+}
 
 function render() {
   var p = S.page;
@@ -492,7 +540,7 @@ function doBind() {
     return;
   }
   api('bind', { name: sel.name, pin: pin, device: navigator.userAgent.slice(0, 80) }).then(function (d) {
-    setClock(d.me.serverNow); lsSet(LS.TOKEN, d.token); lsSet(LS.ME, d.me); authSave(); S.me = normMe(d.me); S.stack = [];
+    setClock(d.me.serverNow); rcClear(); lsSet(LS.TOKEN, d.token); lsSet(LS.ME, d.me); authSave(); S.me = normMe(d.me); S.stack = []; S.pf = false;
     S.landed = true; go(d.me.signature ? landing() : 'sign', {}, true);
     toast('歡迎，' + esc(d.me.person.name), 'ok');
     rebindJobs(d.me.person.name, d.token);
@@ -812,6 +860,7 @@ PAGES.home = function () {
   setTitle('員和環安衛系統');
   var m = S.me;
   if (!m) { $('app').innerHTML = loading('載入中…'); return; }
+  if (!S.pf) setTimeout(prefetch, 1200);                     // 首頁畫好後趁空檔預讀常點的畫面（一次開 App 只做一次）
   var t = today(), ehs = isEhs(), mgr = isMgr(), multi = m.depts.length > 1;
   var dn = function (d) { return multi ? d + '・' : ''; };
   var tasks = [];
@@ -1121,7 +1170,7 @@ PAGES.bc = function () {
   setTitle('廣播');
   if (!S.bc) {
     $('app').innerHTML = loading('讀取人員名單…');
-    Promise.all([api('bcPeople', {}), api('bcList', {})]).then(function (r) {
+    Promise.all([apiR('bcPeople', {}), apiR('bcList', {})]).then(function (r) {
       S.bc = { depts: r[0].depts, list: r[1].list, mode: 'all', depts2: {}, names: {}, mgrOnly: false, title: '', body: '', mail: false, open: {} };
       if (S.page === 'bc') render();
     }).catch(function (e) { $('app').innerHTML = '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">' + esc(e.message) + '</div></div></div></div>'; });
@@ -1176,7 +1225,7 @@ function bcSend() {
 }
 
 // ───────────── 異常追蹤：檢點打了異常就自動開案；改善好了填處理方式＋完成日（可附照片）就結案 ─────────────
-function tkLoad() { return api('tracks', {}).then(function (r) { S.tk = r; S.me.tracksOpen = r.open.length; return r; }); }
+function tkLoad() { return apiR('tracks', {}).then(function (r) { S.tk = r; S.me.tracksOpen = r.open.length; return r; }); }
 function tkDates(x) {
   var d = x.dates.map(md);
   return (d.length > 3 ? d.slice(0, 2).join('、') + '…' + d[d.length - 1] : d.join('、')) + (d.length > 1 ? '（' + d.length + ' 天）' : '');
@@ -1317,7 +1366,7 @@ PAGES.nextOwners = function () {
   if (ds.length > 1) h += '<div class="chips">' + ds.map(function (d) { return '<button class="chip' + (d === S.arg.dept ? ' on' : '') + '" onclick="nextDept(' + jsq(d) + ')">' + esc(d) + '</button>'; }).join('') + '</div>';
   if (!nx) {
     $('app').innerHTML = h + loading('讀取本課負責人…');
-    api('nextList', { deptId: S.arg.dept }).then(function (r) { S.next = r; if (!S.arg.key && r.targets.length) S.arg.key = r.targets[0].key; render(); })
+    apiR('nextList', { deptId: S.arg.dept }).then(function (r) { S.next = r; if (!S.arg.key && r.targets.length) S.arg.key = r.targets[0].key; render(); })
       .catch(function (e) { $('app').innerHTML = h + '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">' + esc(e.message) + '</div></div></div></div>'; });
     return;
   }
@@ -1362,7 +1411,7 @@ function nextSave() {
 // ───────────── 部門管理（單位負責人、環安衛）：人員／表單／設備三個清單；誰負責什麼可以今天起改，或排到下月 1 日 ─────────────
 function teamDepts() { return S.me.depts.filter(function (d) { return mgrOf(d.id); }).map(function (d) { return d.id; }); }
 function teamLoad(dept) {
-  return api('team', { deptId: dept }).then(function (r) { S.team = r; S.teamAt = Date.now(); return r; });
+  return apiR('team', { deptId: dept }).then(function (r) { S.team = r; S.teamAt = Date.now(); return r; });
 }
 function perPill(x) {
   return ({ never: pill('na', '', '尚無紀錄'), overdue: pill('ng', 'warn', '已到期'), soon: pill('warn', 'clock', '快到期'), ok: pill('ok', 'check', '期限內') })[x.state] || '';
@@ -1814,8 +1863,8 @@ PAGES.month = function () {
   var a = S.arg;
   setTitle(deptOf(a.dept) + ' ' + ymLabel(a.period));
   if (S.mArg !== a) { S.mArg = a; S.mf = S.mKeep ? S.mKeep.mf : 0; S.mv = S.mKeep ? S.mKeep.mv : 'cal'; S.mKeep = null; S.md = undefined; S.mErr = null; S.cm = ''; }
-  $('app').innerHTML = monthNav(a.period) + loading('讀取這個月的紀錄中…（約 3～6 秒）');
-  api('monthView', { deptId: a.dept, period: a.period }).then(function (v) {
+  $('app').innerHTML = monthNav(a.period) + loading('讀取這個月的紀錄中…');
+  apiR('monthView', { deptId: a.dept, period: a.period }).then(function (v) {
     if (S.page !== 'month' || S.arg !== a) return;
     S.view = v; monthRender();
   }).catch(function (e) { $('app').innerHTML = errBox('讀不到這個月的資料', e.message) + '<button class="btn navy" onclick="render()">再試一次</button>'; });
@@ -2201,7 +2250,7 @@ function openPdf(id) {
 PAGES.packages = function () {
   setTitle('待審核');
   $('app').innerHTML = loading('讀取中…');
-  api('packages', {}).then(function (list) {
+  apiR('packages', {}).then(function (list) {
     if (S.page !== 'packages') return;
     S.pkgs = list;
     var want = isEhs() ? '待環安衛審核' : '待主管審核';
@@ -2453,6 +2502,7 @@ PAGES.settings = function () {
     '<div class="card"><div class="muted">我的簽名（送出時自動帶入）</div>' + (m.signature ? '<div class="sigimgs"><img src="' + esc(m.signature.image) + '" alt="橫式簽名"><img class="v" src="' + esc(m.signature.imageV) + '" alt="直式簽名"></div>' : '<div>尚未簽名</div>') +
     '<div><button class="btn ghost sm" onclick="go(\'sign\',{})">' + ic('pen', 18) + '重新簽名</button></div></div>' +
     '<div class="list">' +
+    (isEhs() ? '<button class="li" onclick="go(\'exportData\')">' + ic('pdf', 22, 2.2) + '<span class="mn"><span class="nm">資料匯出</span><span class="mt">自己選部門、月份、表單，下載檢點紀錄 PDF</span></span><span class="chev">' + ic('right', 18) + '</span></button>' : '') +
     (isEhs() ? '<button class="li" onclick="sysReset()">' + ic('refresh', 22, 2.2) + '<span class="mn"><span class="nm">系統重新整理</span><span class="mt">後台試算表被動到、名單或資料讀不到時按（不刪資料）</span></span></button>' : '') +
     '<button class="li" onclick="go(\'mailPref\')">' + ic('mail', 22, 2.2) + '<span class="mn"><span class="nm">通知信設定</span><span class="mt">不想收的 Email 可以關掉</span></span><span class="chev">' + ic('right', 18) + '</span></button>' +
     '<button class="li" onclick="go(\'remind\')">' + ic('bell', 22, 2.2) + '<span class="mn"><span class="nm">提醒設定</span></span><span class="chev">' + ic('right', 18) + '</span></button>' +
@@ -2460,6 +2510,91 @@ PAGES.settings = function () {
     '<button class="li" onclick="logout()" style="color:var(--ngT)">' + ic('logout', 22, 2.2) + '<span class="mn"><span class="nm">換人使用／登出這支手機</span><span class="mt">換別人抄表時用；手機裡沒上傳的檢點會先保留</span></span></button>' +
     '</div><div class="ver">v' + APP_VERSION + '</div>';
 };
+// ───────────── 資料匯出（環安衛）：每月歸檔照常自動做；這裡隨時挑部門、月份、表單下載 ─────────────
+function ymAdd(ym, n) { var d = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1 + n, 1); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
+PAGES.exportData = function () {
+  setTitle('資料匯出');
+  $('app').innerHTML = loading('讀取中…');
+  apiR('exportOpts', {}).then(function (o) {
+    if (S.page !== 'exportData') return;
+    S.expOpt = o;
+    if (!S.exp) { var lm = ymAdd(today().slice(0, 7), -1); S.exp = { depts: [], forms: o.forms.map(function (f) { return f.id; }), from: lm, to: lm, unsigned: false }; }
+    expRender();
+  }).catch(function (e) { $('app').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+};
+function expRender() {
+  var o = S.expOpt, x = S.exp, units = [];
+  o.depts.forEach(function (d) { if (units.indexOf(d.unit) < 0) units.push(d.unit); });
+  var ck = function (kind, v, label) { return '<label class="ck"><input type="checkbox" ' + (x[kind].indexOf(v) >= 0 ? 'checked' : '') + ' onchange="expPick(' + jsq(kind) + ',' + jsq(v) + ',this.checked)"><span>' + esc(label) + '</span></label>'; };
+  var h = '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><b>每月核准後照常自動歸檔</b><div class="m">這裡是另外要資料時用（例如勞檢、稽核要看某幾個月或某幾張表）。一個部門一個月一份 PDF，多份會打包成 zip 下載。</div></div></div></div>';
+  h += '<div class="card"><div class="muted">月份</div><div class="ropts"><input type="month" class="field" value="' + esc(x.from) + '" onchange="S.exp.from=this.value"><span>到</span><input type="month" class="field" value="' + esc(x.to) + '" onchange="S.exp.to=this.value"></div></div>';
+  units.forEach(function (u) {
+    var ds = o.depts.filter(function (d) { return d.unit === u; });
+    h += '<div class="ritem"><div class="sec"><span class="sl">' + esc(u) + '</span><button class="btn ghost sm" onclick="expAll(\'depts\',' + jsq(u) + ')">全選／全不選</button></div>' + ds.map(function (d) { return ck('depts', d.dept, d.dept); }).join('') + '</div>';
+  });
+  h += '<div class="ritem"><div class="sec"><span class="sl">檢點表</span><button class="btn ghost sm" onclick="expAll(\'forms\',\'\')">全選／全不選</button></div>' + o.forms.map(function (f) { return ck('forms', f.id, f.name); }).join('') + '</div>';
+  h += '<div class="ritem"><label class="ck"><input type="checkbox" ' + (x.unsigned ? 'checked' : '') + ' onchange="S.exp.unsigned=this.checked"><span>也匯出還沒核准歸檔的月份' +
+    '<small class="muted" style="display:block;font-weight:400">PDF 上不會有單位負責人簽名，檔名註明「未簽核」</small></span></label></div>';
+  $('app').innerHTML = h;
+  bar('<button class="btn" onclick="expRun()">' + ic('pdf', 22, 2.8) + '產生 PDF</button>');
+}
+function expPick(kind, v, on) { var a = S.exp[kind].filter(function (y) { return y !== v; }); if (on) a.push(v); S.exp[kind] = a; }
+function expAll(kind, unit) {
+  var all = kind === 'forms' ? S.expOpt.forms.map(function (f) { return f.id; }) : S.expOpt.depts.filter(function (d) { return d.unit === unit; }).map(function (d) { return d.dept; });
+  var has = all.every(function (v) { return S.exp[kind].indexOf(v) >= 0; });
+  S.exp[kind] = S.exp[kind].filter(function (v) { return all.indexOf(v) < 0; }).concat(has ? [] : all);
+  expRender();
+}
+function expRun() {
+  var x = S.exp, months = [];
+  if (!x.depts.length) return toast('請勾選部門', 'err');
+  if (!x.forms.length) return toast('請勾選檢點表', 'err');
+  if (!x.from || !x.to || x.from > x.to) return toast('月份範圍不對', 'err');
+  for (var m = x.from; m <= x.to && months.length < 120; m = ymAdd(m, 1)) months.push(m);
+  var jobs = []; x.depts.forEach(function (d) { months.forEach(function (mm) { jobs.push({ dept: d, period: mm }); }); });
+  if (jobs.length > S.expOpt.max) return toast('一次最多 ' + S.expOpt.max + ' 份（部門數 × 月數），目前 ' + jobs.length + ' 份，請縮小範圍', 'err', 5000);
+  var files = [], skip = 0, i = 0;
+  busyOn('產生 PDF 中…', '共 ' + jobs.length + ' 份，一份約 10～40 秒');
+  var step = function () {
+    if (i >= jobs.length) return Promise.resolve();
+    var j = jobs[i++], t = $('busy') && $('busy').querySelector('b'); if (t) t.textContent = '產生 PDF 中…（' + i + '/' + jobs.length + '）' + j.dept + ' ' + ymLabel(j.period);
+    return api('exportPdf', { dept: j.dept, period: j.period, forms: x.forms, unsigned: x.unsigned }).then(function (r) {
+      if (r.empty) skip++; else files.push({ name: r.name, bytes: b64bytes(r.base64) });
+      return step();
+    });
+  };
+  step().then(function () {
+    busyOff();
+    if (!files.length) return alert('選的範圍沒有任何紀錄' + (x.unsigned ? '' : '（還沒核准歸檔的月份沒有算進來）'));
+    var one = files.length === 1;
+    saveFile(one ? new Blob([files[0].bytes], { type: 'application/pdf' }) : mkZip(files), one ? files[0].name : '作業檢點紀錄_匯出_' + today().replace(/-/g, '') + '.zip');
+    toast('已下載 ' + files.length + ' 份' + (skip ? '（' + skip + ' 份沒有紀錄，略過）' : ''), 'ok', 4000);
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 5000); });
+}
+function b64bytes(b) { var bin = atob(b), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+function saveFile(blob, name) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+/** 不壓縮的 zip（PDF 本來就壓過），檔名用 UTF-8。 */
+function mkZip(files) {
+  var T = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; T[n] = c >>> 0; }
+  var enc = new TextEncoder(), parts = [], cen = [], off = 0, csz = 0;
+  files.forEach(function (f) {
+    var nm = enc.encode(f.name), d = f.bytes, crc = 0xFFFFFFFF;
+    for (var i = 0; i < d.length; i++) crc = T[(crc ^ d[i]) & 255] ^ (crc >>> 8);
+    crc = (crc ^ 0xFFFFFFFF) >>> 0;
+    var h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(12, 0x21, true);
+    h.setUint32(14, crc, true); h.setUint32(18, d.length, true); h.setUint32(22, d.length, true); h.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(h.buffer), nm, d);
+    var e = new DataView(new ArrayBuffer(46));
+    e.setUint32(0, 0x02014b50, true); e.setUint16(4, 20, true); e.setUint16(6, 20, true); e.setUint16(8, 0x0800, true); e.setUint16(14, 0x21, true);
+    e.setUint32(16, crc, true); e.setUint32(20, d.length, true); e.setUint32(24, d.length, true); e.setUint16(28, nm.length, true); e.setUint32(42, off, true);
+    cen.push(new Uint8Array(e.buffer), nm); csz += 46 + nm.length;
+    off += 30 + nm.length + d.length;
+  });
+  var z = new DataView(new ArrayBuffer(22));
+  z.setUint32(0, 0x06054b50, true); z.setUint16(8, files.length, true); z.setUint16(10, files.length, true); z.setUint32(12, csz, true); z.setUint32(16, off, true);
+  return new Blob(parts.concat(cen, [new Uint8Array(z.buffer)]), { type: 'application/zip' });
+}
 /** 環安衛：系統重新整理（修後台表頭、清快取、重建人員指派與功能權限、補表頭保護與名單篩選；不刪資料） */
 function sysReset() {
   if (!confirm('系統重新整理？\n\n會檢查並修好後台試算表的表頭、清掉暫存、重建人員指派與功能權限。不會刪任何資料，約 10～30 秒。')) return;
@@ -2491,7 +2626,7 @@ function logoutDo(name, tok) {
     return Promise.all(a.filter(function (j) { return j.token === tok && !j.who; }).map(function (j) { j.who = name; return obPut(j); }));
   }).catch(function () {}).then(function () {
     api('logout', {}, { quiet: true, noRetry: true }).catch(function () {});   // 讓伺服器端這支手機的登入作廢
-    lsDel(LS.TOKEN); lsDel(LS.ME); authClear(); S.me = null; S.boot = null; S.pkgs = null; S.stack = []; go('login', {}, true);
+    lsDel(LS.TOKEN); lsDel(LS.ME); authClear(); rcClear(); S.me = null; S.boot = null; S.pkgs = null; S.stack = []; go('login', {}, true);
     return obRefresh();
   });
 }
@@ -2643,7 +2778,7 @@ function bfStop() {
     return refreshMe();
   }).then(function () {
     if (deep && S.me) {
-      return api('packages', {}).then(function (list) {
+      return apiR('packages', {}).then(function (list) {
         var p = list.filter(function (x) { return x.monthId === deep; })[0];
         if (p) go('month', { dept: p.dept, period: p.period });
       }).catch(function () {});

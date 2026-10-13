@@ -1,5 +1,5 @@
 {
- "version": "0.13.6",
+ "version": "0.13.7",
  "chapters": [
   {
    "no": 1,
@@ -823,6 +823,10 @@
   [
    "(EHS) Nobody can see the name list, or data suddenly will not load?",
    "Usually the back-office spreadsheet was changed (for example a row inserted above the header, sorted, or deleted). The system fixes it when reading; you can also tap \"Settings → System refresh\" in the app, or the same item in the spreadsheet menu. No data is deleted. To view only one department, use the filter button in row 1 of the name list instead of hiding, moving or sorting rows."
+  ],
+  [
+   "(EHS) A labor inspection or audit wants records for certain months or forms?",
+   "Records are still archived to the NAS automatically after each monthly approval. When you need records separately, go to \"Settings → Export records\", tick the departments, month range and check forms, then tap \"Create PDF\". One file per department per month; several files are downloaded as one zip. Months not yet approved are exported only if you tick that option; those PDFs carry no unit head signature and the file name is marked as not approved."
   ]
  ],
  "demoHide": {
