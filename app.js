@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.3';
+var APP_VERSION = '0.13.4';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -415,11 +415,12 @@ function heroTop() {
 function drawTop() {
   var t = $('top');
   if (S.hero) { t.className = 'hero'; t.innerHTML = devBanner() + S.hero; return; }
-  var showBack = S.stack.length && ['home', 'login', 'url', 'proxy'].indexOf(S.cur) < 0;
+  var sigBk = S.cur === 'sign' && !!S.me;             // 簽名頁每一步都能回上一步（第一次登入還沒簽完也可以，見 sigBack）
+  var showBack = sigBk || (S.stack.length && ['home', 'login', 'url', 'proxy'].indexOf(S.cur) < 0);
   // 沒有「返回」的功能首頁（例：只有一個功能的人直接進來）右上角放「主選單」，任何功能都回得去
   var mb = !showBack && S.me && !S.share && window.menuBtn && ['login', 'url', 'proxy', 'sign', 'psign', 'menu'].indexOf(S.cur) < 0 ? menuBtn() : '';
   t.className = 'topbar';
-  t.innerHTML = devBanner() + '<div class="tb">' + (showBack ? '<button class="tb-back" id="back" aria-label="返回" onclick="back()">' + ic('back', 24, 2.6) + '</button>' : '<span class="tb-sp"></span>') +
+  t.innerHTML = devBanner() + '<div class="tb">' + (showBack ? '<button class="tb-back" id="back" aria-label="返回" onclick="' + (sigBk ? 'sigBack()' : 'back()') + '">' + ic('back', 24, 2.6) + '</button>' : '<span class="tb-sp"></span>') +
     '<div class="tb-t"><div class="tb-ttl" id="ttl">' + esc(S.title) + '</div>' + (S.me ? '<div class="tb-sub">' + esc(whoLine()) + '</div>' : '') + '</div>' + mb + netTag() + (S.me && !S.share && ['login', 'url', 'proxy', 'sign', 'psign', 'notice'].indexOf(S.cur) < 0 ? bellBtn() : '') + '</div>' + (S.topExtra || '');
 }
 function setTitle(t) { S.title = t; document.title = t === '員和環安衛系統' ? t : t + '｜員和環安衛系統'; }
@@ -531,8 +532,33 @@ PAGES.sign = function () {
   bar('<button class="btn" id="sigBtn" onclick="sigNext()">' + (v ? ic('check', 22, 2.8) + '儲存兩個簽名' : '下一步：簽直式' + ic('arrow', 20, 2.6)) + '</button>');
   sigInit();
   if (v && SIG.h) setTimeout(sigAutoV, 150);       // 進直式這一步先自動轉一次給本人預覽，確認了才用
+  else if (!v && S.arg.keepH && SIG.h) setTimeout(function () { sigPaint(SIG.h); }, 150);   // 從直式回來：剛簽的橫式還在，不用重簽
 };
 var SIG = { drawn: false };
+/**
+ * 簽名頁的「返回」：直式 → 回橫式（剛簽的橫式留著）；從設定來重簽 → 回上一頁；
+ * 第一次登入還沒簽完 → 回「選擇您的身分」，這支手機的登入作廢，要重新輸入啟用碼（例：選錯人、要改啟用別的帳號）。
+ */
+function sigBack() {
+  if (S.arg.step === 'v') { S.arg = { keepH: 1 }; window.scrollTo(0, 0); return render(); }
+  if (S.me && S.me.signature && S.me.signature.imageV) return back();
+  if (!confirm('回到第一步「選擇您的身分」？\n\n回去後要重新選部門、選名字，並重新輸入啟用碼。')) return;
+  SIG.h = null;
+  logoutDo(S.me.person.name, lsGet(LS.TOKEN, ''));
+}
+/** 把已有的簽名圖放回簽名框（置中縮放），跟手簽一樣可以直接按下一步或清除重簽 */
+function sigPaint(url) {
+  var cv = $('cv'); if (!cv || !cv.clientWidth) return;
+  var img = new Image();
+  img.onload = function () {
+    var ctx = cv.getContext('2d'), W = cv.clientWidth, H = cv.clientHeight, pad = 10;
+    var k = Math.min((W - pad * 2) / img.width, (H - pad * 2) / img.height, 1.5);
+    var w = img.width * k, h = img.height * k;
+    ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+    SIG.drawn = true;
+  };
+  img.src = url;
+}
 function sigInit() {
   var cv = $('cv'), ctx;
   function size() {
@@ -2375,6 +2401,9 @@ function logout() {
 }
 function logoutNow(name, tok, left) {
   if (!confirm(left ? '還有 ' + left + ' 筆檢點沒上傳，登出後要「' + name + '」本人重新登入才會上傳（資料留在這支手機）。確定登出？' : '登出 ' + name + '？')) return;
+  logoutDo(name, tok);
+}
+function logoutDo(name, tok) {
   obAll().then(function (a) {                                  // 記下是誰的：重新登入後 rebindJobs 換上新登入補送
     return Promise.all(a.filter(function (j) { return j.token === tok && !j.who; }).map(function (j) { j.who = name; return obPut(j); }));
   }).catch(function () {}).then(function () {

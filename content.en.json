@@ -1,5 +1,5 @@
 {
- "version": "0.13.3",
+ "version": "0.13.4",
  "chapters": [
   {
    "no": 1,
@@ -58,7 +58,7 @@
       "Tap <b>\"Next: vertical signature\"</b>; the system turns it vertical and shows you.",
       "If every character is complete and in order, tap <b>\"Use this vertical one\"</b>. If not, tap <b>\"I will sign myself\"</b> and sign top to bottom in the box."
      ],
-     "tip": "To change your signature later: Home → \"Settings\" → \"My signature\".",
+     "tip": "To change your signature later: Home → \"Settings\" → \"My signature\". You can tap Back (top left) at any step. Picked the wrong name? Tap Back on the first signature step to return to \"Who are you?\"; you will need to enter your PIN again.",
      "warn": false
     },
     {
