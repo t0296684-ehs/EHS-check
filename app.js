@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.5';
+var APP_VERSION = '0.13.6';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -789,6 +789,7 @@ function duePill(a) {
   if (a.daily) {
     if (pendingFor(a, today())) return pill('info', 'up', '待上傳');
     if (d.todayNoWork) return pill('na', 'minus', '今日無作業');
+    if (d.todayDone && d.signer && S.me && d.signer !== S.me.person.name) return pill('ok', 'check', d.signer + ' 已檢點');   // 同事檢點了（輪流、代理、代填）：寫出是誰
     return d.todayDone ? pill('ok', 'check', '已檢點') : pill('warn', 'clock', '今天未檢點');
   }
   return ({ never: pill('na', '', '尚無紀錄'), overdue: pill('ng', 'warn', '已到期'), soon: pill('warn', 'clock', '快到期'), ok: pill('ok', 'check', '期限內') })[d.state] || '';
@@ -2452,12 +2453,23 @@ PAGES.settings = function () {
     '<div class="card"><div class="muted">我的簽名（送出時自動帶入）</div>' + (m.signature ? '<div class="sigimgs"><img src="' + esc(m.signature.image) + '" alt="橫式簽名"><img class="v" src="' + esc(m.signature.imageV) + '" alt="直式簽名"></div>' : '<div>尚未簽名</div>') +
     '<div><button class="btn ghost sm" onclick="go(\'sign\',{})">' + ic('pen', 18) + '重新簽名</button></div></div>' +
     '<div class="list">' +
+    (isEhs() ? '<button class="li" onclick="sysReset()">' + ic('refresh', 22, 2.2) + '<span class="mn"><span class="nm">系統重新整理</span><span class="mt">後台試算表被動到、名單或資料讀不到時按（不刪資料）</span></span></button>' : '') +
     '<button class="li" onclick="go(\'mailPref\')">' + ic('mail', 22, 2.2) + '<span class="mn"><span class="nm">通知信設定</span><span class="mt">不想收的 Email 可以關掉</span></span><span class="chev">' + ic('right', 18) + '</span></button>' +
     '<button class="li" onclick="go(\'remind\')">' + ic('bell', 22, 2.2) + '<span class="mn"><span class="nm">提醒設定</span></span><span class="chev">' + ic('right', 18) + '</span></button>' +
     '<button class="li" onclick="refreshMe().then(function(){toast(\'已更新\',\'ok\')})">' + ic('refresh', 22, 2.2) + '<span class="mn"><span class="nm">重新讀取設定</span><span class="mt">環安衛中心改了表單或指派後按這裡</span></span></button>' +
     '<button class="li" onclick="logout()" style="color:var(--ngT)">' + ic('logout', 22, 2.2) + '<span class="mn"><span class="nm">換人使用／登出這支手機</span><span class="mt">換別人抄表時用；手機裡沒上傳的檢點會先保留</span></span></button>' +
     '</div><div class="ver">v' + APP_VERSION + '</div>';
 };
+/** 環安衛：系統重新整理（修後台表頭、清快取、重建人員指派與功能權限、補表頭保護與名單篩選；不刪資料） */
+function sysReset() {
+  if (!confirm('系統重新整理？\n\n會檢查並修好後台試算表的表頭、清掉暫存、重建人員指派與功能權限。不會刪任何資料，約 10～30 秒。')) return;
+  busyOn('重新整理中…');
+  api('sysReset', {}).then(function (o) {
+    busyOff();
+    alert('完成（沒有刪任何資料）\n\n' + (o.heads.length ? '修好表頭：' + o.heads.join('、') : '表頭都正常') + '\n重建：' + o.steps.join('、'));
+    return refreshMe();
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 5000); });
+}
 function logout() {
   var name = S.me.person.name, tok = lsGet(LS.TOKEN, '');
   var mine = (S.outbox || []).filter(function (j) { return j.token === tok && (j.status === 'pending' || j.status === 'error'); });

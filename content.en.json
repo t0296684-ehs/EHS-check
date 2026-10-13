@@ -1,5 +1,5 @@
 {
- "version": "0.13.5",
+ "version": "0.13.6",
  "chapters": [
   {
    "no": 1,
@@ -819,6 +819,10 @@
   [
    "Must every issue be closed?",
    "Yes. It stays in \"Issue tracking\" until a corrective action is recorded; supervisors and EHS see how many are open."
+  ],
+  [
+   "(EHS) Nobody can see the name list, or data suddenly will not load?",
+   "Usually the back-office spreadsheet was changed (for example a row inserted above the header, sorted, or deleted). The system fixes it when reading; you can also tap \"Settings → System refresh\" in the app, or the same item in the spreadsheet menu. No data is deleted. To view only one department, use the filter button in row 1 of the name list instead of hiding, moving or sorting rows."
   ]
  ],
  "demoHide": {
