@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.13.4';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.13.5';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -74,7 +74,7 @@ PLAT_PAGES.menu = function () {
     check: checkSub(),
     env: '空污・水污',
     cons: '給廠商的申請連結・我承辦的案件',
-    edu: p.eduReady ? p.eduReady + ' 堂全員完成・待您確認匯入 NAS' : p.eduUnread ? p.eduUnread + ' 則還沒看' : '教育訓練與衛教文宣',
+    edu: p.eduReady ? p.eduReady + ' 堂全員完成・待您確認匯入 NAS' : p.eduUnread ? p.eduUnread + ' 則待完成' : '教育訓練與衛教文宣',
     chem: '查作業現場的化學品與危害',
     patrol: p.patrolN ? '本月已巡視 ' + p.patrolN + ' 次' : '本月還沒巡視（EF-00-012-B）',
   };
@@ -430,7 +430,7 @@ PLAT_PAGES.eduItem = function () {
     api('eduGet', { id: id }).then(function (r) {
       S.eduItem = r; S.eq = { ans: [], wrong: [] };
       if (S.edu) S.edu.list.forEach(function (y) { if (y.id === id) { y.opened = true; } });
-      var p = plat(); if (p && p.eduUnread) { p.eduUnread = Math.max(0, p.eduUnread - 1); var raw = lsGet(LS.ME, null); if (raw && raw.plat) { raw.plat.eduUnread = p.eduUnread; lsSet(LS.ME, raw); } }
+      if (r.firstOpen && !r.course && !r.needAck) eduDec();             // 只有一般文宣「打開＝看過」；課程要按我已完成、要確認的要按我已閱讀才算做完
       if (S.page === 'eduItem') render();
     }).catch(function (e) { $('app').innerHTML = errBox('讀不到這則文宣', e.message); });
     return;
@@ -463,6 +463,8 @@ PLAT_PAGES.eduItem = function () {
   } else if (x.needAck && !x.acked) bar('<button class="btn" id="ackBtn" onclick="eduAck()">' + ic('check', 22, 3) + '我已閱讀，了解內容</button>');
   else if (x.acked) bar('<div class="donebar">' + ic('check', 20, 3) + '已確認閱讀・' + esc(x.ackAt.slice(5).replace('-', '/')) + '</div>');
 };
+/** 教育訓練待辦數減 1（主選單紅點、首頁待辦） */
+function eduDec() { var p = plat(); if (p && p.eduUnread) { p.eduUnread = Math.max(0, p.eduUnread - 1); var raw = lsGet(LS.ME, null); if (raw && raw.plat) { raw.plat.eduUnread = p.eduUnread; lsSet(LS.ME, raw); } } }
 function fsz(n) { n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
 function eduOpen(id, fid) {
   if (!navigator.onLine) return toast('沒有網路，附件要連上網路才能看', 'err', 3500);
@@ -480,7 +482,7 @@ function eduOpen(id, fid) {
 function eduAck() {
   var b = $('ackBtn'); b.disabled = true; b.innerHTML = '<span class="spin"></span>送出中…';
   api('eduAck', { id: S.eduItem.id }).then(function (r) {
-    S.eduItem.acked = true; S.eduItem.ackAt = r.ackAt;
+    S.eduItem.acked = true; S.eduItem.ackAt = r.ackAt; eduDec();
     if (S.edu) S.edu.list.forEach(function (y) { if (y.id === S.eduItem.id) y.acked = true; });
     toast('已記錄，謝謝', 'ok'); render();
   }).catch(function (e) { b.disabled = false; b.innerHTML = ic('check', 22, 3) + '我已閱讀，了解內容'; toast(esc(e.message), 'err', 4000); });
@@ -497,7 +499,7 @@ function eduDone() {
       api('eduDone', { id: x.id, answers: q.ans }).then(function (r) {
         busyOff();
         if (!r.done) { S.eq.wrong = r.wrong; toast('答對 ' + r.right + ' / ' + r.total + ' 題，請再看一下教材', 'err', 4000); render(); return; }
-        x.done = true; x.doneAt = r.doneAt; x.score = r.score || '';
+        x.done = true; x.doneAt = r.doneAt; x.score = r.score || ''; eduDec();
         if (S.edu) S.edu.list.forEach(function (y) { if (y.id === x.id) y.done = true; });
         toast('已完成並簽到，謝謝', 'ok', 3500); render();
       }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
@@ -732,7 +734,7 @@ PLAT_PAGES.patrolNew = function () {
       '<label class="nl">改善期限</label><div class="btns"><input class="field" type="date" value="' + esc(x.due) + '" onchange="' + J + '.due=this.value;pvSave();keepY(render)">' +
       '<div class="chips wrap">' + [[7, '1 週'], [14, '2 週'], [30, '1 個月']].map(function (o) { return '<button class="chip' + (x.due === pvDue(o[0]) ? ' on' : '') + '" onclick="' + J + '.due=pvDue(' + o[0] + ');pvSave();keepY(render)">' + o[1] + '</button>'; }).join('') + '</div></div>' +
       '<label class="nl">現場照片</label><div class="pics sm">' + x.photos.map(function (ph, k) { return '<div class="pic"><img src="' + esc(ph.t) + '" alt="照片"><button class="px" aria-label="移除這張" onclick="' + J + '.photos.splice(' + k + ',1);pvSave();keepY(render)">' + ic('x', 16, 3) + '</button></div>'; }).join('') +
-      (x.photos.length < 4 ? '<label class="pic add">' + ic('plus', 22, 2.6) + '<span>拍照</span><input type="file" accept="image/*" capture="environment" hidden onchange="pvPic(this,' + j + ')"></label>' : '') + '</div></div>';
+      (x.photos.length < 4 ? '<label class="pic add">' + ic('plus', 22, 2.6) + '<span>拍照／選照片</span><input type="file" accept="image/*" hidden onchange="pvPic(this,' + j + ')"></label>' : '') + '</div></div>';
   });
   if (ngs.length) h += '<div class="btns">' + ngs.map(function (k) { return '<button class="btn ghost" onclick="pvAddDef(' + k + ')">' + ic('plus', 16, 2.4) + '第 ' + k + ' 項再加一筆</button>'; }).join('') + '</div>';
   h += '<div class="muted upnote">送出時帶入您的簽名（' + esc(S.me.person.name) + '）。</div>';

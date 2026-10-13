@@ -1,5 +1,5 @@
 {
- "version": "0.13.4",
+ "version": "0.13.5",
  "chapters": [
   {
    "no": 1,
@@ -58,7 +58,7 @@
       "Tap <b>\"Next: vertical signature\"</b>; the system turns it vertical and shows you.",
       "If every character is complete and in order, tap <b>\"Use this vertical one\"</b>. If not, tap <b>\"I will sign myself\"</b> and sign top to bottom in the box."
      ],
-     "tip": "To change your signature later: Home → \"Settings\" → \"My signature\". You can tap Back (top left) at any step. Picked the wrong name? Tap Back on the first signature step to return to \"Who are you?\"; you will need to enter your PIN again.",
+     "tip": "To change your signature later: Home → \"Settings\" → \"My signature\". Every step has a \"Back\" button at the bottom. Picked the wrong name? On the first signature step tap \"Choose again\" to return to \"Who are you?\"; you will need to enter your PIN again.",
      "warn": false
     },
     {
@@ -172,7 +172,8 @@
      "steps": [
       "On Home tap <b>\"Calendar · Fill in missed days\"</b>.",
       "Green = checked, red = abnormal, grey dashed = weekday with no record.",
-      "Tap <b>the missed day</b> to fill it in (back to the 1st of last month).",
+      "Use <b>\"‹ previous month\" / \"next month ›\"</b> at the top, or <b>swipe left or right</b> on the calendar to change month (swipe right for the previous month).",
+      "Tap a <b>missed day</b> to fill it in (months not yet submitted, back to the 1st of the month 3 months ago).",
       "Switch forms at the top. \"Table (by item)\" shows every item for the whole month.",
       "Missed several days: on the month page tap <b>\"Fill in all\"</b>. Forms open one by one and <b>jump to the next</b> after you send.",
       "The orange box shows your progress. You can <b>skip</b> a form or <b>stop</b>; if you leave, Home shows <b>\"Continue\"</b>."
@@ -303,7 +304,8 @@
      "steps": [
       "EHS Center <b>announcements</b> appear in a red box at the top of Home. Tap <b>\"Read full text\"</b>.",
       "After you read it, it leaves Home; you can see it again in <b>\"Notices\"</b>.",
-      "Changes to your forms or equipment and returned months are also explained in Notices."
+      "Changes to your forms or equipment and returned months are also explained in Notices.",
+      "Do not want some emails (for example the filed-record email with PDFs)? <b>\"Settings\" → \"Email settings\"</b>, uncheck it and save; you still get the notices in the app."
      ],
      "tip": "",
      "warn": false
@@ -327,7 +329,7 @@
       ]
      ],
      "steps": [
-      "When you mark an item <b>\"Abnormal\"</b>, besides the note you can tap <b>\"Add photo (optional)\"</b> to photograph the problem.",
+      "When an item is marked <b>\"abnormal\"</b>, besides the note you can tap <b>\"Add photo (optional)\"</b> to take a photo or pick one already on your phone.",
       "After submitting, the item appears in <b>\"Issue tracking\"</b> (red box on Home; the supervisor is notified). If it happens again before being fixed, it is added to the same issue, not duplicated.",
       "When fixed, tap <b>\"Record fix\"</b> in \"Issue tracking\": write the <b>corrective action</b>, choose the <b>date fixed</b>, and add a photo after the fix (required for site inspection findings).",
       "Tap <b>\"Fixed — close\"</b>; the person who found it and the supervisor are notified."
@@ -623,7 +625,7 @@
       "Tap <b>\"I have completed it (use my signature)\"</b>; your stored signature is <b>added to the training sign-in sheet</b>.",
       "Health info only needs reading; tap <b>\"I have read it\"</b> where asked."
      ],
-     "tip": "Materials need internet. Overdue courses are shown in red.",
+     "tip": "You need internet to view the materials. Just opening a course does not complete it; the reminder on the home page stays until you tap \"I have completed it\". Overdue courses are marked red.",
      "warn": false
     }
    ]

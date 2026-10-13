@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.4';
+var APP_VERSION = '0.13.5';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -56,6 +56,7 @@ var ICON = {
   warn: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.1"/>', err: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.1"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.1"/>', back: '<path d="M15 6l-6 6 6 6"/>', right: '<path d="M9 6l6 6-6 6"/>',
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>', down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+  mail: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>',
   bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
   cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
@@ -261,7 +262,7 @@ function outboxBlock() {
     var why = !navigator.onLine ? '等網路恢復' : S.flushing ? '上傳中…' : (msg ? (/新版本/.test(msg) ? 'App 更新到新版後自動上傳' : /忙碌/.test(msg) ? '系統忙碌，會自動再試' : '沒連上，會自動再試') : '背景上傳中');
     var old = pend.filter(function (j) { return j.created && Date.now() - j.created > 2 * 86400000; }).length;
     h += '<div class="strip info">' + ic('cloud', 24, 2.2) + '<div class="stx"><span><b>待上傳 ' + pend.length + ' 筆</b>・' + why + '</span>' +
-      '<small>' + (old ? '<b class="ngt">有 ' + old + ' 筆超過 2 天還沒上傳，請連上網路按「立即上傳」；超過上個月就不能補登</b>' : '已存在手機，不會不見') + '</small></div>' +
+      '<small>' + (old ? '<b class="ngt">有 ' + old + ' 筆超過 2 天還沒上傳，請連上網路按「立即上傳」；超過補填期限就不能補登</b>' : '已存在手機，不會不見') + '</small></div>' +
       '<button class="btn sm" onclick="flush()"' + (S.flushing ? ' disabled' : '') + '>立即上傳</button></div>';
   }
   var wait = a.filter(function (j) { return j.status === 'auth'; }), byWho = {};
@@ -529,7 +530,10 @@ PAGES.sign = function () {
   if (has) h += '<div class="card"><div class="muted">目前的簽名（按儲存才會換掉）</div><div class="sigimgs"><img src="' + esc(has.image) + '" alt="目前的橫式簽名">' +
     (has.imageV ? '<img class="v" src="' + esc(has.imageV) + '" alt="目前的直式簽名">' : '') + '</div></div>';
   $('app').innerHTML = h;
-  bar('<button class="btn" id="sigBtn" onclick="sigNext()">' + (v ? ic('check', 22, 2.8) + '儲存兩個簽名' : '下一步：簽直式' + ic('arrow', 20, 2.6)) + '</button>');
+  // 下方大按鈕旁放「上一步」（10/13 Jason：左上角返回太小，不明顯）
+  var bk = v ? '上一步' : (has && has.imageV ? '返回' : '重新選身分');
+  bar('<div class="btns r12"><button class="btn ghost" onclick="sigBack()">' + ic('back', 20, 2.6) + bk + '</button>' +
+    '<button class="btn" id="sigBtn" onclick="sigNext()">' + (v ? ic('check', 22, 2.8) + '儲存兩個簽名' : '下一步：簽直式' + ic('arrow', 20, 2.6)) + '</button></div>');
   sigInit();
   if (v && SIG.h) setTimeout(sigAutoV, 150);       // 進直式這一步先自動轉一次給本人預覽，確認了才用
   else if (!v && S.arg.keepH && SIG.h) setTimeout(function () { sigPaint(SIG.h); }, 150);   // 從直式回來：剛簽的橫式還在，不用重簽
@@ -823,7 +827,7 @@ PAGES.home = function () {
   if (bfq && !ehs) tasks.push({ red: true, tag: '補填中', title: '還有 ' + (bfq.list.length - bfq.i) + ' 張要補填', meta: '下一張：' + md(bfq.list[bfq.i].date) + ' ' + bfq.list[bfq.i].name, btn: '繼續補填', on: 'bfOpen()' });
   // 0.6 環安衛教育訓練還沒看的（只有日常檢點一個功能的人平常都停在這頁，所以在這裡也提醒）
   var eu = (plat() || {}).eduUnread || 0;
-  if (!ehs && eu) tasks.push({ tag: '環安衛教育訓練', title: '有 ' + eu + ' 則新的教育訓練、衛教文宣', meta: '打開看完，要確認的按「我已閱讀」', btn: '去看看', on: "go('edu')" });
+  if (!ehs && eu) tasks.push({ tag: '環安衛教育訓練', title: '有 ' + eu + ' 則教育訓練、衛教文宣待完成', meta: '課程看完要按「我已完成」，要確認的按「我已閱讀」', btn: '去看看', on: "go('edu')" });
   // 0.8 異常追蹤：還沒填改善的（檢點人員、單位負責人）
   if (!ehs && m.tracksOpen) tasks.push({ red: true, tag: '異常追蹤', title: '有 ' + m.tracksOpen + ' 件異常待改善', meta: '改善好了填寫處理方式就能結案', btn: '去處理', on: "S.tk=null;go('track')" });
   // 1. 被退回
@@ -1216,7 +1220,7 @@ PAGES.trackFix = function () {
     '<label class="nl" for="tfDate">改善完成日期</label><input type="date" id="tfDate" class="field" value="' + esc(tf.date) + '" min="' + esc(first) + '" max="' + today() + '" onchange="S.tf.date=this.value">' +
     '<label class="nl' + (x.form === 'PATROL' ? ' req' : '') + '">改善後照片' + (x.form === 'PATROL' ? '（現場巡視缺失要附，會放進查核紀錄附頁）' : '（選填）') + '</label><div class="pics">' + tf.pics.map(function (p, i) {
       return '<div class="pic"><img src="' + esc(p.t) + '" alt="改善照片 ' + (i + 1) + '"><button class="px" aria-label="移除這張" onclick="S.tf.pics.splice(' + i + ',1);keepY(render)">' + ic('x', 16, 3) + '</button></div>';
-    }).join('') + (tf.pics.length < 3 ? '<label class="pic add">' + ic('plus', 26, 2.6) + '<span>拍照／選照片</span><input type="file" accept="image/*" capture="environment" hidden onchange="tfPick(this)"></label>' : '') + '</div></div>';
+    }).join('') + (tf.pics.length < 3 ? '<label class="pic add">' + ic('plus', 26, 2.6) + '<span>拍照／選照片</span><input type="file" accept="image/*" hidden onchange="tfPick(this)"></label>' : '') + '</div></div>';
   $('app').innerHTML = h;
   tfBar();
 };
@@ -1538,7 +1542,7 @@ function evHtml(f, fm) {
   if (ev.photos) {
     h += '<div class="pics">' + pics.map(function (p, i) {
       return '<div class="pic"><img src="' + esc(p.t) + '" alt="現場照片 ' + (i + 1) + '"><button class="px" aria-label="移除這張" onclick="evDel(' + i + ')">' + ic('x', 16, 3) + '</button></div>';
-    }).join('') + (pics.length < 6 ? '<label class="pic add">' + ic('plus', 26, 2.6) + '<span>拍照／選照片</span><input type="file" accept="image/*" capture="environment" hidden onchange="evPick(this)"></label>' : '') + '</div>' +
+    }).join('') + (pics.length < 6 ? '<label class="pic add">' + ic('plus', 26, 2.6) + '<span>拍照／選照片</span><input type="file" accept="image/*" hidden onchange="evPick(this)"></label>' : '') + '</div>' +
       '<div class="hint">拍檢查的部位、量測的儀表讀數或銘牌。照片拍了就上傳，要有網路。</div>';
   }
   return h + '</div>';
@@ -1579,7 +1583,7 @@ function ngPicsHtml(fm, seq) {
   var pics = (fm.np || {})[seq] || [];
   return '<div class="pics sm">' + pics.map(function (p, i) {
     return '<div class="pic"><img src="' + esc(p.t) + '" alt="異常照片 ' + (i + 1) + '"><button class="px" aria-label="移除這張" onclick="ngDel(' + jsq(seq) + ',' + i + ')">' + ic('x', 16, 3) + '</button></div>';
-  }).join('') + (pics.length < 3 ? '<label class="pic add">' + ic('plus', 22, 2.6) + '<span>附照片</span><input type="file" accept="image/*" capture="environment" hidden onchange="ngPick(this,' + jsq(seq) + ')"></label>' : '') + '</div>' +
+  }).join('') + (pics.length < 3 ? '<label class="pic add">' + ic('plus', 22, 2.6) + '<span>附照片</span><input type="file" accept="image/*" hidden onchange="ngPick(this,' + jsq(seq) + ')"></label>' : '') + '</div>' +
     (navigator.onLine ? '' : '<div class="hint">沒網路可以先送出；照片之後在「異常追蹤」填改善時再附。</div>');
 }
 function ngPick(inp, seq) {
@@ -1652,7 +1656,7 @@ PAGES.fill = function () {
   if (!a || !fm) return back();
   var f = F(a.form);
   setTitle(f.name);
-  var t = today(), minD = (function () { var d = nowD(); d.setDate(1); d.setMonth(d.getMonth() - 1); return ymd(d); })();
+  var t = today(), minD = fillMin() + '-01';
   var st = fillState(f, fm), ff = S.ff;
 
   // 頂部固定：進度＋只看未勾／異常
@@ -1808,8 +1812,8 @@ function submitFill() {
 PAGES.month = function () {
   var a = S.arg;
   setTitle(deptOf(a.dept) + ' ' + ymLabel(a.period));
-  if (S.mArg !== a) { S.mArg = a; S.mf = 0; S.mv = 'cal'; S.md = undefined; S.mErr = null; S.cm = ''; }
-  $('app').innerHTML = loading('讀取這個月的紀錄中…（約 3～6 秒）');
+  if (S.mArg !== a) { S.mArg = a; S.mf = S.mKeep ? S.mKeep.mf : 0; S.mv = S.mKeep ? S.mKeep.mv : 'cal'; S.mKeep = null; S.md = undefined; S.mErr = null; S.cm = ''; }
+  $('app').innerHTML = monthNav(a.period) + loading('讀取這個月的紀錄中…（約 3～6 秒）');
   api('monthView', { deptId: a.dept, period: a.period }).then(function (v) {
     if (S.page !== 'month' || S.arg !== a) return;
     S.view = v; monthRender();
@@ -1820,11 +1824,42 @@ function dayBad(f, r) {
   return Object.keys(r.results || {}).some(function (k) { var x = r.results[k]; return x === '?' || f.noteFor.indexOf(x) >= 0; });
 }
 function seeLate(v) { return !!(mgrOf(v.dept) || isEhs()); }     // 補登資訊只給單位負責人、環安衛看
+/** 月份加減：'2026-10' ± k 個月 */
+function addM(per, k) { var d = new Date(Number(per.slice(0, 4)), Number(per.slice(5)) - 1 + k, 1); return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+/** 可以補填的最早月份（後台「可補填月數」，預設本月＋前 3 個月） */
+function fillMin() { return addM(today().slice(0, 7), -((S.me && S.me.fillMonths) || 1)); }
+var MNAV_BACK = 12;                                              // 月曆最多往前翻 12 個月（看得到；能不能改看補填期限）
+function mCanGo(per) { var cur = today().slice(0, 7); return per <= cur && per >= addM(cur, -MNAV_BACK); }
+function mGo(k) {
+  var a = S.arg, np = addM(a.period, k);
+  if (!mCanGo(np)) return toast(k > 0 ? '已經是本月' : '只能往前看 ' + MNAV_BACK + ' 個月', '', 2000);
+  S.mSlide = k; S.mKeep = { mf: S.mf, mv: S.mv };
+  go('month', { dept: a.dept, period: np }, true);
+}
+function monthNav(per) {
+  var p0 = addM(per, -1), p1 = addM(per, 1);
+  var btn = function (k, p) {
+    var ok = mCanGo(p);
+    return '<button class="btn ghost mnb" aria-label="' + (k < 0 ? '上個月' : '下個月') + '"' + (ok ? ' onclick="mGo(' + k + ')"' : ' disabled') + '>' +
+      (k < 0 ? ic('back', 22, 2.8) + Number(p.slice(5)) + ' 月' : Number(p.slice(5)) + ' 月' + ic('right', 22, 2.8)) + '</button>';
+  };
+  return '<div class="mnav">' + btn(-1, p0) + '<b>' + ymLabel(per) + '</b>' + btn(1, p1) + '</div>';
+}
+/** 月曆左右滑換月：往左滑＝下個月、往右滑＝上個月（同 Google 日曆） */
+function mSwipe() {
+  var el = $('app'), x0 = null, y0 = 0;
+  el.ontouchstart = function (e) { if (S.page !== 'month' || !e.target.closest('.calcard')) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; };
+  el.ontouchend = function (e) {
+    if (x0 === null || S.page !== 'month') return;
+    var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) mGo(dx < 0 ? 1 : -1);
+  };
+}
 function monthRender() {
   if ($('cm')) S.cm = $('cm').value;
   var v = S.view, forms = S.me.forms, mm = v.model, boss = mgrOf(v.dept), ehs = isEhs();
   var late = seeLate(v) ? (mm.late || {}) : {};
-  var h = '';
+  var h = monthNav(v.period);
   if (S.mErr) h += errBox(S.mErr.t, S.mErr.m, S.mErr.btn || '');
   h += '<div class="card"><div class="mr"><b>本月狀態</b>' + statusPill(v.status) + '</div>' +
     (v.status === '退回' ? '<div class="box err" role="alert"><div class="r">' + ic('ret', 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(v.reason) + '</div></div></div></div>' : '') +
@@ -1858,15 +1893,16 @@ function monthRender() {
     var nBad = Object.keys(x.days).filter(function (k) { return dayBad(f, x.days[k]); }).length, nLate = Object.keys(late[x.form] || {}).length;
     var stats = '<div class="stats"><span>檢點 <b>' + days.filter(function (d) { return !d.noWork; }).length + '</b> 天</span><span>無作業 <b>' + days.filter(function (d) { return d.noWork; }).length + '</b> 天</span>' +
       (nBad ? '<span class="ng">異常 <b>' + nBad + '</b> 天</span>' : '') + (nLate ? '<span class="wn">補登 <b>' + nLate + '</b> 天</span>' : '') + '</div>';
-    var blanks = blankDays(x, v.period), canEdit = (v.status === '填寫中' || v.status === '退回') && !ehs;
+    var blanks = blankDays(x, v.period), canEdit = (v.status === '填寫中' || v.status === '退回') && !ehs && v.period >= fillMin();
     if (canEdit && blanks.length) stats += '<div class="blankl">' + ic('pen', 16, 2.4) + '平日沒紀錄 ' + blanks.length + ' 天（' + blanks.slice(0, 10).join('、') + (blanks.length > 10 ? '…' : '') + ' 號）：點日期可以補填</div>';
-    if (S.mv === 'cal') h += '<div class="card">' + stats + calHtml(f, x, v.period, late[x.form]) + '</div>' + dayDetail(f, x, v.period, late[x.form]);
+    if (S.mv === 'cal') h += '<div class="card calcard' + (S.mSlide ? (S.mSlide > 0 ? ' slideL' : ' slideR') : '') + '">' + stats + calHtml(f, x, v.period, late[x.form]) + '</div>' + dayDetail(f, x, v.period, late[x.form]);
     else h += '<div class="card">' + stats + '</div>' + gridHtml(f, x, v.period, seeLate(v) ? late[x.form] : null);
   }
   if (mm.periodic.length) h += '<div class="sec">定期檢查（本月）</div>';
   mm.periodic.forEach(function (x) { h += sheetHtml(forms[x.form], x); });
   if (!mm.daily.length && !mm.periodic.length) h += '<div class="empty">這個月沒有資料。</div>';
   $('app').innerHTML = h;
+  S.mSlide = 0; mSwipe();
 
   var thisMonth = v.period === today().slice(0, 7);
   if ((v.status === '填寫中' || v.status === '退回') && !ehs && thisMonth) {
@@ -1948,7 +1984,7 @@ function calHtml(f, x, period, late) {
     if (r && r.noWork) { cls += ' nw'; mark = '<small>無</small>'; lab = '無作業'; }
     else if (r && dayBad(f, r)) { cls += ' bad'; mark = ic('x', 12, 3.6); lab = '有異常'; }
     else if (r) { cls += ' ok'; mark = ic('check', 12, 3.6); lab = '正常'; }
-    else if (!future && dow > 0 && dow < 6 && !(S.view && demoDept(S.view.dept))) { cls += ' miss'; lab = '沒有紀錄'; anyMiss = true; }
+    else if (!future && dow > 0 && dow < 6 && !(S.view && demoDept(S.view.dept)) && !(S.me && S.me.startPeriod && period < S.me.startPeriod)) { cls += ' miss'; lab = '沒有紀錄'; anyMiss = true; }
     else lab = '沒有紀錄';
     if (r && r.unconf) { cls += ' uc'; anyUc = true; mark = '<small class="ucl">待確認</small>'; lab += '、試算表填的待確認'; }
     if (late && late[d]) { cls += ' late'; anyLate = true; if (!r || !dayBad(f, r)) mark = '<small class="lt">補登</small>'; lab += '、補登'; }
@@ -1967,9 +2003,11 @@ function optLabel(f, seq, k) {
 }
 /** 示範區（「示範」開頭的部門）：給勞檢看的，只示範當天檢點流程——不出現任何補填、補登的入口或提示 */
 function demoDept(d) { return /^示範/.test(String(d || '')); }
-/** 平日（週一～五）沒有紀錄、且不是未來的日子（示範區不算） */
+/** 平日（週一～五）沒有紀錄、且不是未來的日子（示範區、系統啟用前的月份不算） */
 function blankDays(x, period) {
   if (S.view && demoDept(S.view.dept)) return [];
+  if (S.me && S.me.startPeriod && period < S.me.startPeriod) return [];   // 系統正式啟用以前（紙本時期）不標漏填、不出一次補填
+
   var y = Number(period.slice(0, 4)), mo = Number(period.slice(5)), n = new Date(y, mo, 0).getDate(), td = today(), out = [];
   for (var d = 1; d <= n; d++) { var dow = new Date(y, mo - 1, d).getDay(), date = period + '-' + pad(d); if (date <= td && dow > 0 && dow < 6 && !x.days[d]) out.push(d); }
   return out;
@@ -1978,8 +2016,8 @@ function blankDays(x, period) {
 function dayAction(x, period, d) {
   var v = S.view, date = period + '-' + pad(d), t = today();
   if (isEhs() || !(v.status === '填寫中' || v.status === '退回') || date > t || (demoDept(v.dept) && date !== t)) return '';
-  var minD = (function () { var z = nowD(); z.setDate(1); z.setMonth(z.getMonth() - 1); return ymd(z); })();
-  if (date < minD) return '<div class="muted">超過補填期限（只能補到上個月 1 日），要更正請洽環安衛中心。</div>';
+  var minD = fillMin() + '-01';
+  if (date < minD) return '<div class="muted">超過補填期限（只能補到 ' + Number(minD.slice(5, 7)) + ' 月 1 日），要更正請洽環安衛中心。</div>';
   var a = (S.me.assigns || []).filter(function (y) { return y.daily && y.dept === v.dept && y.form === x.form; })[0];
   if (!a) return '';
   var r = x.days[d], me = S.me.person.name;
@@ -2294,6 +2332,38 @@ function remDefault(a) {
   if (a.freq === '每月') return { on: false, time: '09:00', dom: 25 };
   return { on: false, time: '09:00', before: a.warnDays || 30 };
 }
+// ───────────── 通知信設定（10/13 Jason：不想收的信可以關；App 裡的通知照常）─────────────
+var MAIL_KINDS = [
+  ['archive', '歸檔完成信（附 PDF）', '每月紀錄歸檔後寄給您，附有您簽名的檢點表（單位負責人附整份）'],
+  ['review', '送審、待審核、退回通知信', '有紀錄等您審核或歸檔、您送審的月份被退回時寄給您'],
+  ['status', '每月送審狀況信', '每月寄上個月各課的送審狀況（單位負責人、環安衛）'],
+  ['notice', '其他通知信', '負責人異動、異常追蹤、教育訓練等']
+];
+PAGES.mailPref = function () {
+  setTitle('通知信設定');
+  if (!S.mailOff) S.mailOff = (S.me.mailOff || []).slice();
+  var boss = isMgr() || isEhs();
+  var h = '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><b>這裡只管要不要寄 Email 到公司信箱</b><div class="m">App 裡的「通知」照常都會收到，不能關。打勾＝要寄，取消打勾＝不寄。</div></div></div></div>';
+  if (S.me.hasEmail === false) h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">名單上沒有登記您的 Email，目前本來就不會收到信；要收信請洽環安衛中心。</div></div></div></div>';
+  h += MAIL_KINDS.filter(function (k) { return boss || k[0] !== 'status'; }).map(function (k) {
+    var on = S.mailOff.indexOf(k[0]) < 0;
+    return '<div class="ritem"><label class="ck"><input type="checkbox" id="mk_' + k[0] + '" ' + (on ? 'checked' : '') + ' onchange="mailKind(' + jsq(k[0]) + ',this.checked)"><span>' + esc(k[1]) +
+      '<small class="muted" style="display:block;font-weight:400">' + esc(k[2]) + '</small></span></label></div>';
+  }).join('');
+  if (boss) h += '<div class="muted sm2">關掉「送審、待審核」信後，有紀錄要審核時只會在 App 首頁和通知看到，請記得定期打開 App。</div>';
+  $('app').innerHTML = h;
+  bar('<button class="btn" id="mpBtn" onclick="mailSave()">' + ic('check', 22, 2.8) + '儲存</button>');
+};
+function mailKind(k, on) { S.mailOff = S.mailOff.filter(function (x) { return x !== k; }); if (!on) S.mailOff.push(k); }
+function mailSave() {
+  var btn = $('mpBtn'); btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>儲存中…';
+  api('mailPref', { off: S.mailOff }).then(function (r) {
+    S.me.mailOff = r.off; S.mailOff = null;
+    var raw = lsGet(LS.ME, null); if (raw) { raw.mailOff = r.off; lsSet(LS.ME, raw); }
+    toast('已儲存', 'ok'); back();
+  }).catch(function (e) { toast(esc(e.message), 'err', 4000); btn.disabled = false; btn.className = 'btn'; btn.textContent = '再試一次'; });
+}
+
 PAGES.remind = function () {
   setTitle('提醒設定');
   var R = lsGet(LS.REM, {});
@@ -2382,6 +2452,7 @@ PAGES.settings = function () {
     '<div class="card"><div class="muted">我的簽名（送出時自動帶入）</div>' + (m.signature ? '<div class="sigimgs"><img src="' + esc(m.signature.image) + '" alt="橫式簽名"><img class="v" src="' + esc(m.signature.imageV) + '" alt="直式簽名"></div>' : '<div>尚未簽名</div>') +
     '<div><button class="btn ghost sm" onclick="go(\'sign\',{})">' + ic('pen', 18) + '重新簽名</button></div></div>' +
     '<div class="list">' +
+    '<button class="li" onclick="go(\'mailPref\')">' + ic('mail', 22, 2.2) + '<span class="mn"><span class="nm">通知信設定</span><span class="mt">不想收的 Email 可以關掉</span></span><span class="chev">' + ic('right', 18) + '</span></button>' +
     '<button class="li" onclick="go(\'remind\')">' + ic('bell', 22, 2.2) + '<span class="mn"><span class="nm">提醒設定</span></span><span class="chev">' + ic('right', 18) + '</span></button>' +
     '<button class="li" onclick="refreshMe().then(function(){toast(\'已更新\',\'ok\')})">' + ic('refresh', 22, 2.2) + '<span class="mn"><span class="nm">重新讀取設定</span><span class="mt">環安衛中心改了表單或指派後按這裡</span></span></button>' +
     '<button class="li" onclick="logout()" style="color:var(--ngT)">' + ic('logout', 22, 2.2) + '<span class="mn"><span class="nm">換人使用／登出這支手機</span><span class="mt">換別人抄表時用；手機裡沒上傳的檢點會先保留</span></span></button>' +
@@ -2485,7 +2556,7 @@ function bfGet() { var b = lsGet(BF_KEY, null); return b && b.list && b.i < b.li
 function bfSet(b) { if (b) lsSet(BF_KEY, b); else lsDel(BF_KEY); }
 function bfCollect(v) {
   if (isEhs() || !(v.status === '填寫中' || v.status === '退回') || demoDept(v.dept)) return [];
-  var t = today(), minD = (function () { var z = nowD(); z.setDate(1); z.setMonth(z.getMonth() - 1); return ymd(z); })(), out = [];
+  var t = today(), minD = fillMin() + '-01', out = [];
   (v.model.daily || []).forEach(function (x) {
     var f = S.me.forms[x.form]; if (!f) return;
     var a = (S.me.assigns || []).filter(function (y) { return y.daily && y.dept === v.dept && y.form === x.form; })[0];
