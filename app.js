@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.7';
+var APP_VERSION = '0.13.8';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -403,7 +403,8 @@ function loadPkgs(force) {
     .catch(function () { if (!S.pkgs) S.pkgs = []; }).then(function () { pkgLoading = false; });
 }
 function A(key) { return (S.me.assigns || []).filter(function (a) { return a.key === key; })[0]; }
-function F(id) { return S.me.forms[id]; }
+/** 表單定義；給日期（或月份）時用那個月生效的版本（表單改版後補填前幾個月用舊版，見後台「表單設定」）。 */
+function F(id, d) { var by = d && S.me.formsBy && S.me.formsBy[String(d).slice(0, 7)]; return (by && by[id]) || S.me.forms[id]; }
 function aTitle(a) { var f = F(a.form); return f.name + (a.object ? '｜' + a.object : '') + (a.kind ? '｜' + a.kind : ''); }
 function isMgr() { return S.me && S.me.person.role === '單位負責人'; }
 function mgrOf(dept) { var d = (S.me.depts || []).filter(function (x) { return x.id === dept; })[0]; return d && d.mgr; }
@@ -1704,7 +1705,7 @@ function fillState(f, fm) {
 PAGES.fill = function () {
   var a = A(S.arg.key); var fm = S.fill;
   if (!a || !fm) return back();
-  var f = F(a.form);
+  var f = F(a.form, fm.date);
   setTitle(f.name);
   var t = today(), minD = fillMin() + '-01';
   var st = fillState(f, fm), ff = S.ff;
@@ -1774,7 +1775,7 @@ PAGES.fill = function () {
 /** 底部按鈕永遠告訴使用者下一步：還沒勾 → 跳過去；要寫說明 → 跳過去；都好了 → 送出 */
 function fillBar() {
   if (S.page !== 'fill' || !S.fill) return;
-  var a = A(S.arg.key), f = F(a.form), fm = S.fill, st = fillState(f, fm), h;
+  var a = A(S.arg.key), fm = S.fill, f = F(a.form, fm && fm.date), st = fillState(f, fm), h;
   if (fm.noWork) h = '<button class="btn" id="fillBtn" onclick="submitFill()">' + ic('check', 22, 2.8) + '送出（今日無作業）</button>';
   else if (st.todo.length) h = '<button class="btn navy" onclick="jumpTo(' + jsq(st.todo[0]) + ')">還有 ' + st.todo.length + ' 項沒勾・跳到第 ' + esc(st.todo[0]) + ' 項' + ic('down', 20, 2.6) + '</button>';
   else if (st.noNote.length) h = '<button class="btn navy" onclick="jumpTo(' + jsq(st.noNote[0]) + ',1)">第 ' + esc(st.noNote[0]) + ' 項要寫說明・跳過去' + ic('down', 20, 2.6) + '</button>';
@@ -1803,13 +1804,13 @@ function fillDate(v) {
 function pick(seq, k) {
   S.fill.r[seq] = k; S.fill.noWork = false; draftSave();
   var y = window.scrollY; render(); window.scrollTo(0, y);
-  var f = F(A(S.arg.key).form);
+  var f = F(A(S.arg.key).form, S.fill && S.fill.date);
   if (f.noteFor.indexOf(k) >= 0 && !String(S.fill.n[seq] || '').trim()) {     // 選到要說明的選項：直接把游標放進說明框
     var ta = $('n' + seq); if (ta) ta.focus({ preventScroll: true });
   }
 }
 function allOk() {
-  var a = A(S.arg.key), f = F(a.form);
+  var a = A(S.arg.key), f = F(a.form, S.fill && S.fill.date);
   f.items.forEach(function (it) { var opts = it.opts || f.opts; if (!S.fill.r[it.seq] || S.fill.r[it.seq] === 'na') S.fill.r[it.seq] = S.fill.r[it.seq] === 'na' ? 'na' : opts[0].k; });
   S.fill.noWork = false; draftSave(); render();
   toast('已勾「' + esc((f.items[0].opts || f.opts)[0].label) + '」，有異常的請個別改', '', 2200);
@@ -1817,7 +1818,7 @@ function allOk() {
 function noWork() { S.fill.noWork = !S.fill.noWork; draftSave(); render(); }
 
 function submitFill() {
-  var a = A(S.arg.key), f = F(a.form), fm = S.fill;
+  var a = A(S.arg.key), fm = S.fill, f = F(a.form, fm && fm.date);
   if (!fm.noWork) {
     for (var i = 0; i < f.items.length; i++) {
       var it = f.items[i], v = fm.r[it.seq];
@@ -1978,7 +1979,7 @@ function myUnconf(v) {
   var me = S.me.person.name, out = [];
   if (isEhs() || !(v.status === '填寫中' || v.status === '退回')) return out;
   v.model.daily.forEach(function (x) {
-    var f = F(x.form); if (!f) return;
+    var f = F(x.form, v.period); if (!f) return;
     Object.keys(x.days).forEach(function (d) {
       var r = x.days[d], byMgr = mgrOf(v.dept) && (v.gone || []).indexOf(r.signer) >= 0;
       if (!r.unconf || !(r.signer === me || r.noWork || byMgr)) return;
@@ -2146,7 +2147,7 @@ function submitMonth() {
   }
   var y0 = Number(v.period.slice(0, 4)), m0 = Number(v.period.slice(5)), nd = new Date(y0, m0, 0).getDate(), lines = [];
   v.model.daily.forEach(function (x) {
-    var f = F(x.form); if (!f) return;
+    var f = F(x.form, v.period); if (!f) return;
     var work = 0, nw = 0, blank = [];
     for (var d = 1; d <= nd; d++) { var r = x.days[d], dow = new Date(y0, m0 - 1, d).getDay(); if (r && r.noWork) nw++; else if (r) work++; else if (dow > 0 && dow < 6 && !demoDept(v.dept)) blank.push(d); }
     lines.push('・' + f.name + '：檢點 ' + work + ' 天、無作業 ' + nw + ' 天' + (blank.length ? '、平日空白 ' + blank.length + ' 天（' + blank.slice(0, 8).join('、') + (blank.length > 8 ? '…' : '') + ' 號）' : ''));
@@ -2339,7 +2340,7 @@ PAGES.proxy = function () {
   $('app').innerHTML = h;
 };
 PAGES.psign = function () {
-  var a = A(S.arg.key), f = F(a.form), fm = S.fill;
+  var a = A(S.arg.key), fm = S.fill, f = F(a.form, fm && fm.date);
   if (!fm) return back();
   setTitle('簽名送出');
   var h = '<div class="h2">' + esc(f.name) + '</div><div class="lead">' + esc(S.share.d.dept) + '・' + md(fm.date) + (fm.noWork ? '・今日無作業' : '') + '</div>' +
