@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.11';
+var APP_VERSION = '0.13.12';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -501,8 +501,9 @@ function saveUrl() {
 // ───────────── 第一次登入：選部門 → 選自己 → 啟用碼 ─────────────
 PAGES.login = function () {
   setTitle('選擇您的身分');
-  S.hero = '<div class="hero-in"><div class="brand"><span class="logo">' + '<img src="icon-192.png" alt="" style="width:100%;height:100%;border-radius:inherit;display:block">' + '</span>員和環安衛系統</div>' +
-    '<div class="hn"><div class="h1">第一次使用，請選您是誰</div><div class="hsub">只要選一次，之後打開就直接用</div>' + (window.I18N ? I18N.picker() : '') + '</div></div>';
+  S.hero = '<div class="hero-in"><div class="brand"><span class="logo">' + '<img src="icon-192.png" alt="" style="width:100%;height:100%;border-radius:inherit;display:block">' + '</span>員和環安衛系統' +
+    '<button class="spcbtn" onclick="S.arg=' + (S.arg && S.arg.spc ? '{}' : '{spc:true}') + ';render()">' + (S.arg && S.arg.spc ? '回同仁登入' : '環安衛登入') + '</button></div>' +
+    '<div class="hn"><div class="h1">' + (S.arg && S.arg.spc ? '環安衛中心・示範區' : '第一次使用，請選您是誰') + '</div><div class="hsub">只要選一次，之後打開就直接用</div>' + (window.I18N ? I18N.picker() : '') + '</div></div>';
   var b = S.boot;
   if (!b) {
     $('app').innerHTML = loading('讀取名單中…');
@@ -527,19 +528,19 @@ PAGES.login = function () {
       var gon = curG === t.g;
       return '<button class="dept grp main' + (gon ? ' on' : '') + '" aria-expanded="' + gon + '" onclick="S.arg=' + (gon ? '{}' : '{grp:' + jsq(t.g) + '}') + ';render()">' + esc(t.g) + ic('chev', 16, 2.8) + '</button>';
     }
-    var on = a.dept === t.d, i = b.depts.indexOf(t.d);
-    return '<button class="dept ' + (t.spc ? 'spc' : 'main') + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="S.arg={dept:S.boot.depts[' + i + ']};render()">' + (on ? ic('check', 16, 3.2) : '') + esc(t.d) + '</button>';
+    var on = a.dept === t.d, i = b.depts.indexOf(t.d), keep = a.spc ? 'spc:true' : '';
+    return '<button class="dept ' + (t.spc ? 'spc' : 'main') + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="S.arg=' + (on ? '{' + keep + '}' : '{' + (keep ? keep + ',' : '') + 'dept:S.boot.depts[' + i + ']}') + ';render()">' + (on ? ic('check', 16, 3.2) : '') + esc(t.d) + '</button>';
   };
-  var mains = top.filter(function (t) { return !t.spc; }), spcs = top.filter(function (t) { return t.spc; });
+  // v0.13.12（10/14 Jason）：環安衛中心、示範區不放在同仁選部門的上面，改由右上角「環安衛登入」進入
+  var mains = top.filter(function (t) { return a.spc ? t.spc : !t.spc; });
   var h = step(1, !!(a.dept || a.mgr), '您的部門') + '<div class="depts">' + mains.map(btn).join('') + '</div>';
   if (curG) {
     var mem = b.depts.filter(function (d) { return gOf(d) === curG; });
     h += '<div class="dsub"><div class="dsubh">' + esc(curG) + '</div><div class="depts">' + mem.map(function (d) {
       var on = a.dept === d, i = b.depts.indexOf(d);
-      return '<button class="dept' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-dept="' + esc(d) + '" onclick="S.arg={grp:' + jsq(curG) + ',dept:S.boot.depts[' + i + ']};render()">' + (on ? ic('check', 16, 3.2) : '') + esc((G[d] && G[d].label) || d) + '</button>';
-    }).join('') + '<button class="dept mgrb' + (a.mgr ? ' on' : '') + '" aria-pressed="' + !!a.mgr + '" onclick="S.arg={grp:' + jsq(curG) + ',mgr:true};render()">' + ic(a.mgr ? 'check' : 'review', 16, 2.8) + MGR + '</button></div></div>';
+      return '<button class="dept' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-dept="' + esc(d) + '" onclick="S.arg={grp:' + jsq(curG) + (on ? '' : ',dept:S.boot.depts[' + i + ']') + '};render()">' + (on ? ic('check', 16, 3.2) : '') + esc((G[d] && G[d].label) || d) + '</button>';
+    }).join('') + '<button class="dept mgrb' + (a.mgr ? ' on' : '') + '" aria-pressed="' + !!a.mgr + '" onclick="S.arg={grp:' + jsq(curG) + (a.mgr ? '' : ',mgr:true') + '};render()">' + ic(a.mgr ? 'check' : 'review', 16, 2.8) + MGR + '</button></div></div>';
   }
-  if (spcs.length) h += '<div class="dspch">環安衛中心・示範・測試</div><div class="depts">' + spcs.map(btn).join('') + '</div>';
   var ps = [];
   if (a.mgr && curG) {
     var seenM = {};
