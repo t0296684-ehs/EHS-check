@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.14';
+var APP_VERSION = '0.13.15';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -930,6 +930,9 @@ PAGES.home = function () {
       btn: '繼續完成', on: 'archLoop(' + jsq(x.monthId) + ')' });
   });
   // 2. 待審核（主管／環安衛）
+  // v0.13.15：同仁的領取申請要單位負責人核准
+  var nReq = 0; (m.depts || []).forEach(function (d) { nReq += d.claimReq || 0; });
+  if (nReq) tasks.push({ red: true, tag: '領取申請', title: '有 ' + nReq + ' 件領取申請待您核准', meta: '同仁要負責的表或設備，核准後才會出現在他的手機上', btn: '去核准', on: "go('claimReview')" });
   if (m.pendingReview) {
     var want = ehs ? '待環安衛審核' : '待主管審核';
     var mine = (S.pkgs || []).filter(function (x) { return x.status === want; });
@@ -1159,8 +1162,8 @@ PAGES.pick = function () {
 PAGES.claim = function () {
   setTitle('領取表單');
   var list = S.me.claimable || [], multi = S.me.depts.length > 1;
-  var h = '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">這裡是本課已開放、但還沒指派給您的表。領了之後就會出現在首頁，並記在後台「領取紀錄」。' +
-    '要取消領取請洽環安衛中心。</div></div></div></div>';
+  var h = '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">這裡是本課已開放、但還沒指派給您的表。按「領取」會送申請給單位負責人，核准後就會出現在首頁。' +
+    '要取消領取請洽單位負責人。</div></div></div></div>';
   S.me.depts.forEach(function (d) {
     var mine = list.filter(function (x) { return x.dept === d.id; });
     if (!mine.length) return;
@@ -1180,17 +1183,45 @@ var CLAIMS = {};
 function claimRow(x, title, meta, k) {
   CLAIMS[k] = x;
   return '<div class="li"><span class="mn"><span class="nm">' + esc(title) + '</span><span class="mt">' + esc(meta) + '</span></span>' +
-    '<button class="btn sm" onclick="claimGo(' + jsq(k) + ')">領取</button></div>';
+    (x.pending ? pill('warn', 'clock', '待單位負責人核准') : '<button class="btn sm" onclick="claimGo(' + jsq(k) + ')">領取</button>') + '</div>';
 }
 function claimGo(k) {
   var x = CLAIMS[k]; if (!x) return;
   var what = x.kind === 'equip' ? x.cat + ' ' + x.object : x.name;
-  if (!confirm('領取「' + what + '」？領了之後首頁就會出現' + (x.kind === 'equip' ? '這台設備的檢查表' : '這張表') + '。')) return;
+  if (!confirm('申請領取「' + what + '」？\n送出後要單位負責人核准，核准了首頁才會出現' + (x.kind === 'equip' ? '這台設備的檢查表' : '這張表') + '。')) return;
   if (!navigator.onLine) return toast('沒有網路，領取要連上網路才能做', 'err', 3500);
   busyOn('領取中…');
   api('claim', x.kind === 'equip' ? { deptId: x.dept, kind: 'equip', cat: x.cat, object: x.object } : { deptId: x.dept, kind: 'form', formId: x.form }).then(function (r) {
     busyOff(); S.me = normMe(r.me); lsSet(LS.ME, r.me);
-    toast('已領取：' + what, 'ok', 3000); render();
+    toast('已送出申請：' + what + '，等單位負責人核准', 'ok', 3500); render();
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
+}
+// ───────────── 領取申請（單位負責人核准）─────────────
+PAGES.claimReview = function () {
+  setTitle('領取申請');
+  var cr = S.cr;
+  if (!cr) {
+    $('app').innerHTML = loading('讀取領取申請…');
+    api('claimList', {}).then(function (r) { S.cr = r; if (S.page === 'claimReview') render(); })
+      .catch(function (e) { $('app').innerHTML = errBox('讀不到領取申請', e.message); });
+    return;
+  }
+  var h = '<div class="muted upnote">同仁申請負責的表或設備。核准後馬上出現在他的手機上，環安衛中心會收到異動通知；退回請寫原因。</div>';
+  h += cr.list.length ? '<div class="list">' + cr.list.map(function (x) {
+    return '<div class="li"><span class="mn"><span class="nm">' + esc(x.name + '：' + x.what) + '</span><span class="mt">' + esc(x.dept + '・' + x.time.slice(5) + ' 申請') + '</span>' +
+      '<span class="mt">' + esc(x.users.length ? '目前負責：' + x.users.join('、') : '目前沒有人負責') + '</span>' +
+      '<span class="btns"><button class="btn sm" onclick="claimDecide(' + jsq(x.id) + ',' + jsq('approve') + ')">核准</button><button class="btn sm ghost" onclick="claimDecide(' + jsq(x.id) + ',' + jsq('reject') + ')">退回</button></span></span></div>';
+  }).join('') + '</div>' : '<div class="empty">目前沒有待核准的領取申請</div>';
+  $('app').innerHTML = h;
+};
+function claimDecide(id, d) {
+  var b = { id: id, decision: d };
+  if (d === 'reject') { var why = prompt('退回原因（會通知申請人）', ''); if (why === null) return; b.reason = why; }
+  if (!navigator.onLine) return toast('沒有網路，要連上網路才能核准', 'err', 3500);
+  busyOn(d === 'approve' ? '核准中…' : '退回中…');
+  api('claimDecide', b).then(function (r) {
+    busyOff(); S.cr = { list: r.list }; S.me = normMe(r.me); lsSet(LS.ME, r.me);
+    toast(d === 'approve' ? '已核准' : '已退回', 'ok', 2500); render();
   }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
 }
 // ───────────── 通知區：權責異動、下月異動、月結結果（檢點人員沒有信箱也看得到）─────────────
@@ -2723,7 +2754,7 @@ function splashDone() {
 /** 註冊 Service Worker；回到 App 時順便檢查有沒有新版，換新版後在首頁自動重新載入（填寫中不打斷）。 */
 var SW_RELOAD = false;
 /** 後端說 App 太舊：在安全的畫面重新載入新版（填寫、簽名、代填中先不打斷，回到首頁等畫面再換）。待上傳的檢點在 IndexedDB、草稿在手機裡，重新載入不會丟。 */
-var SAFE_PAGES = ['home', 'login', 'url', 'notice', 'months', 'claim', 'pick', 'mine', 'team', 'track', 'guide', 'settings', 'remind', 'packages'];
+var SAFE_PAGES = ['home', 'login', 'url', 'notice', 'months', 'claim', 'claimReview', 'pick', 'mine', 'team', 'track', 'guide', 'settings', 'remind', 'packages'];
 function appUpdate() {
   if (S.updating) return;
   var last = 0; try { last = Number(sessionStorage.getItem('chk_upd') || 0); } catch (e) {}
