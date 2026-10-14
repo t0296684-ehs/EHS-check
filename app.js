@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.9';
+var APP_VERSION = '0.13.10';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -512,10 +512,23 @@ PAGES.login = function () {
   }
   var a = S.arg;
   var step = function (n, done, t) { return '<div class="stepH"><i class="' + (done ? 'done' : '') + '">' + (done ? ic('check', 16, 3.2) : n) + '</i>' + t + '</div>'; };
-  var h = step(1, !!a.dept, '您的部門') + '<div class="depts">' + b.depts.map(function (d, i) {
-    var on = a.dept === d;
-    return '<button class="dept' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="S.arg={dept:S.boot.depts[' + i + ']};render()">' + (on ? ic('check', 16, 3.2) : '') + esc(d) + '</button>';
+  // v0.13.10（10/14 Jason：首頁精簡）：同群組兩個以上的部門先收成一顆（PU生產 → 製1～製5；BU生產 → A／B／C 區、倉儲部），點了再選
+  var G = b.groups || {}, gOf = function (d) { var g = G[d] && G[d].g; return g && b.depts.filter(function (x) { return G[x] && G[x].g === g; }).length > 1 ? g : ''; };
+  var top = [];
+  b.depts.forEach(function (d) { var g = gOf(d); if (!g) top.push({ d: d }); else if (!top.some(function (t) { return t.g === g; })) top.push({ g: g }); });
+  var curG = a.grp || (a.dept ? gOf(a.dept) : '');
+  var h = step(1, !!a.dept, '您的部門') + '<div class="depts">' + top.map(function (t) {
+    if (t.g) {
+      var gon = curG === t.g;
+      return '<button class="dept grp' + (gon ? ' on' : '') + '" aria-expanded="' + gon + '" onclick="S.arg={grp:' + jsq(t.g) + '};render()">' + esc(t.g) + ic('chev', 16, 2.8) + '</button>';
+    }
+    var on = a.dept === t.d, i = b.depts.indexOf(t.d);
+    return '<button class="dept' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="S.arg={dept:S.boot.depts[' + i + ']};render()">' + (on ? ic('check', 16, 3.2) : '') + esc(t.d) + '</button>';
   }).join('') + '</div>';
+  if (curG) h += '<div class="dsub"><div class="dsubh">' + esc(curG) + '</div><div class="depts">' + b.depts.filter(function (d) { return gOf(d) === curG; }).map(function (d) {
+    var on = a.dept === d, i = b.depts.indexOf(d);
+    return '<button class="dept' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-dept="' + esc(d) + '" onclick="S.arg={grp:' + jsq(curG) + ',dept:S.boot.depts[' + i + ']};render()">' + (on ? ic('check', 16, 3.2) : '') + esc((G[d] && G[d].label) || d) + '</button>';
+  }).join('') + '</div></div>';
   var ps = a.dept ? (b.people[a.dept] || []) : [];
   if (a.dept) {
     h += step(2, a.i != null, '您是') + (ps.length ? '<div class="list">' + ps.map(function (p, i) {
@@ -1035,7 +1048,8 @@ function overviewHtml() {
   var h = '<div class="sec">各課執行狀況<small>' + md(t) + '（' + wk(t) + '）・' + (ov.today === t ? '' : '更新中・') +
     '<button class="lnk" onclick="ovAll()">' + (ov.depts.some(function (d) { return isOpenOf(d.id); }) ? '全部收合' : '全部展開') + '</button></small></div>';
   if (list.length > 1) h += '<div class="ovsum">' + list.length + ' 個課：' + [tot.ok ? '今日完成 ' + tot.ok : '', tot.todo ? '未完成 ' + tot.todo : '', tot.ng ? '<b class="ngt">有異常 ' + tot.ng + '</b>' : ''].filter(String).join('・') + '</div>';
-  h += '<div class="ovs">' + list.map(function (d) {
+  // v0.13.10（10/14 Jason：首頁精簡）：同群組兩課以上收成一張群組卡（PU生產 → 製1～製5；BU生產 → A／B／C 區、倉儲部），點開才看到各課
+  var card = function (d, inG) {
     var c = ovSum(d), isOpen = isOpenOf(d.id);
     var pv = d.months[0], cur = d.months[1];
     var line = c.n ? '已檢點 ' + c.done + '/' + c.n + (c.nowork ? '・無作業 ' + c.nowork : '') : '沒有在用的每日表';
@@ -1043,7 +1057,7 @@ function overviewHtml() {
     var mline = pv.status !== '已歸檔' ? ymLabel(pv.period) + '：' + pv.status : '';
     var pl = c.ng ? pill('ng', 'warn', '異常 ' + c.ng) : c.todo ? pill('warn', 'clock', c.todo + ' 張未檢點') : c.n ? pill('ok', 'check', '今日完成') : '';
     var x = '<div class="ov' + (isOpen ? ' open' : '') + '"><button class="ovh" onclick="ovToggle(' + jsq(d.id) + ')" aria-expanded="' + isOpen + '">' +
-      '<span class="chv">' + ic('chev', 18, 2.6) + '</span><span class="mn"><span class="nm">' + esc(d.id) + '</span><span class="mt">' + esc(line) + '</span>' +
+      '<span class="chv">' + ic('chev', 18, 2.6) + '</span><span class="mn"><span class="nm">' + esc(inG ? d.label || d.id : d.id) + '</span><span class="mt">' + esc(line) + '</span>' +
       (mline ? '<span class="mt' + (pv.status === '退回' ? ' wn' : '') + '">' + esc(mline) + '</span>' : '') + '</span>' + pl + '</button>';
     if (isOpen) {
       x += '<div class="ovb">' + (d.forms.length ? d.forms.map(function (f) {
@@ -1056,6 +1070,20 @@ function overviewHtml() {
       (S.me.months || []).filter(function (y) { return y.dept === d.id; }).sort(function (a2, b2) { return a2.period < b2.period ? 1 : -1; }).map(monthRow).join('') + '</div>';
     }
     return x + '</div>';
+  };
+  var gN = {}; list.forEach(function (d) { if (d.g) gN[d.g] = (gN[d.g] || 0) + 1; });
+  var seen = {};
+  h += '<div class="ovs">' + list.map(function (d) {
+    if (!d.g || gN[d.g] < 2) return card(d, false);
+    if (seen[d.g]) return ''; seen[d.g] = 1;
+    var mem = list.filter(function (y) { return y.g === d.g; }), gid = 'g:' + d.g, gOpen = gid in open ? open[gid] : false;
+    var s2 = { n: 0, done: 0, todo: 0, ng: 0, back: 0 };
+    mem.forEach(function (y) { var c = ovSum(y); s2.n += c.n; s2.done += c.done; if (c.todo) s2.todo++; if (c.ng) s2.ng++; if (y.months[0].status === '退回') s2.back++; });
+    var gl = mem.length + ' 課・已檢點 ' + s2.done + '/' + s2.n + (s2.back ? '・退回 ' + s2.back : '');
+    var gp = s2.ng ? pill('ng', 'warn', s2.ng + ' 課異常') : s2.todo ? pill('warn', 'clock', s2.todo + ' 課未完成') : s2.n ? pill('ok', 'check', '今日完成') : '';
+    return '<div class="ov' + (gOpen ? ' open' : '') + '"><button class="ovh" onclick="ovToggle(' + jsq(gid) + ')" aria-expanded="' + gOpen + '">' +
+      '<span class="chv">' + ic('chev', 18, 2.6) + '</span><span class="mn"><span class="nm">' + esc(d.g) + '</span><span class="mt">' + esc(gl) + '</span></span>' + gp + '</button>' +
+      (gOpen ? '<div class="ovg">' + mem.map(function (y) { return card(y, true); }).join('') + '</div>' : '') + '</div>';
   }).join('') + '</div>';
   return h;
 }
@@ -1063,7 +1091,7 @@ function ovToggle(id) { var o = ovOpenGet(), many = S.ov && S.ov.depts.length > 
 function ovAll() {
   var o = ovOpenGet(), ds = S.ov ? S.ov.depts : [], many = ds.length > 3, n = {};
   var anyOpen = ds.some(function (d) { return d.id in o ? o[d.id] : !many; });
-  ds.forEach(function (d) { n[d.id] = !anyOpen; }); ovOpenSet(n); render();
+  ds.forEach(function (d) { n[d.id] = !anyOpen; if (d.g) n['g:' + d.g] = !anyOpen; }); ovOpenSet(n); render();
 }
 function monthRow(x) {
   if (x.crew) return crewRow(x);

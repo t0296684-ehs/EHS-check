@@ -270,6 +270,9 @@ display:flex;align-items:center;justify-content:center;gap:6px;line-height:1.25;
 .depts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .dept{min-height:52px;border-radius:14px;border:1.5px solid var(--line2);background:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 8px;word-break:break-word}
 .dept.on{background:var(--navy);color:#fff;border-color:var(--navy)}.dept.on .ic{color:#5EE08F}
+.dept.grp .ic{transition:transform .15s}.dept.grp.on .ic{transform:rotate(90deg);color:#fff}
+.dsub{margin-top:10px;padding:10px;border-radius:16px;background:#EEF2F7}.dsubh{font-size:13px;font-weight:700;color:var(--sub);margin:0 2px 8px}
+.ovg{display:flex;flex-direction:column;gap:8px;padding:0 10px 10px}.ovg .ov{border-radius:14px}
 .radio{width:24px;height:24px;border-radius:50%;border:2.5px solid #9AA2AE;flex-shrink:0}
 .li.sel .radio{border:7px solid var(--navy)}
 .pin{min-height:60px;font-size:24px;font-weight:700;letter-spacing:6px}
