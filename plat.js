@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.13.15';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.13.16';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -40,8 +40,7 @@ function modOf(k) { return MODS.filter(function (m) { return m.key === k; })[0];
 function workMods() { return ['check', 'env'].filter(modOn); }     // 每天要做的功能；施工申請、教育訓練偶爾用、人人都有，從主選單進
 function landing() {
   if (!plat()) return 'home';                     // 舊後端（沒有平台資料）：維持原本直接進日常檢點
-  var w = workMods();
-  return w.length === 1 ? modOf(w[0]).page : 'menu';
+  return 'menu';                                  // 10/14 Jason：一律先到主選單，日常檢點、教育訓練、施工申請、危害性化學品都看得到（沒權限的灰底）
 }
 function goMenu() { S.stack = []; go('menu', {}, true); }
 function goMod(k) { if (!modOn(k)) return permAsk(k); go(modOf(k).page); }

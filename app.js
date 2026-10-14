@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.15';
+var APP_VERSION = '0.13.16';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -2160,13 +2160,15 @@ function optLabel(f, seq, k) {
 }
 /** 示範區（「示範」開頭的部門）：給勞檢看的，只示範當天檢點流程——不出現任何補填、補登的入口或提示 */
 function demoDept(d) { return /^示範/.test(String(d || '')); }
+/** 上班日：週一～五，扣掉後台「設定 → 國定假日」 */
+function workDay(date) { var dw = new Date(date + 'T12:00:00').getDay(); return dw > 0 && dw < 6 && ((S.me && S.me.holidays) || []).indexOf(date) < 0; }
 /** 平日（週一～五）沒有紀錄、且不是未來的日子（示範區、系統啟用前的月份不算） */
 function blankDays(x, period) {
   if (S.view && demoDept(S.view.dept)) return [];
   if (S.me && S.me.startPeriod && period < S.me.startPeriod) return [];   // 系統正式啟用以前（紙本時期）不標漏填、不出一次補填
 
   var y = Number(period.slice(0, 4)), mo = Number(period.slice(5)), n = new Date(y, mo, 0).getDate(), td = today(), out = [];
-  for (var d = 1; d <= n; d++) { var dow = new Date(y, mo - 1, d).getDay(), date = period + '-' + pad(d); if (date <= td && dow > 0 && dow < 6 && !x.days[d]) out.push(d); }
+  for (var d = 1; d <= n; d++) { var date = period + '-' + pad(d); if (date <= td && workDay(date) && !x.days[d]) out.push(d); }
   return out;
 }
 /** 月曆點到的那天：可不可以補填／修改（本月或上個月、還沒送審、這張表現在是指派給我的） */
@@ -2251,15 +2253,16 @@ function submitMonth() {
                btn: '<button class="btn navy" onclick="S.mErr=null;flush().then(function(){render()})">立即上傳</button>' };
     monthRender(); window.scrollTo(0, 0); return;
   }
-  var y0 = Number(v.period.slice(0, 4)), m0 = Number(v.period.slice(5)), nd = new Date(y0, m0, 0).getDate(), lines = [];
+  var y0 = Number(v.period.slice(0, 4)), m0 = Number(v.period.slice(5)), nd = new Date(y0, m0, 0).getDate(), lines = [], blanks = [];
   v.model.daily.forEach(function (x) {
     var f = F(x.form, v.period); if (!f) return;
     var work = 0, nw = 0, blank = [];
-    for (var d = 1; d <= nd; d++) { var r = x.days[d], dow = new Date(y0, m0 - 1, d).getDay(); if (r && r.noWork) nw++; else if (r) work++; else if (dow > 0 && dow < 6 && !demoDept(v.dept)) blank.push(d); }
+    for (var d = 1; d <= nd; d++) { var r = x.days[d]; if (r && r.noWork) nw++; else if (r) work++; else if (workDay(v.period + '-' + pad(d)) && !demoDept(v.dept)) blank.push(d); }
+    if (blank.length) blanks.push(f.name + '：' + blank.map(function (d) { return m0 + '/' + d; }).join('、'));
     lines.push('・' + f.name + '：檢點 ' + work + ' 天、無作業 ' + nw + ' 天' + (blank.length ? '、平日空白 ' + blank.length + ' 天（' + blank.slice(0, 8).join('、') + (blank.length > 8 ? '…' : '') + ' 號）' : ''));
   });
   if (v.model.periodic.length) lines.push('・定期檢查 ' + v.model.periodic.length + ' 份');
-  if (!S.smOk) { S.smLines = lines; return go('smConfirm', { dept: v.dept, period: v.period }); }
+  if (!S.smOk) { S.smLines = lines; S.smBlank = blanks; return go('smConfirm', { dept: v.dept, period: v.period }); }
   S.smOk = false;
   var btn = $('smBtn'); if (btn) { btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>送出中…'; }
   busyOn('鎖定送審中…', '要檢查整個月的紀錄並鎖定試算表，約 10～30 秒');
@@ -2286,8 +2289,13 @@ PAGES.smConfirm = function () {
   var h = '<div class="h2">送出前請確認</div><div class="lead">' + esc(v.dept + '・' + ymLabel(v.period)) + '，整課一起送，送出後由單位負責人審核。</div>' +
     '<div class="card"><div class="muted">這個月的紀錄</div>' + (S.smLines || []).map(function (l) { return '<div class="sml">' + esc(l.replace(/^・/, '')) + '</div>'; }).join('') + '</div>' +
     '<div class="box warn"><div class="r">' + ic('warn', 24) + '<div class="bt"><b>送出後就鎖定</b><div class="m">App 和試算表都不能再修改，<b>除非單位負責人退回補正</b>。單位負責人還沒審核前，送出的人可以自己撤回。</div></div></div></div>' +
-    (demoDept(v.dept) ? '' : '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">平日空白如果是沒上班可以不填；如果是漏填，請先回月曆點那天補填。</div></div></div></div>') +
-    '<label class="ck smck"><input type="checkbox" id="smChk" onchange="$(\'smGo\').disabled=!this.checked">我已確認 ' + Number(v.period.slice(5)) + ' 月的紀錄沒有漏填，要送給單位負責人</label>';
+    // 10/14 Jason：上班日空白又沒選「今日無作業」→ 列出日期，確認真的沒運作才送
+    (demoDept(v.dept) ? '' : (S.smBlank || []).length ? '<div class="box warn"><div class="r">' + ic('warn', 24) + '<div class="bt"><b>這幾天是上班日，但沒有紀錄、也沒選「今日無作業」</b>' +
+      (S.smBlank || []).map(function (l) { return '<div class="m">・' + esc(l) + '</div>'; }).join('') +
+      '<div class="m">請確認這幾天確實沒有運作；如果是漏填，請先回月曆點那天補填。</div></div></div></div>' :
+      '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">上班日都有紀錄或已選「今日無作業」。</div></div></div></div>') +
+    '<label class="ck smck"><input type="checkbox" id="smChk" onchange="$(\'smGo\').disabled=!this.checked">' +
+      ((S.smBlank || []).length && !demoDept(v.dept) ? '上面幾天確實沒有運作（不是漏填），仍要送出 ' + Number(v.period.slice(5)) + ' 月的紀錄' : '我已確認 ' + Number(v.period.slice(5)) + ' 月的紀錄沒有漏填，要送給單位負責人') + '</label>';
   $('app').innerHTML = h;
   bar('<button class="btn ghost" onclick="back()">' + ic('cal', 20, 2.2) + (demoDept(v.dept) ? '回月曆' : '回月曆補填') + '</button><button class="btn" id="smGo" disabled onclick="smGo()">' + ic('check', 22, 2.8) + '確認送出</button>');
 };
@@ -2754,7 +2762,7 @@ function splashDone() {
 /** 註冊 Service Worker；回到 App 時順便檢查有沒有新版，換新版後在首頁自動重新載入（填寫中不打斷）。 */
 var SW_RELOAD = false;
 /** 後端說 App 太舊：在安全的畫面重新載入新版（填寫、簽名、代填中先不打斷，回到首頁等畫面再換）。待上傳的檢點在 IndexedDB、草稿在手機裡，重新載入不會丟。 */
-var SAFE_PAGES = ['home', 'login', 'url', 'notice', 'months', 'claim', 'claimReview', 'pick', 'mine', 'team', 'track', 'guide', 'settings', 'remind', 'packages'];
+var SAFE_PAGES = ['home', 'menu', 'edu', 'eduItem', 'eduStats', 'chem', 'cons', 'envMonth', 'patrol', 'login', 'url', 'notice', 'months', 'claim', 'claimReview', 'pick', 'mine', 'team', 'track', 'guide', 'settings', 'remind', 'packages'];
 function appUpdate() {
   if (S.updating) return;
   var last = 0; try { last = Number(sessionStorage.getItem('chk_upd') || 0); } catch (e) {}
