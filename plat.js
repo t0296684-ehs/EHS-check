@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.13.8';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.13.9';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -440,12 +440,19 @@ PLAT_PAGES.eduItem = function () {
   var h = '<div class="card edi"><div class="mt">' + pill(EDU_CAT_COLOR[x.cat] || 'na', '', x.cat) + '　' + esc(info) + '</div>' +
     '<h2 class="gh">' + esc(x.title) + '</h2>' + (x.body ? '<div class="edb">' + esc(x.body) + '</div>' : '') + '</div>';
   if (x.files.length) {
-    var my = window.I18N ? I18N.lang() : 'zh', fl = x.files.slice().sort(function (a, b) { return (a.lang === my ? 0 : 1) - (b.lang === my ? 0 : 1); });
-    var multi = x.files.some(function (f) { return f.lang && f.lang !== 'zh'; });
-    h += '<div class="sec">' + (x.course ? '教材' : '附件') + '</div><div class="list">' + fl.map(function (f) {
+    // v0.13.9（10/14 Jason）：教材依同仁選的語言推送——只列他那個語言的檔；沒有他的語言就給中文；其他語言收在下面「其他語言版本」。環安衛全部列出。
+    var my = window.I18N ? I18N.lang() : 'zh', lg = function (f) { return f.lang || 'zh'; };
+    var multi = x.files.some(function (f) { return lg(f) !== 'zh'; });
+    var mine = x.files.filter(function (f) { return lg(f) === my; });
+    if (!mine.length) mine = x.files.filter(function (f) { return lg(f) === 'zh'; });
+    if (!mine.length || isEhs()) mine = x.files.slice().sort(function (a, b) { return (lg(a) === my ? 0 : 1) - (lg(b) === my ? 0 : 1); });
+    var rest = x.files.filter(function (f) { return mine.indexOf(f) < 0; });
+    var row = function (f) {
       return '<button class="li" onclick="eduOpen(' + jsq(x.id) + ',' + jsq(f.id) + ')">' + ic(/^image/.test(f.mime) ? 'img' : 'pdf', 22, 2.2) + '<span class="mn"><span class="nm">' + esc(f.name) + '</span><span class="mt">' + esc(fsz(f.size)) + '</span></span>' +
-        (multi ? '<span class="pill p-na" data-raw>' + esc(EDU_LANG[f.lang] || '中文') + '</span>' : '') + ic('chev', 18, 2.6) + '</button>';
-    }).join('') + '</div><div id="eduView"></div>';
+        (multi ? '<span class="pill p-na" data-raw>' + esc(EDU_LANG[lg(f)] || '中文') + '</span>' : '') + ic('chev', 18, 2.6) + '</button>';
+    };
+    h += '<div class="sec">' + (x.course ? '教材' : '附件') + '</div><div class="list">' + mine.map(row).join('') + '</div>' +
+      (rest.length ? '<details class="edoth"><summary>其他語言版本（' + rest.length + '）</summary><div class="list">' + rest.map(row).join('') + '</div></details>' : '') + '<div id="eduView"></div>';
   }
   if (x.link) h += '<button class="btn line" onclick="openUrl(' + jsq(x.link) + ')">' + ic('link', 18, 2.4) + '打開相關連結</button>';
   if (x.course && x.quiz.length && !x.done) {
