@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.10';
+var APP_VERSION = '0.13.11';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -512,29 +512,47 @@ PAGES.login = function () {
   }
   var a = S.arg;
   var step = function (n, done, t) { return '<div class="stepH"><i class="' + (done ? 'done' : '') + '">' + (done ? ic('check', 16, 3.2) : n) + '</i>' + t + '</div>'; };
-  // v0.13.10（10/14 Jason：首頁精簡）：同群組兩個以上的部門先收成一顆（PU生產 → 製1～製5；BU生產 → A／B／C 區、倉儲部），點了再選
-  var G = b.groups || {}, gOf = function (d) { var g = G[d] && G[d].g; return g && b.depts.filter(function (x) { return G[x] && G[x].g === g; }).length > 1 ? g : ''; };
+  // v0.13.11（10/14 Jason）：四大區塊（PU生產、BU生產、PU實驗室、BU實驗室）黃色；環安衛中心、示範區、測試部門藍色另放下面（避免誤觸）。
+  // 同群組兩課以上收成一顆，點開／再點收回；群組裡另有「單位負責人」一顆（主管不分課列，登入後在「部門管理」看他管的全部課）。
+  var G = b.groups || {}, MGR = '單位負責人';
+  var gOf = function (d) { var g = G[d] && G[d].g; return g && b.depts.filter(function (x) { return G[x] && G[x].g === g; }).length > 1 ? g : ''; };
+  var spc = function (d) { return d === '環安衛中心' || /^(示範|測試)/.test(d); };
   var top = [];
-  b.depts.forEach(function (d) { var g = gOf(d); if (!g) top.push({ d: d }); else if (!top.some(function (t) { return t.g === g; })) top.push({ g: g }); });
+  b.depts.forEach(function (d) { var g = gOf(d); if (!g) top.push({ d: d, k: d, spc: spc(d) }); else if (!top.some(function (t) { return t.g === g; })) top.push({ g: g, k: g }); });
+  var rank = function (t) { return t.spc ? 9 : (/實驗室/.test(t.k) ? 2 : 0) + (/^BU/.test(t.k) ? 1 : 0); };
+  top = top.map(function (t, i) { t.i = i; return t; }).sort(function (x, y) { return rank(x) - rank(y) || x.i - y.i; });
   var curG = a.grp || (a.dept ? gOf(a.dept) : '');
-  var h = step(1, !!a.dept, '您的部門') + '<div class="depts">' + top.map(function (t) {
+  var btn = function (t) {
     if (t.g) {
       var gon = curG === t.g;
-      return '<button class="dept grp' + (gon ? ' on' : '') + '" aria-expanded="' + gon + '" onclick="S.arg={grp:' + jsq(t.g) + '};render()">' + esc(t.g) + ic('chev', 16, 2.8) + '</button>';
+      return '<button class="dept grp main' + (gon ? ' on' : '') + '" aria-expanded="' + gon + '" onclick="S.arg=' + (gon ? '{}' : '{grp:' + jsq(t.g) + '}') + ';render()">' + esc(t.g) + ic('chev', 16, 2.8) + '</button>';
     }
     var on = a.dept === t.d, i = b.depts.indexOf(t.d);
-    return '<button class="dept' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="S.arg={dept:S.boot.depts[' + i + ']};render()">' + (on ? ic('check', 16, 3.2) : '') + esc(t.d) + '</button>';
-  }).join('') + '</div>';
-  if (curG) h += '<div class="dsub"><div class="dsubh">' + esc(curG) + '</div><div class="depts">' + b.depts.filter(function (d) { return gOf(d) === curG; }).map(function (d) {
-    var on = a.dept === d, i = b.depts.indexOf(d);
-    return '<button class="dept' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-dept="' + esc(d) + '" onclick="S.arg={grp:' + jsq(curG) + ',dept:S.boot.depts[' + i + ']};render()">' + (on ? ic('check', 16, 3.2) : '') + esc((G[d] && G[d].label) || d) + '</button>';
-  }).join('') + '</div></div>';
-  var ps = a.dept ? (b.people[a.dept] || []) : [];
-  if (a.dept) {
+    return '<button class="dept ' + (t.spc ? 'spc' : 'main') + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="S.arg={dept:S.boot.depts[' + i + ']};render()">' + (on ? ic('check', 16, 3.2) : '') + esc(t.d) + '</button>';
+  };
+  var mains = top.filter(function (t) { return !t.spc; }), spcs = top.filter(function (t) { return t.spc; });
+  var h = step(1, !!(a.dept || a.mgr), '您的部門') + '<div class="depts">' + mains.map(btn).join('') + '</div>';
+  if (curG) {
+    var mem = b.depts.filter(function (d) { return gOf(d) === curG; });
+    h += '<div class="dsub"><div class="dsubh">' + esc(curG) + '</div><div class="depts">' + mem.map(function (d) {
+      var on = a.dept === d, i = b.depts.indexOf(d);
+      return '<button class="dept' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-dept="' + esc(d) + '" onclick="S.arg={grp:' + jsq(curG) + ',dept:S.boot.depts[' + i + ']};render()">' + (on ? ic('check', 16, 3.2) : '') + esc((G[d] && G[d].label) || d) + '</button>';
+    }).join('') + '<button class="dept mgrb' + (a.mgr ? ' on' : '') + '" aria-pressed="' + !!a.mgr + '" onclick="S.arg={grp:' + jsq(curG) + ',mgr:true};render()">' + ic(a.mgr ? 'check' : 'review', 16, 2.8) + MGR + '</button></div></div>';
+  }
+  if (spcs.length) h += '<div class="dspch">環安衛中心・示範・測試</div><div class="depts">' + spcs.map(btn).join('') + '</div>';
+  var ps = [];
+  if (a.mgr && curG) {
+    var seenM = {};
+    b.depts.filter(function (d) { return gOf(d) === curG; }).forEach(function (d) {
+      (b.people[d] || []).forEach(function (p) { if (p.role === MGR && !seenM[p.name]) { seenM[p.name] = 1; ps.push(p); } });
+    });
+  } else if (a.dept) ps = (b.people[a.dept] || []).filter(function (p) { return !gOf(a.dept) || p.role !== MGR; });
+  S.loginPs = ps;
+  if (a.dept || a.mgr) {
     h += step(2, a.i != null, '您是') + (ps.length ? '<div class="list">' + ps.map(function (p, i) {
       return '<button class="li' + (a.i === i ? ' sel' : '') + '" aria-pressed="' + (a.i === i) + '" onclick="S.arg.i=' + i + ';render()"><span class="radio"></span><span class="mn"><span class="nm">' + esc(p.name) + '</span><span class="mt">' +
         esc(p.role) + (p.needPin ? '・需要啟用碼' : '') + '</span></span></button>';
-    }).join('') + '</div>' : '<div class="box warn"><div class="r">' + ic('info', 22) + '<div class="bt"><b>這個部門的名單還沒建立</b><div class="m">請洽環安衛中心。</div></div></div></div>');
+    }).join('') + '</div>' : '<div class="box warn"><div class="r">' + ic('info', 22) + '<div class="bt"><b>' + (a.mgr ? '這個部門還沒有單位負責人' : '這個部門的名單還沒建立') + '</b><div class="m">請洽環安衛中心。</div></div></div></div>');
   }
   var sel = a.i != null ? ps[a.i] : null;
   if (sel && sel.needPin) h += step(3, false, '<label for="pin">輸入啟用碼</label>') + '<input id="pin" class="field pin" inputmode="numeric" autocomplete="one-time-code" placeholder="環安衛中心給您的啟用碼">';
@@ -544,7 +562,7 @@ PAGES.login = function () {
 };
 function doBind() {
   var btn = $('bindBtn'); btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>登入中…';
-  var sel = S.boot.people[S.arg.dept][S.arg.i];
+  var sel = (S.loginPs || [])[S.arg.i];
   var pin = $('pin') ? $('pin').value.trim() : '';
   $('loginErr').innerHTML = '';
   if ($('pin') && !pin) {
@@ -1449,11 +1467,37 @@ function perLine(x) { return x.freq + (x.last ? '・上次 ' + x.last + (x.due ?
 PAGES.team = function () {
   setTitle('部門管理');
   var ds = teamDepts();
-  if (!S.arg.dept) S.arg.dept = ds[0];
+  var allOk = ds.length > 1 && !isEhs();                     // 環安衛管全廠，不做「全部」（一次讀太多課）
+  if (!S.arg.dept || (S.arg.dept === '*' && !allOk)) S.arg.dept = allOk ? '*' : ds[0];
   if (!S.arg.tab) S.arg.tab = 'people';
   var tm = S.team && S.team.dept === S.arg.dept ? S.team : null;
   var h = '';
-  if (ds.length > 1) h += '<div class="chips">' + ds.map(function (d) { return '<button class="chip' + (d === S.arg.dept ? ' on' : '') + '" onclick="teamDept(' + jsq(d) + ')">' + esc(d) + '</button>'; }).join('') + '</div>';
+  if (ds.length > 1) h += '<div class="chips">' + (allOk ? ['*'] : []).concat(ds).map(function (d) { return '<button class="chip' + (d === S.arg.dept ? ' on' : '') + '" onclick="teamDept(' + jsq(d) + ')">' + esc(d === '*' ? '全部' : d) + '</button>'; }).join('') + '</div>';
+  // v0.13.11（10/14 Jason）：管好幾課的主管登入後先看「全部」——他管哪幾課、每課有誰、各負責幾項；點課名進那一課調整
+  if (S.arg.dept === '*') {
+    var all = S.teamAll && Date.now() - S.teamAll.at < 60000 ? S.teamAll.list : null;
+    if (!all) {
+      $('app').innerHTML = h + loading('讀取您管理的各課…');
+      Promise.all(ds.map(function (d) { return apiR('team', { deptId: d }); })).then(function (rs) { S.teamAll = { at: Date.now(), list: rs }; if (S.page === 'team') render(); })
+        .catch(function (e) { $('app').innerHTML = h + '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">' + esc(e.message) + '</div></div></div></div>'; });
+      return;
+    }
+    var nOps = 0; all.forEach(function (t) { nOps += t.people.filter(function (p) { return p.role === '檢點人員'; }).length; });
+    h += '<div class="muted upnote">您管理 ' + all.length + ' 個課、' + nOps + ' 位檢點人員。點課名可以調整那一課的人員、表單、設備。</div>';
+    h += all.map(function (t) {
+      var nm = {}; t.targets.forEach(function (x) { nm[x.key] = x.name; });
+      var ops = t.people.filter(function (p) { return p.role === '檢點人員'; });
+      var none = t.targets.filter(function (x) { return !x.now.length; }).length;
+      return '<div class="card tmall"><button class="tmh" onclick="teamDept(' + jsq(t.dept) + ')"><span class="mn"><span class="nm">' + esc(t.dept) + '</span><span class="mt">' + esc(ops.length + ' 位檢點人員・' + t.targets.length + ' 項表單或設備') + '</span>' +
+        (none ? '<span class="mt wn">' + esc(none + ' 項沒有人負責') + '</span>' : '') + '</span>' + ic('chev', 18, 2.6) + '</button>' +
+        (ops.length ? '<div class="list">' + ops.map(function (p) {
+          var mine = p.forms.concat(p.equips).map(function (k) { return nm[k]; }).filter(Boolean);
+          return '<div class="li"><span class="mn"><span class="nm">' + esc(p.name) + '</span><span class="mt' + (!p.loggedIn || !p.signed ? ' wn' : '') + '">' + esc((p.loggedIn ? '已登入' : '還沒登入') + '・' + (p.signed ? '已簽名' : '還沒簽名') + '・' + (mine.length ? '負責 ' + mine.length + ' 項' : '沒有負責的表')) + '</span></span></div>';
+        }).join('') + '</div>' : '<div class="empty">這一課還沒有檢點人員</div>') + '</div>';
+    }).join('');
+    $('app').innerHTML = h;
+    return;
+  }
   if (!tm) {
     $('app').innerHTML = h + loading('讀取本課分工…');
     teamLoad(S.arg.dept).then(function () { if (S.page === 'team') render(); })
