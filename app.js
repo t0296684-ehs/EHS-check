@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.12';
+var APP_VERSION = '0.13.13';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -535,7 +535,9 @@ PAGES.login = function () {
   var mains = top.filter(function (t) { return a.spc ? t.spc : !t.spc; });
   var h = step(1, !!(a.dept || a.mgr), '您的部門') + '<div class="depts">' + mains.map(btn).join('') + '</div>';
   if (curG) {
-    var mem = b.depts.filter(function (d) { return gOf(d) === curG; });
+    var pre = function (d) { return d.indexOf(curG + '-') === 0 ? 0 : 1; };    // 名稱是「群組-」開頭的排前面（BU生產-A／B／C 區，再來倉儲部）
+    var mem = b.depts.filter(function (d) { return gOf(d) === curG; }).map(function (d, i) { return [d, i]; })
+      .sort(function (x, y) { return pre(x[0]) - pre(y[0]) || ((G[x[0]] && G[x[0]].label) < (G[y[0]] && G[y[0]].label) ? -1 : (G[x[0]] && G[x[0]].label) > (G[y[0]] && G[y[0]].label) ? 1 : x[1] - y[1]); }).map(function (x) { return x[0]; });
     h += '<div class="dsub"><div class="dsubh">' + esc(curG) + '</div><div class="depts">' + mem.map(function (d) {
       var on = a.dept === d, i = b.depts.indexOf(d);
       return '<button class="dept' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-dept="' + esc(d) + '" onclick="S.arg={grp:' + jsq(curG) + (on ? '' : ',dept:S.boot.depts[' + i + ']') + '};render()">' + (on ? ic('check', 16, 3.2) : '') + esc((G[d] && G[d].label) || d) + '</button>';
