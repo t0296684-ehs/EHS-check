@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.17';
+var APP_VERSION = '0.13.18';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -2762,7 +2762,7 @@ function splashDone() {
 /** 註冊 Service Worker；回到 App 時順便檢查有沒有新版，換新版後在首頁自動重新載入（填寫中不打斷）。 */
 var SW_RELOAD = false;
 /** 後端說 App 太舊：在安全的畫面重新載入新版（填寫、簽名、代填中先不打斷，回到首頁等畫面再換）。待上傳的檢點在 IndexedDB、草稿在手機裡，重新載入不會丟。 */
-var SAFE_PAGES = ['home', 'menu', 'edu', 'eduItem', 'eduStats', 'chem', 'cons', 'envMonth', 'patrol', 'login', 'url', 'notice', 'months', 'claim', 'claimReview', 'pick', 'mine', 'team', 'track', 'guide', 'settings', 'remind', 'packages'];
+var SAFE_PAGES = ['home', 'menu', 'edu', 'eduItem', 'eduRead', 'eduStats', 'chem', 'cons', 'envMonth', 'patrol', 'login', 'url', 'notice', 'months', 'claim', 'claimReview', 'pick', 'mine', 'team', 'track', 'guide', 'settings', 'remind', 'packages'];
 function appUpdate() {
   if (S.updating) return;
   var last = 0; try { last = Number(sessionStorage.getItem('chk_upd') || 0); } catch (e) {}

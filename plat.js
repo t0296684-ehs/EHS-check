@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.13.17';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.13.18';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -439,7 +439,22 @@ PLAT_PAGES.eduItem = function () {
   var info = [x.time.slice(0, 10).replace(/-/g, '/'), x.by].concat(x.course ? [x.hours ? x.hours + ' 小時' : '', x.teacher ? '講師 ' + x.teacher : '', x.due ? '期限 ' + md(x.due) : ''] : []).filter(String).join('・');
   var h = '<div class="card edi"><div class="mt">' + pill(EDU_CAT_COLOR[x.cat] || 'na', '', x.cat) + '　' + esc(info) + '</div>' +
     '<h2 class="gh">' + esc(x.title) + '</h2>' + (x.body ? '<div class="edb">' + esc(x.body) + '</div>' : '') + '</div>';
-  if (x.files.length) {
+  var pl = Object.keys(x.pages || {});
+  if (pl.length) {
+    // v0.13.18（10/15 Jason）：教材在 App 內一頁一頁翻，中文、泰文擇一看完（滑到最後一頁）就算讀完
+    var my0 = window.I18N ? I18N.lang() : 'zh';
+    pl.sort(function (a, b) { return (a === my0 ? 0 : a === 'zh' ? 1 : 2) - (b === my0 ? 0 : b === 'zh' ? 1 : 2); });
+    h += '<div class="sec">' + (x.course ? '教材' : '內容') + (x.readDone ? '<small class="okt">' + ic('check', 14, 3) + '已看完</small>' : '<small>選一種語言，從第一頁看到最後一頁</small>') + '</div><div class="rdl">' +
+      pl.map(function (lg, i) {
+        return '<button class="btn' + (i ? ' line' : '') + '" onclick="go(\'eduRead\',{id:' + jsq(x.id) + ',lang:' + jsq(lg) + '})">' + ic('book', 20, 2.4) +
+          '<span data-raw>' + esc(EDU_LANG[lg] || lg) + '</span><small>' + x.pages[lg].length + ' 頁</small></button>';
+      }).join('') + '</div>';
+  }
+  if (x.files.length && pl.length) {
+    h += '<details class="edoth"><summary>原始檔案（' + x.files.length + '）</summary><div class="list">' + x.files.map(function (f) {
+      return '<button class="li" onclick="eduOpen(' + jsq(x.id) + ',' + jsq(f.id) + ')">' + ic(/^image/.test(f.mime) ? 'img' : 'pdf', 22, 2.2) + '<span class="mn"><span class="nm">' + esc(f.name) + '</span><span class="mt">' + esc(fsz(f.size)) + '</span></span>' + ic('chev', 18, 2.6) + '</button>';
+    }).join('') + '</div></details><div id="eduView"></div>';
+  } else if (x.files.length) {
     // v0.13.9（10/14 Jason）：教材依同仁選的語言推送——只列他那個語言的檔；沒有他的語言就給中文；其他語言收在下面「其他語言版本」。環安衛全部列出。
     var my = window.I18N ? I18N.lang() : 'zh', lg = function (f) { return f.lang || 'zh'; };
     var multi = x.files.some(function (f) { return lg(f) !== 'zh'; });
@@ -462,15 +477,73 @@ PLAT_PAGES.eduItem = function () {
         return '<label class="ck"><input type="radio" name="q' + i + '"' + (q.ans[i] === k ? ' checked' : '') + ' onchange="S.eq.ans[' + i + ']=' + k + '"><span>' + esc(o) + '</span></label>'; }).join('') +
         (q.wrong.indexOf(i + 1) >= 0 ? '<div class="ngt">這題答錯了，再看一下教材</div>' : '') + '</div>';
     }).join('');
+    var needRead = pl.length && !x.readDone && !isEhs();
+    h += isEhs() && !S.dev ? '<button class="btn line" onclick="eduDone(true)">' + ic('check', 20, 3) + '預覽批改（環安衛不簽到）</button>' :
+      needRead ? '<button class="btn" disabled>' + ic('lock', 20, 2.6) + '先看完教材才能送出</button>' :
+      '<button class="btn" onclick="eduDone()">' + ic('check', 22, 3) + '送出答案並完成（帶入簽名）</button>';
   }
   $('app').innerHTML = h;
   if (isEhs() && !S.dev) return;
+  var rd0 = pl.length && !x.readDone ? '<button class="btn" onclick="go(\'eduRead\',{id:' + jsq(x.id) + ',lang:' + jsq(pl[0]) + '})">' + ic('book', 22, 2.6) + '開始閱讀</button>' : '';
+  if (!x.course && pl.length) { bar(x.acked || x.readDone ? '<div class="donebar">' + ic('check', 20, 3) + '已閱讀' + (x.ackAt ? '・' + esc(x.ackAt.slice(5).replace('-', '/')) : '') + '</div>' : rd0); return; }
+  if (x.course && !x.done && rd0) { bar(rd0); return; }
   if (x.course) {
     if (x.done) bar('<div class="donebar">' + ic('check', 20, 3) + '已完成・' + esc(x.doneAt.slice(5).replace('-', '/')) + (x.score ? '・測驗 ' + esc(x.score) : '') + '・已簽到</div>');
-    else bar('<button class="btn" id="doneBtn" onclick="eduDone()">' + ic('check', 22, 3) + '我已完成（帶入簽名）</button>');
+    else if (!x.quiz.length) bar('<button class="btn" id="doneBtn" onclick="eduDone()">' + ic('check', 22, 3) + '我已完成（帶入簽名）</button>');
   } else if (x.needAck && !x.acked) bar('<button class="btn" id="ackBtn" onclick="eduAck()">' + ic('check', 22, 3) + '我已閱讀，了解內容</button>');
   else if (x.acked) bar('<div class="donebar">' + ic('check', 20, 3) + '已確認閱讀・' + esc(x.ackAt.slice(5).replace('-', '/')) + '</div>');
 };
+// v0.13.18：App 內閱讀教材。邊滑邊載（一次 3 頁）；最後一頁的底部出現在畫面上、而且是自己滑下來的，才記「已看完」
+PLAT_PAGES.eduRead = function () {
+  var id = S.arg.id, lang = S.arg.lang, x = S.eduItem && S.eduItem.id === id ? S.eduItem : null;
+  setTitle(x ? x.title : '閱讀教材');
+  if (!x) { go('eduItem', { id: id }); return; }
+  var pg = (x.pages || {})[lang] || [];
+  S.rd = { id: id, lang: lang, n: pg.length, got: 0, busy: false, done: !!x.readDone, moved: false };
+  $('app').innerHTML = '<div class="rdh"><span data-raw>' + esc(EDU_LANG[lang] || lang) + '</span>・共 ' + pg.length + ' 頁</div>' +
+    pg.map(function (p, i) { return '<div class="rdp" id="rdp' + i + '"><div class="rdn">' + (i + 1) + ' / ' + pg.length + '</div><div class="rdi"><span class="spin"></span></div>' +
+      (p.t ? '<div class="rdt" data-raw>' + esc(p.t) + '</div>' : '') + '</div>'; }).join('') +
+    '<div id="rdEnd" class="rdend">' + (S.rd.done ? '已看完' : '— 最後一頁 —') + '</div>';
+  rdBar();
+  rdLoad();
+  window.onscroll = function () { if (S.page !== 'eduRead') { window.onscroll = null; return; } if (window.scrollY > 40) S.rd.moved = true; rdLoad(); rdCheck(); };
+};
+function rdBar() {
+  var r = S.rd; if (!r) return;
+  if (r.done) bar('<button class="btn" onclick="back()">' + ic('check', 22, 3) + '已看完，回上一頁</button>');
+  else bar('<div class="rdbar"><div class="rdpg"><i style="width:' + Math.round(100 * rdSeen() / Math.max(1, r.n)) + '%"></i></div><span>看到第 ' + rdSeen() + ' / ' + r.n + ' 頁，滑到最後一頁才算看完</span></div>');
+}
+function rdSeen() { var n = 0, H = window.innerHeight; for (var i = 0; i < S.rd.n; i++) { var e = $('rdp' + i); if (e && e.getBoundingClientRect().top < H * 0.8) n = i + 1; } return n; }
+function rdLoad() {
+  var r = S.rd; if (!r || r.busy || r.got >= r.n) return;
+  var last = $('rdp' + Math.max(0, r.got - 1));
+  if (r.got && last && last.getBoundingClientRect().top > window.innerHeight * 2.5) return;      // 還沒滑到附近就先不載
+  r.busy = true;
+  api('eduPages', { id: r.id, lang: r.lang, from: r.got, n: 3 }).then(function (o) {
+    o.pages.forEach(function (p) {
+      var e = $('rdp' + p.i); if (!e) return;
+      e.querySelector('.rdi').innerHTML = '<img src="data:' + p.mime + ';base64,' + p.data + '" alt="第 ' + (p.i + 1) + ' 頁">';
+    });
+    r.got += o.pages.length; r.busy = false; rdBar();
+    if (S.page === 'eduRead') { rdLoad(); rdCheck(); }
+  }).catch(function (e) { r.busy = false; toast(esc(e.message), 'err', 4000); });
+}
+function rdCheck() {
+  var r = S.rd; if (!r || r.done || r.saving) return;
+  rdBar();
+  var end = $('rdEnd'); if (!end || r.got < r.n || !r.moved) return;
+  if (end.getBoundingClientRect().top > window.innerHeight) return;
+  r.saving = true;
+  api('eduRead', { id: r.id, lang: r.lang }).then(function (o) {
+    r.done = true; r.saving = false;
+    var x = S.eduItem; if (x) { x.readDone = o.at || now16(); if (!x.course) { if (!x.acked && !o.ehs && !o.dev) eduDec(); x.acked = true; x.ackAt = o.ackAt || x.ackAt; } }
+    if (S.edu) S.edu.list.forEach(function (y) { if (y.id === r.id && !y.course) y.acked = true; });
+    end.textContent = '已看完';
+    toast(o.ehs ? '已看到最後（環安衛預覽，不記錄）' : x && x.course ? '已看完，可以回去作答／按完成' : '已看完，已記錄閱讀', 'ok', 3500);
+    rdBar();
+  }).catch(function (e) { r.saving = false; toast(esc(e.message), 'err', 4000); });
+}
+function now16() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
 /** 教育訓練待辦數減 1（主選單紅點、首頁待辦） */
 function eduDec() { var p = plat(); if (p && p.eduUnread) { p.eduUnread = Math.max(0, p.eduUnread - 1); var raw = lsGet(LS.ME, null); if (raw && raw.plat) { raw.plat.eduUnread = p.eduUnread; lsSet(LS.ME, raw); } } }
 function fsz(n) { n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
@@ -496,9 +569,16 @@ function eduAck() {
   }).catch(function (e) { b.disabled = false; b.innerHTML = ic('check', 22, 3) + '我已閱讀，了解內容'; toast(esc(e.message), 'err', 4000); });
 }
 /** 我已完成：題目都要作答 → 確認用系統裡的簽名 → 送出批改；錯的題目標紅 */
-function eduDone() {
+function eduDone(dry) {
   var x = S.eduItem, q = S.eq || { ans: [] }, sig = S.me.signature;
   for (var i = 0; i < x.quiz.length; i++) if (q.ans[i] == null) { toast('第 ' + (i + 1) + ' 題還沒作答', 'err'); var c = document.querySelectorAll('.quiz')[i]; if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+  if (dry) {                                                         // 環安衛預覽：只批改，不簽到、不寫完成
+    busyOn('批改中…');
+    return api('eduDone', { id: x.id, answers: q.ans, dry: true }).then(function (r) {
+      busyOff(); S.eq.wrong = r.wrong || []; render();
+      toast(r.total ? '答對 ' + r.right + ' / ' + r.total + ' 題（預覽，不簽到）' : '這堂課沒有測驗', r.done ? 'ok' : 'err', 4000);
+    }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
+  }
   if (!sig || !sig.image) return dlg('<b>還沒有您的簽名</b><p>請先到「設定 → 我的簽名」簽好，完成時會自動帶入。</p>', [['去簽名', function () { go('sign'); }, '']]);
   if (S.dev) return devBlock('教育訓練完成簽到');
   dlg('<b>完成這堂教育訓練？</b><p>' + esc(x.title) + (x.hours ? '（' + x.hours + ' 小時）' : '') + '</p><img class="sigprev" src="' + sig.image + '" alt="我的簽名"><p class="sm">會用您的簽名寫進教育訓練簽到表。</p>',
