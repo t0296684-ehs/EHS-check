@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.19';
+var APP_VERSION = '0.13.20';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -961,6 +961,12 @@ PAGES.home = function () {
   if (!ehs && !mgr && !m.assigns.some(function (a) { return a.daily || a.pick; }))
     tasks.push({ tag: '還沒有指派給您的檢查表', title: '先領取您負責的表或設備', meta: m.claimable.length ? '本課開放 ' + m.claimable.length + ' 項可以領取；領了才會出現在手機上' : '目前沒有可領取的表，請洽環安衛中心',
       btn: '去領取', on: "go('claim')" });
+  // 4.6（10/15 Jason）：本課還有沒人負責的表或設備 → 提醒去領取（已經有負責項目的人也要看到；申請中的不算）
+  if (!ehs && !mgr && m.assigns.some(function (a) { return a.daily || a.pick; })) {
+    var open = (m.claimable || []).filter(function (x) { return !(x.users || []).length && !x.pending; });
+    if (open.length) tasks.push({ tag: '本課還有沒人負責的檢查', title: open.length + ' 項等人領取', meta: open.slice(0, 2).map(function (x) { return x.kind === 'equip' ? x.cat + ' ' + x.object : x.name; }).join('、') + (open.length > 2 ? '…' : '') + '；領取後由單位負責人核准',
+      btn: '去領取', on: "go('claim')" });
+  }
   // 5. 上個月還沒送審：送審期限（預設每月 5 日）前放在下方「月結送審」，過了期限才變成要做的事
   var sDay = m.submitDay || 5, dueTxt = function (p) { var d = new Date(Number(p.slice(0, 4)), Number(p.slice(5)), sDay); return (d.getMonth() + 1) + '/' + d.getDate(); };
   var subs = [];
