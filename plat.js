@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.13.16';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.13.17';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -20,6 +20,7 @@ var PLAT_ICON = {
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
   share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/>',
   img: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+  flask: '<path d="M9 3h6M10 3v6.5L4.6 18.2A2 2 0 0 0 6.3 21h11.4a2 2 0 0 0 1.7-2.8L14 9.5V3"/><path d="M7.2 15h9.6"/>',   // 危害性化學品（10/15：原本沒定義，主選單那格是空的）
   link: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
 };
 var PLAT_PAGES = {};
@@ -817,7 +818,11 @@ function pvSend() {
 var GHS_PIC = { explode: ['爆炸'], flame: ['易燃'], oxid: ['助燃'], gas: ['高壓氣體'], corrode: ['腐蝕'], skull: ['劇毒'], health: ['健康危害'], warn: ['有害／刺激'], env: ['危害環境'] };
 function ghsIcon(k, size) {
   var g = GHS_PIC[k]; if (!g) return '';
-  return '<img class="ghs" src="ghs-' + k + '.svg" width="' + size + '" height="' + size + '" alt="' + esc(g[0]) + '">';
+  // 圖檔抓不到（沒網路、第一次開還沒存進手機）→ 換成文字標籤，不顯示破圖
+  return '<img class="ghs" src="ghs-' + k + '.svg" width="' + size + '" height="' + size + '" alt="' + esc(g[0]) + '" onerror="ghsFail(this)">';
+}
+function ghsFail(img) {
+  var s = document.createElement('span'); s.className = 'ghst'; s.textContent = img.alt || '危害'; img.replaceWith(s);
 }
 PLAT_PAGES.chem = function () {
   setTitle('危害性化學品');
@@ -847,7 +852,7 @@ function chemList() {
     var i = C.list.indexOf(x), head = '';
     if (x.sheet !== grp) { head = (grp === null ? '' : '</div>') + '<div class="chg">' + esc(x.sheet) + '</div><div class="list">'; grp = x.sheet; }
     return head + '<button class="li chi" onclick="chemOpen(' + i + ')"><span class="mn"><span class="nm">' + esc(x.name) + '</span><span class="mt">' + (x.other ? '<span>' + esc(x.other) + '</span>' : '') + (x.idx ? '<span class="chx"><i>索引碼</i> ' + esc(x.idx) + '</span>' : '') + '</span></span>' +
-      '<span class="chp">' + (x.pic.length ? x.pic.slice(0, 3).map(function (k) { return ghsIcon(k, 26); }).join('') : '') + '</span>' + ic('chev', 18, 2.6) + '</button>';
+      '<span class="chp">' + (x.pic.length ? x.pic.slice(0, 3).map(function (k) { return ghsIcon(k, 26); }).join('') : x.hazNone ? '<span class="ch0">非危害</span>' : '') + '</span>' + ic('chev', 18, 2.6) + '</button>';
   }).join('') + '</div>' : '<div class="empty">' + (q ? '找不到「' + esc(S.chemQ) + '」' : '目前沒有資料') + '</div>';
 }
 function chemOpen(i) {
@@ -858,8 +863,9 @@ function chemOpen(i) {
     (x.other ? '<div class="muted">' + esc(x.other) + '</div>' : '') +
     (x.pic.length ? '<div class="chpics">' + x.pic.map(function (k) { return '<span>' + ghsIcon(k, 46) + '<small>' + esc(GHS_PIC[k][0]) + '</small></span>'; }).join('') + '</div>' : '') +
     (x.flag ? '<div class="chf">' + x.flag.split('、').map(function (f) { return '<span>' + esc(f) + '</span>'; }).join('') + '</div>' : '') +
-    '<div class="chsec">危害分類</div>' + (x.haz.length ? '<ul class="chz">' + x.haz.map(function (h) { return '<li>' + esc(h) + '</li>'; }).join('') + '</ul>' :
-      '<div class="muted">系統讀不到這份 SDS 的危害分類，請看現場 SDS 第二項。</div><div class="chr"><b>SDS 索引碼</b><span>' + esc(x.idx || '—') + '</span></div>') +
+    '<div class="chsec">危害分類</div>' + (x.haz.length ? '<ul class="chz">' + x.haz.map(function (h) { return '<li>' + esc(h) + '</li>'; }).join('') + '</ul>' + (x.hazSrc ? '<div class="chs">' + esc(x.hazSrc) + '</div>' : '') :
+      x.hazNone ? '<div class="chok">' + esc(x.hazSrc || 'SDS 載明非危害物質') + '，不需危害圖式。仍請依 SDS 第八項穿戴防護具。</div>' :
+      '<div class="muted">' + (x.hazSrc ? esc(x.hazSrc) + '。' : '') + '危害重點請看現場 SDS 第二項（索引碼 ' + esc(x.idx || '—') + '）。</div>') +
     '<div class="chsec">基本資料</div>' + row('SDS 索引碼', x.idx) + row('CAS No.', x.cas) + row('使用情形', x.use) + row('製造商／供應商', x.maker) + row('清單分頁', x.sheet) +
     '<div class="tip">作業前看 SDS 第八項（防護具）、第四項（急救）；不舒服馬上告訴主管。</div></div>';
   document.body.appendChild(dd);

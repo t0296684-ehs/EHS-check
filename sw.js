@@ -1,8 +1,8 @@
 // 作業檢點 PWA：程式檔「有網路先抓新的、沒網路用手機裡的」（v0.7.1 起，改版後打開 App 就是新版）；Google 後端一律不快取
-var CACHE = 'chk-v0.13.16';
+var CACHE = 'chk-v0.13.17';
 var FILES = ['./', './index.html', './plat.js', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 // 畫面翻譯檔：抓不到也不影響安裝（App 會退回中文）
-var OPTIONAL = ['./i18n.js', './i18n_dict.js'];
+var OPTIONAL = ['./i18n.js', './i18n_dict.js'].concat(['explode', 'flame', 'oxid', 'gas', 'corrode', 'skull', 'health', 'warn', 'env'].map(function (k) { return './ghs-' + k + '.svg'; }));   // 10/15：GHS 圖也先存進手機，沒網路照樣顯示
 self.addEventListener('install', function (e) {
   // cache:'reload'：不拿瀏覽器 HTTP 暫存的舊檔（GitHub Pages 會暫存 10 分鐘）
   e.waitUntil(caches.open(CACHE).then(function (c) {
@@ -22,7 +22,12 @@ self.addEventListener('fetch', function (e) {
   if (u.origin !== self.location.origin) return;
   var code = e.request.mode === 'navigate' || /\.(html|js|json)$/.test(u.pathname) || /\/$/.test(u.pathname);
   if (!code) {                                           // 圖示：先用手機裡的
-    e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(function (hit) { return hit || fetch(e.request); }));
+    e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(function (hit) {
+      return hit || fetch(e.request).then(function (r) {             // 抓到就存進手機（原本沒存，網路一不穩圖就破）
+        if (r.ok) { var cp = r.clone(); caches.open(CACHE).then(function (c) { c.put(e.request.url, cp); }); }
+        return r;
+      });
+    }));
     return;
   }
   // 程式檔：先抓網路（最多等 4 秒），抓到就更新手機裡的；沒網路或太慢就用手機裡的
