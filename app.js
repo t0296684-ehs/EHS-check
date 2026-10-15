@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.13.18';
+var APP_VERSION = '0.13.19';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -2279,7 +2279,9 @@ function submitMonth() {
   }).catch(function (e) {
     busyOff();
     S.mErr = { t: '送審沒有成功', m: e.message };
-    monthRender(); window.scrollTo(0, 0);
+    if (S.page === 'month') monthRender(); else render();
+    window.scrollTo(0, 0);
+    dlg('<b>送審沒有成功</b><p>' + esc(e.message).replace(/\n/g, '<br>') + '</p>', [['知道了', function () {}, '']]);
   });
 }
 /** 送審確認頁：逐表摘要、平日空白、鎖定後不能改的說明，勾「我已確認」才能送 */
@@ -2299,7 +2301,7 @@ PAGES.smConfirm = function () {
   $('app').innerHTML = h;
   bar('<button class="btn ghost" onclick="back()">' + ic('cal', 20, 2.2) + (demoDept(v.dept) ? '回月曆' : '回月曆補填') + '</button><button class="btn" id="smGo" disabled onclick="smGo()">' + ic('check', 22, 2.8) + '確認送出</button>');
 };
-function smGo() { S.smOk = true; S.page = 'month'; S.stack.pop(); S.arg = S.mArg; submitMonth(); }
+function smGo() { S.smOk = true; S.page = 'month'; S.stack.pop(); S.arg = S.mArg; render(); submitMonth(); }   // 10/15：先回到月份畫面再送，失敗訊息才看得到（原本停在確認頁、像卡住）
 function shareTo(text) {
   if (navigator.share) navigator.share({ text: text }).catch(function () {});
   else if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () { toast('已複製，貼到 LINE 給主管', 'ok'); });
