@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.13.20';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.13.21';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -946,12 +946,23 @@ function chemOpen(i) {
     '<div class="chsec">危害分類</div>' + (x.haz.length ? '<ul class="chz">' + x.haz.map(function (h) { return '<li>' + esc(h) + '</li>'; }).join('') + '</ul>' + (x.hazSrc ? '<div class="chs">' + esc(x.hazSrc) + '</div>' : '') :
       x.hazNone ? '<div class="chok">' + esc(x.hazSrc || 'SDS 載明非危害物質') + '，不需危害圖式。仍請依 SDS 第八項穿戴防護具。</div>' :
       '<div class="muted">' + (x.hazSrc ? esc(x.hazSrc) + '。' : '') + '危害重點請看現場 SDS 第二項（索引碼 ' + esc(x.idx || '—') + '）。</div>') +
-    '<div class="chsec">基本資料</div>' + row('SDS 索引碼', x.idx) + row('CAS No.', x.cas) + row('使用情形', x.use) + row('製造商／供應商', x.maker) + row('清單分頁', x.sheet) +
-    '<div class="tip">作業前看 SDS 第八項（防護具）、第四項（急救）；不舒服馬上告訴主管。</div></div>';
+    chemPts(x) +
+    '<div class="chsec">基本資料</div>' + row('CAS No.', x.cas) + row('使用情形', x.use) + row('製造商／供應商', x.maker) +
+    '<div class="tip">不舒服、皮膚或眼睛有異狀，馬上告訴主管。現場 SDS 依索引碼 ' + esc(x.idx || '—') + ' 找。</div></div>';
   document.body.appendChild(dd);
   dd.addEventListener('click', function (e) { if (e.target === dd) dd.remove(); });
 }
 
+// v0.13.21（10/15 Jason）：明細著重「作業時注意」與「出事怎麼做」（摘自 SDS 第四～八項；掃描件用同成分 SDS；都沒有時給依危害分類的一般原則）
+var PTS_K = { handle: [['處置', '作業時'], ['儲存', '儲存']], ppe: [['呼吸', '呼吸防護'], ['手部', '手套'], ['眼睛', '眼睛防護'], ['身體', '身體防護']],
+  firstaid: [['吸入', '吸入'], ['皮膚', '沾到皮膚'], ['眼睛', '噴到眼睛'], ['食入', '誤食']], leak: [['洩漏時', '洩漏時'], ['清理', '清理']], fire: [['滅火劑', '滅火劑']] };
+function chemPts(x) {
+  var p = x.pts; if (!p) return '';
+  var blk = function (sec) { var d = p[sec] || {}; return PTS_K[sec].filter(function (k) { return d[k[0]]; }).map(function (k) { return '<div class="chr"><b>' + esc(k[1]) + '</b><span>' + esc(d[k[0]]) + '</span></div>'; }).join(''); };
+  var work = blk('handle') + blk('ppe'), act = (blk('firstaid') ? '<div class="chsub">急救</div>' + blk('firstaid') : '') + (blk('leak') ? '<div class="chsub">洩漏</div>' + blk('leak') : '') + (blk('fire') ? '<div class="chsub">火災</div>' + blk('fire') : '');
+  var src = p.src === 'sds' ? '摘自 SDS 第四～八項' : p.src === 'ref' ? '這份 SDS 是掃描件，摘自同成分的 SDS（' + (p.ref || '') + '）' : '依危害分類整理的一般原則，細節以現場 SDS 為準';
+  return (work ? '<div class="chsec">作業時注意</div>' + work : '') + (act ? '<div class="chsec">出事怎麼做</div>' + act : '') + '<div class="chs">' + esc(src) + '</div>';
+}
 // ───────────── 開發者模式（環安衛）：用任何同仁的畫面操作、找出他卡在哪一步；只看不送出 ─────────────
 // 只讀的動作帶 viewAs 給後端；會寫入的（送出、簽名、核准、上傳…）在手機上就攔下，後端也只放行這份清單。
 var DEV_READ = ['me', 'chemList', 'overview', 'notices', 'dayView', 'monthView', 'packages', 'tracks', 'photoGet', 'getPdf', 'team', 'nextList',
