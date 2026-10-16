@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.14.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.14.1';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -339,6 +339,7 @@ function consListHtml() {
   if (!c.list.length) return '<div class="empty">目前沒有您承辦中的案件</div>';
   return '<div class="list">' + c.list.map(function (x, i) {
     var hint = x.status === '待簽名' ? '等廠商監督人員簽名' : x.status === '施工人員簽名中' ? (x.handlerSigned ? (x.canSubmit ? '您已簽，可以提交審核' : '您已簽，等廠商提交審核') : '工人簽完後，換您簽名') :
+      x.status === '暫緩－文件不齊' ? '暫緩：承攬商安全衛生承諾書還沒簽回。環安衛收到用印正本、在廠商主檔打勾後自動恢復，廠商才會收到簽名信' :
       x.status === '待審核' ? '環安衛審核中' : x.status === '已核准' ? '已核准，可以進場' : x.status === '補件退回' ? '退回補件，請提醒廠商' : '';
     var act = '';
     if (x.sign && !x.handlerSigned) act = '<button class="btn" onclick="consSign(' + i + ')">' + ic('pen', 18, 2.4) + '在 App 內簽名</button>';
@@ -972,8 +973,8 @@ function chemPts(x) {
 // 參加者：掃 QR（網址 #meet=…），不用登入、不碰這支手機原本的帳號：先簽名 → 簡報滑到最後一頁 → 按「完成」。
 var MEET_KIND_NAME = { toolbox: '工具箱會議', newhire: '新進人員教育訓練' };
 function meetTok(id, t) {                                          // 主持人這支手機記住 QR 權杖（後端只存雜湊）
-  var k = 'meet_qr:' + id;
-  try { if (t) sessionStorage.setItem(k, t); return t || sessionStorage.getItem(k) || ''; } catch (e) { return t || ''; }
+  var k = 'meet_qr:' + id;                                        // 存在這支手機：App 關掉重開 QR 還在（會議結束後就作廢）
+  try { if (t) localStorage.setItem(k, t); return t || localStorage.getItem(k) || sessionStorage.getItem(k) || ''; } catch (e) { return t || ''; }
 }
 function meetRead(id, v) {                                          // 主持人看完簡報了沒（這支手機）
   var k = 'meet_rd:' + id;
@@ -1000,7 +1001,8 @@ PLAT_PAGES.meet = function () {
     return;
   }
   var h = '<div class="box info"><div class="r">' + ic('helmet', 22) + '<div class="bt"><b>施工當天、開工前在現場開</b><div class="m">按「開始」手機會出現 QR Code，施工人員用手機掃描：先簽名、看完簡報按完成，就算簽到。沒有手機的人可以用您的手機當面簽。</div></div></div></div>';
-  var live = h0.list.filter(function (x) { return x.status === '進行中'; });
+  var tbl = h0.list.filter(function (x) { return x.kind === 'toolbox'; });           // 新進人員教育訓練在「環安衛教育訓練」，這裡不列
+  var live = tbl.filter(function (x) { return x.status === '進行中'; });
   if (live.length) h += '<div class="sec">進行中的會議</div><div class="list">' + live.map(function (x) {
     return '<button class="li" onclick="go(\'meetRoom\',{id:' + jsq(x.id) + '})"><span class="mn"><span class="nm">' + esc(x.kind === 'newhire' ? x.topic : x.vendor) + '</span><span class="mt">' +
       esc((x.kind === 'newhire' ? '新進人員教育訓練' : x.work) + '・已簽 ' + x.signed + ' 人、完成 ' + x.finished + ' 人') + '</span></span>' + pill('warn', 'clock', '回到會議') + '</button>'; }).join('') + '</div>';
@@ -1018,9 +1020,8 @@ PLAT_PAGES.meet = function () {
     return '<div class="card"><div class="fh"><b>' + esc(c.vendor) + '</b><span class="muted" style="margin-left:6px">' + esc(c.id) + '</span></div><div class="muted">' + meta + '</div>' + act + '</div>';
   }).join('');
   h += '<div class="btns" style="margin-top:12px"><button class="btn ghost" onclick="go(\'meetTemp\')">' + ic('plus', 18, 2.4) + '臨時工具箱會議</button>' +
-    '<button class="btn ghost" onclick="S.mhist=null;go(\'meetHist\')">' + ic('review', 18, 2.4) + '會議紀錄</button></div>';
-  if (h0.canNewhire) h += '<button class="btn line" style="margin-top:10px" onclick="go(\'meetNew\')">' + ic('book', 18, 2.4) + '新進人員教育訓練（環安衛）</button>';
-  var past = h0.list.filter(function (x) { return x.status !== '進行中'; });
+    '<button class="btn ghost" onclick="S.mhist=null;go(\'meetHist\',{kind:\'toolbox\'})">' + ic('review', 18, 2.4) + '會議紀錄</button></div>';
+  var past = tbl.filter(function (x) { return x.status !== '進行中'; });
   if (past.length) h += '<div class="sec">今天的紀錄</div><div class="list">' + past.map(function (x) {
     return '<div class="li"><span class="mn"><span class="nm">' + esc(x.kind === 'newhire' ? x.topic : x.vendor) + '</span><span class="mt">' + esc((x.kind === 'newhire' ? '新進人員' : x.work) + (x.finished ? '・' + x.finished + ' 人' : '') + (x.sent ? '・已寄 ' + x.sent : '')) + '</span></span>' + meetStatusPill(x.status) + '</div>'; }).join('') + '</div>';
   $('app').innerHTML = h;
@@ -1030,10 +1031,10 @@ function meetStart(caseId, btn) {
   meetBusy(btn, '開會中…');
   api('meetCreate', { kind: 'toolbox', caseId: caseId }).then(meetOpened).catch(function (e) { toast(esc(e.message), 'err', 5000); S.mh = null; render(); });
 }
-function meetOpened(r) {
+function meetOpened(r, replace) {
   meetTok(r.id, r.token);
   S.mh = null;
-  go('meetRoom', { id: r.id }, false);
+  go('meetRoom', { id: r.id }, !!replace);          // 新進人員：開好後取代表單頁，按返回直接回新進人員頁
   if (r.resumed) toast('這場會議已經開過，換了新的 QR Code（舊的失效）', '', 4000);
 }
 function meetPaper(caseId, vendor) {
@@ -1065,8 +1066,19 @@ function meetTempGo() {
 }
 PLAT_PAGES.meetNew = function () {
   setTitle('新進人員教育訓練');
-  var t = today();
-  var h = '<div class="lead">新人用手機掃 QR Code：先簽名、看完簡報按完成，就簽到。課程結束您按「完成會議」，系統產生 P-05-01-A 內訓簽到表寄給環安衛並存 NAS。</div>' +
+  if (!S.mh) {
+    $('app').innerHTML = loading('讀取中…');
+    api('meetHome', {}).then(function (r) { S.mh = r; if (S.page === 'meetNew') render(); })
+      .catch(function (e) { $('app').innerHTML = errBox('讀不到資料', e.message) + '<button class="btn navy" onclick="render()">再試一次</button>'; });
+    return;
+  }
+  var t = today(), nh = S.mh.list.filter(function (x) { return x.kind === 'newhire'; });
+  var liveN = nh.filter(function (x) { return x.status === '進行中'; });
+  var top = liveN.length ? '<div class="sec">進行中<small>點一下回到 QR Code 與簽到名單</small></div><div class="list">' + liveN.map(function (x) {
+    return '<button class="li" onclick="go(\'meetRoom\',{id:' + jsq(x.id) + '})"><span class="mn"><span class="nm">' + esc(x.topic) + '</span><span class="mt">' +
+      esc(md(x.date) + ' ' + x.start + '～' + x.end + '・已簽 ' + x.signed + ' 人、完成 ' + x.finished + ' 人') + '</span></span>' + pill('warn', 'clock', '回到會議') + '</button>'; }).join('') + '</div>' : '';
+  top += '<button class="btn ghost" style="margin:6px 0 4px" onclick="S.mhist=null;go(\'meetHist\',{kind:\'newhire\'})">' + ic('review', 18, 2.4) + '新進人員簽到紀錄</button>';
+  var h = top + '<div class="sec">開新的一堂課</div><div class="lead">新人用手機掃 QR Code：先簽名、看完簡報按完成，就簽到。課程結束您按「完成會議」，系統產生 P-05-01-A 內訓簽到表寄給環安衛並存 NAS。</div>' +
     '<label class="nl req" for="mnT">課程名稱</label><input class="field" id="mnT" maxlength="40" value="新進人員一般安全衛生教育訓練">' +
     '<label class="nl req" for="mnD">上課日期</label><input class="field" id="mnD" type="date" max="' + t + '" value="' + t + '">' +
     '<div class="mr2"><div><label class="nl req" for="mnS">開始</label><input class="field" id="mnS" type="time" value="13:00"></div>' +
@@ -1080,7 +1092,7 @@ function meetNewGo() {
   var v = function (id) { return ($(id).value || '').trim(); };
   if (v('mnE') <= v('mnS')) return toast('結束時間要晚於開始時間', 'err');
   meetBusy($('mnBtn'), '開始中…');
-  api('meetCreate', { kind: 'newhire', topic: v('mnT'), date: v('mnD'), start: v('mnS'), end: v('mnE'), place: v('mnP') }).then(meetOpened)
+  api('meetCreate', { kind: 'newhire', topic: v('mnT'), date: v('mnD'), start: v('mnS'), end: v('mnE'), place: v('mnP') }).then(function (r) { meetOpened(r, true); })
     .catch(function (e) { $('mnErr').innerHTML = errBox('沒有開成', e.message); var b = $('mnBtn'); b.disabled = false; b.className = 'btn'; b.textContent = '再試一次'; });
 }
 
@@ -1110,6 +1122,9 @@ PLAT_PAGES.meetRoom = function () {
     h += '<div class="card"><div class="muted">這支手機沒有這場會議的 QR Code（可能重新開過 App）。按下面產生新的，舊的會失效。</div><button class="btn" onclick="meetNewQr()">' + ic('refresh', 18, 2.4) + '顯示 QR Code</button></div>';
   }
   var done = st.atts.filter(function (a) { return a.done; }).length;
+  if (m.status === '進行中') h += '<div class="btns" style="margin:4px 0 2px"><button class="btn" onclick="go(\'meetView\',{id:' + jsq(id) + '})">' + ic('book', 18, 2.4) + (read ? '再看一次簡報' : '看簡報（主持人）') + '</button>' +
+    '<button class="btn ghost" onclick="go(\'meetSign\',{id:' + jsq(id) + '})">' + ic('pen', 18, 2.4) + '新增簽名（用這支手機）</button></div>' +
+    '<div class="muted" style="margin-bottom:6px">看簡報時按左上角返回、或看完按「已看完，回到會議」，都會回到這一頁；會議會一直保留到您按完成或取消。</div>';
   h += '<div class="sec">簽到名單<small>已簽 ' + st.atts.length + ' 人，完成 ' + done + ' 人（每 5 秒更新）</small></div>';
   h += st.atts.length ? '<div class="list">' + st.atts.map(function (a) {
     var stp = a.done ? (/主持人/.test(a.how) ? pill('ok', 'check', '當面簽') : pill('ok', 'check', '已完成')) : pill('warn', 'clock', '看簡報中');
@@ -1117,12 +1132,11 @@ PLAT_PAGES.meetRoom = function () {
       (m.status === '進行中' ? '<button class="btn ghost sm" aria-label="移除 ' + esc(a.name) + '" onclick="meetDel(' + a.seq + ',' + jsq(a.name) + ')">' + ic('trash', 16, 2.2) + '</button>' : '') + '</div>';
   }).join('') + '</div>' : '<div class="empty">還沒有人簽到</div>';
   if (m.status === '進行中') {
-    h += '<div class="btns" style="margin-top:12px"><button class="btn ghost" onclick="go(\'meetSign\',{id:' + jsq(id) + '})">' + ic('pen', 18, 2.4) + '新增簽名（用這支手機）</button>' +
-      '<button class="btn ghost" onclick="go(\'meetView\',{id:' + jsq(id) + '})">' + ic('book', 18, 2.4) + (read ? '再看一次簡報' : '看簡報（主持人）') + '</button></div>' +
-      '<button class="btn ghost sm" style="margin-top:14px" onclick="meetCancel()">取消這場會議</button>';
+    h += '<button class="btn ghost sm" style="margin-top:14px" onclick="meetCancel()">取消這場會議</button>';
     bar(read ? '<button class="btn" onclick="go(\'meetFinish\',{id:' + jsq(id) + '})">' + ic('check', 22, 2.8) + '完成會議（' + done + ' 人）</button>'
       : '<div class="rdbar"><span>' + ic('info', 16) + ' 主持人也要把簡報看到最後一頁，才能按完成會議</span></div>');
-  } else bar('<button class="btn" onclick="S.mh=null;go(\'meet\',{},true)">回工具箱會議</button>');
+  } else bar(m.kind === 'newhire' ? '<button class="btn" onclick="S.mh=null;S.stack=[];go(\'edu\',{},true)">回教育訓練</button>'
+    : '<button class="btn" onclick="S.mh=null;go(\'meet\',{},true)">回工具箱會議</button>');
   $('app').innerHTML = h;
   meetPoll(false);
 };
@@ -1152,7 +1166,8 @@ function meetDel(seq, name) {
 }
 function meetCancel() {
   if (!confirm('取消這場會議？QR Code 會失效，簽到紀錄不會產生 PDF。')) return;
-  api('meetCancel', { id: S.arg.id }).then(function () { S.mh = null; S.ms = null; go('meet', {}, true); toast('已取消', 'ok'); }).catch(function (e) { toast(esc(e.message), 'err', 4000); });
+  var nhk = S.ms && S.ms.meet.kind === 'newhire';
+  api('meetCancel', { id: S.arg.id }).then(function () { S.mh = null; S.ms = null; go(nhk ? 'meetNew' : 'meet', {}, true); toast('已取消', 'ok'); }).catch(function (e) { toast(esc(e.message), 'err', 4000); });
 }
 /** 主持人用這支手機替沒手機的人當面簽 */
 PLAT_PAGES.meetSign = function () {
@@ -1269,7 +1284,8 @@ PLAT_PAGES.meetHist = function () {
     api('meetList', {}).then(function (r) { S.mhist = r.list; if (S.page === 'meetHist') render(); }).catch(function (e) { $('app').innerHTML = errBox('讀不到紀錄', e.message); });
     return;
   }
-  var L = S.mhist;
+  var L = S.mhist.filter(function (x) { return !S.arg.kind || x.kind === S.arg.kind; });
+  if (S.arg.kind === 'newhire') setTitle('新進人員簽到紀錄');
   var h = L.length ? '<div class="list">' + L.map(function (x) {
     return '<div class="li"><span class="mn"><span class="mt">' + esc(md(x.date) + '・' + MEET_KIND_NAME[x.kind] + '・主持 ' + x.host) + '</span><span class="nm">' + esc(x.kind === 'newhire' ? x.topic : x.vendor + ' ' + (x.caseId || '臨時')) + '</span>' +
       '<span class="mt">' + esc(x.finished ? x.finished + ' 人完成' : '') + '</span></span>' + meetStatusPill(x.status) +
