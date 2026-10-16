@@ -499,6 +499,19 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 .chsec{margin:14px 0 6px;font-size:13px;font-weight:800;color:var(--sub)}.chz{margin:0;padding-left:20px;font-size:15px;line-height:1.6}.chr{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:14px}.chr b{flex:0 0 96px;color:var(--sub);font-weight:700}.chr span{flex:1;min-width:0;word-break:break-word}.ghs{flex-shrink:0}
 .pvg{display:flex;gap:8px;align-items:flex-start;margin:4px 0}.pvgl{flex:0 0 38px;padding-top:12px;font-size:13px;font-weight:800;color:var(--sub)}.pvg .chips{flex:1;min-width:0}
 .pvpk{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}.pvp{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 12px;border-radius:12px;border:1.5px solid #C3CBD6;background:#fff;text-align:left;font-size:15px;font-weight:600}.pvp span{flex:1}.pvp small{font-size:12px;color:var(--sub);white-space:nowrap}.pvp.on{border-color:var(--navy);background:var(--nabg);color:var(--navy)}
+/* 現場簽到（v0.14.0） */
+.box.ok{background:var(--okbg);color:#0B4D25}
+.box.ok .r .ic{color:var(--ok)}
+.chk{display:flex;flex-wrap:wrap;gap:4px 16px;margin:2px 0 10px}
+.chk label{display:inline-flex;align-items:center;gap:6px;font-size:15px;min-height:40px}
+.chk input{width:22px;height:22px;flex:none}
+.chk.col{flex-direction:column;gap:0}
+.mr2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qrcard .qr{display:flex;justify-content:center;margin:2px 0 6px}
+.qrcard .qr svg{width:min(76vw,300px);height:auto;background:#fff;border-radius:8px}
+.tbm{display:block;width:100%;text-align:left;border:2px solid #B45309;background:#FFF7ED;margin-bottom:6px}
+.tbm .fh{display:flex;align-items:center;gap:8px;color:#9A3412}
+.tbm .fh b{font-size:18px}
 </style>
 </head>
 <body>
@@ -510,6 +523,7 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 <div id="bar"></div>
 <script src="i18n_dict.js"></script>
 <script src="i18n.js"></script>
+<script src="qrcode.js"></script>
 <script src="plat.js"></script>
 <script src="app.js"></script>
 </body>

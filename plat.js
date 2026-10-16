@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.13.21';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.14.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -289,10 +289,12 @@ PLAT_PAGES.cons = function () {
       '<button class="btn ghost" onclick="consLink(' + form + ',\'open\')">' + ic('ext', 18, 2.2) + '打開看看</button></div>';
   };
   var card = function (n, title, desc) { return '<div class="card fcard"><div class="fh"><span class="fn">' + n + '</span><b>' + esc(title) + '</b></div><div class="muted">' + esc(desc) + '</div>' + btns(n) + '</div>'; };
-  var h = '<div class="sec">給廠商的連結<small>用 LINE 傳給廠商窗口</small></div>' +
+  var h = '<button class="card fcard tbm" onclick="S.mh=null;go(\'meet\')"><div class="fh">' + ic('helmet', 22, 2.2) + '<b>工具箱會議</b></div>' +
+    '<div class="muted">施工當天開工前在現場開：施工人員用手機掃 QR Code 簽名、看完簡報，完成後自動產生紀錄寄出並存檔。</div></button>' +
+    '<div class="sec">給廠商的連結<small>用 LINE 傳給廠商窗口</small></div>' +
     (L.form1 ? card(1, '廠商建檔（Form 1）', '第一次來員和施工的廠商先填一次。填完系統會寄承諾書，要蓋公司大小章回傳。同一家廠商之後不用再填。') : '') +
     (L.form2 ? card(2, '入廠施工申請（Form 2）', '每個工程一份，請廠商在施工前 3 個工作天填好。從您的 App 傳出去的連結，會先問您要不要帶入您是「員和承辦人員」。') : '') +
-    '<button class="btn line" onclick="gOpenFrom(\'7-2\')">' + ic('info', 18, 2.4) + '申請流程：廠商和我各要做什麼</button>';
+    '<button class="btn line" onclick="gOpenFrom(\'7-3\')">' + ic('info', 18, 2.4) + '申請流程：廠商和我各要做什麼</button>';
   h += '<div class="sec">我承辦的案件<small>以 Form 2「員和承辦人員」為準</small></div><div id="consList">' + consListHtml() + '</div>';
   if (L.findme) h += '<div class="card"><b>廠商說沒收到簽名信？</b><div class="muted">把這個網址傳給廠商，系統會把簽名連結重寄到他建檔時登記的信箱。</div>' +
     '<div class="btns"><button class="btn ghost" onclick="shareLink(' + jsq('員和工業：找回簽名連結（系統會重寄到貴公司登記的信箱）') + ',' + jsq(L.findme) + ')">' + ic('share', 18, 2.4) + '傳給廠商</button>' +
@@ -408,7 +410,8 @@ PLAT_PAGES.edu = function () {
     return;
   }
   var h = '';
-  if (isEhs()) h += '<div class="btns"><button class="btn" onclick="S.ep=null;go(\'eduPost\')">' + ic('plus', 18, 2.4) + '發布新文宣</button><button class="btn ghost" onclick="S.es=null;go(\'eduStats\')">' + ic('review', 18, 2.4) + '閱讀紀錄</button></div>';
+  if (isEhs()) h += '<div class="btns"><button class="btn" onclick="S.ep=null;go(\'eduPost\')">' + ic('plus', 18, 2.4) + '發布新文宣</button><button class="btn ghost" onclick="S.es=null;go(\'eduStats\')">' + ic('review', 18, 2.4) + '閱讀紀錄</button></div>' +
+    '<button class="btn line" style="margin-top:10px" onclick="go(\'meetNew\')">' + ic('helmet', 18, 2.4) + '新進人員教育訓練（現場掃碼簽到）</button>';
   var todo = e.list.filter(function (x) { return x.course && !x.done; }).length;
   if (todo && !isEhs()) h += '<div class="box info"><div class="r">' + ic('book', 22) + '<div class="bt"><b>有 ' + todo + ' 堂教育訓練要完成</b><div class="m">看完教材、作答，按「我已完成」就會自動簽到。</div></div></div></div>';
   h += '<div class="seg">' + [''].concat(e.cats).map(function (c) {
@@ -963,10 +966,393 @@ function chemPts(x) {
   var src = p.src === 'sds' ? '摘自 SDS 第四～八項' : p.src === 'ref' ? '這份 SDS 是掃描件，摘自同成分的 SDS（' + (p.ref || '') + '）' : '依危害分類整理的一般原則，細節以現場 SDS 為準';
   return (work ? '<div class="chsec">作業時注意</div>' + work : '') + (act ? '<div class="chsec">出事怎麼做</div>' + act : '') + '<div class="chs">' + esc(src) + '</div>';
 }
+// ───────────── 現場簽到（10/16）：工具箱會議、新進人員教育訓練 ─────────────
+// 主持人：施工申請 →「工具箱會議」選今天施工的案件（或臨時會議）→ 手機出現 QR Code → 施工人員掃碼簽名、看完簡報按完成
+//        → 主持人看完簡報、按「完成會議」→ PDF 寄給主持人、單位負責人、環安衛，並存 NAS。
+// 參加者：掃 QR（網址 #meet=…），不用登入、不碰這支手機原本的帳號：先簽名 → 簡報滑到最後一頁 → 按「完成」。
+var MEET_KIND_NAME = { toolbox: '工具箱會議', newhire: '新進人員教育訓練' };
+function meetTok(id, t) {                                          // 主持人這支手機記住 QR 權杖（後端只存雜湊）
+  var k = 'meet_qr:' + id;
+  try { if (t) sessionStorage.setItem(k, t); return t || sessionStorage.getItem(k) || ''; } catch (e) { return t || ''; }
+}
+function meetRead(id, v) {                                          // 主持人看完簡報了沒（這支手機）
+  var k = 'meet_rd:' + id;
+  try { if (v) localStorage.setItem(k, '1'); return !!localStorage.getItem(k); } catch (e) { return !!v; }
+}
+function meetLink(t) { return location.origin + location.pathname + '#meet=' + t; }
+function meetQrSvg(url, px) {
+  if (!window.qrcode) return '<div class="muted">（QR Code 元件沒有載入，請用下方「複製連結」）</div>';
+  var q = qrcode(0, 'M'); q.addData(url); q.make();
+  var n = q.getModuleCount(), cell = Math.max(2, Math.floor((px || 240) / (n + 8)));
+  return q.createSvgTag({ cellSize: cell, margin: cell * 4, scalable: true });
+}
+function meetStatusPill(st) {
+  return st === '已完成' ? pill('ok', 'check', '已完成') : st === '紙本完成' ? pill('ok', 'check', '紙本完成') : st === '進行中' ? pill('warn', 'clock', '進行中') : st === '已取消' ? pill('na', '', '已取消') : '';
+}
+
+PLAT_PAGES.meet = function () {
+  setTitle('工具箱會議');
+  var h0 = S.mh;
+  if (!h0 || S.arg.reload) {
+    $('app').innerHTML = loading('讀取今天施工的案件…');
+    api('meetHome', {}).then(function (r) { S.mh = r; if (S.page === 'meet') { S.arg.reload = 0; render(); } })
+      .catch(function (e) { $('app').innerHTML = errBox('讀不到資料', e.message) + '<button class="btn navy" onclick="render()">再試一次</button>'; });
+    return;
+  }
+  var h = '<div class="box info"><div class="r">' + ic('helmet', 22) + '<div class="bt"><b>施工當天、開工前在現場開</b><div class="m">按「開始」手機會出現 QR Code，施工人員用手機掃描：先簽名、看完簡報按完成，就算簽到。沒有手機的人可以用您的手機當面簽。</div></div></div></div>';
+  var live = h0.list.filter(function (x) { return x.status === '進行中'; });
+  if (live.length) h += '<div class="sec">進行中的會議</div><div class="list">' + live.map(function (x) {
+    return '<button class="li" onclick="go(\'meetRoom\',{id:' + jsq(x.id) + '})"><span class="mn"><span class="nm">' + esc(x.kind === 'newhire' ? x.topic : x.vendor) + '</span><span class="mt">' +
+      esc((x.kind === 'newhire' ? '新進人員教育訓練' : x.work) + '・已簽 ' + x.signed + ' 人、完成 ' + x.finished + ' 人') + '</span></span>' + pill('warn', 'clock', '回到會議') + '</button>'; }).join('') + '</div>';
+  h += '<div class="sec">今天施工的案件<small>承攬商系統裡，今天在施工期間的案件</small></div>';
+  if (h0.casesErr) h += errBox('讀不到承攬商案件', h0.casesErr);
+  else if (!h0.cases.length) h += '<div class="empty">今天沒有施工中的案件。臨時進場的廠商請用下方「臨時工具箱會議」。</div>';
+  else h += h0.cases.map(function (c) {
+    var meta = esc(c.work) + '・' + esc(c.area) + '<br>' + esc(md(c.start || today()) + '～' + md(c.end || c.start || today())) + (c.spec.length ? '・特殊作業：' + esc(c.spec.join('、')) : '・無特殊作業') + (c.mine ? '・<b>我承辦</b>' : '');
+    var act;
+    if (c.todayStatus === '已完成' || c.todayStatus === '紙本完成') act = '<div class="right">' + meetStatusPill(c.todayStatus) + '</div>';
+    else if (c.todayStatus === '進行中') act = '';
+    else if (!c.ok) act = '<div class="muted" style="margin-top:6px">' + ic('warn', 16) + ' 目前是「' + esc(c.status) + '」，核准後才能開工、開會</div>';
+    else act = '<div class="btns r12" style="margin-top:10px"><button class="btn ghost" onclick="meetPaper(' + jsq(c.id) + ',' + jsq(c.vendor) + ')">已完成紙本簽署</button>' +
+      '<button class="btn" onclick="meetStart(' + jsq(c.id) + ',this)">' + ic('check', 18, 2.6) + '開始工具箱會議</button></div>';
+    return '<div class="card"><div class="fh"><b>' + esc(c.vendor) + '</b><span class="muted" style="margin-left:6px">' + esc(c.id) + '</span></div><div class="muted">' + meta + '</div>' + act + '</div>';
+  }).join('');
+  h += '<div class="btns" style="margin-top:12px"><button class="btn ghost" onclick="go(\'meetTemp\')">' + ic('plus', 18, 2.4) + '臨時工具箱會議</button>' +
+    '<button class="btn ghost" onclick="S.mhist=null;go(\'meetHist\')">' + ic('review', 18, 2.4) + '會議紀錄</button></div>';
+  if (h0.canNewhire) h += '<button class="btn line" style="margin-top:10px" onclick="go(\'meetNew\')">' + ic('book', 18, 2.4) + '新進人員教育訓練（環安衛）</button>';
+  var past = h0.list.filter(function (x) { return x.status !== '進行中'; });
+  if (past.length) h += '<div class="sec">今天的紀錄</div><div class="list">' + past.map(function (x) {
+    return '<div class="li"><span class="mn"><span class="nm">' + esc(x.kind === 'newhire' ? x.topic : x.vendor) + '</span><span class="mt">' + esc((x.kind === 'newhire' ? '新進人員' : x.work) + (x.finished ? '・' + x.finished + ' 人' : '') + (x.sent ? '・已寄 ' + x.sent : '')) + '</span></span>' + meetStatusPill(x.status) + '</div>'; }).join('') + '</div>';
+  $('app').innerHTML = h;
+};
+function meetBusy(btn, txt) { if (!btn) return; btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>' + esc(txt); }
+function meetStart(caseId, btn) {
+  meetBusy(btn, '開會中…');
+  api('meetCreate', { kind: 'toolbox', caseId: caseId }).then(meetOpened).catch(function (e) { toast(esc(e.message), 'err', 5000); S.mh = null; render(); });
+}
+function meetOpened(r) {
+  meetTok(r.id, r.token);
+  S.mh = null;
+  go('meetRoom', { id: r.id }, false);
+  if (r.resumed) toast('這場會議已經開過，換了新的 QR Code（舊的失效）', '', 4000);
+}
+function meetPaper(caseId, vendor) {
+  if (!confirm(vendor + '\n\n今天的工具箱會議已經用紙本開完、施工人員也簽好名了？\n按確定會留下紀錄（紙本請交環安衛中心歸檔）。')) return;
+  api('meetPaper', { caseId: caseId }).then(function (r) { toast(r.already ? '今天已經有紀錄了' : '已記錄：紙本工具箱會議完成', 'ok'); S.mh = null; render(); })
+    .catch(function (e) { toast(esc(e.message), 'err', 5000); });
+}
+PLAT_PAGES.meetTemp = function () {
+  setTitle('臨時工具箱會議');
+  var sp = (S.mh && S.mh.specList) || ['動火', '高架', '局限', '吊掛'];
+  var h = '<div class="lead">承攬商系統裡沒有的臨時施工（例：臨時叫修）。填好就可以開會。</div>' +
+    '<label class="nl req" for="mtV">廠商名稱</label><input class="field" id="mtV" maxlength="40" placeholder="公司全名">' +
+    '<label class="nl req" for="mtW">工程名稱（主要工作）</label><input class="field" id="mtW" maxlength="60" placeholder="例：冷卻水塔馬達更換">' +
+    '<label class="nl req" for="mtA">施工區域</label><input class="field" id="mtA" maxlength="40" placeholder="例：PU 部一廠 2F">' +
+    '<div class="nl">今天有沒有特殊作業（有勾的會加入那一種的安全簡報）</div><div class="chk">' +
+    sp.map(function (s) { return '<label><input type="checkbox" value="' + esc(s) + '" class="mtS"> ' + esc(s) + '作業</label>'; }).join('') + '</div>' +
+    '<label class="nl" for="mtE">其他潛在風險（選填）</label><input class="field" id="mtE" maxlength="100" placeholder="例：鄰近有機溶劑儲槽">' +
+    '<div id="mtErr"></div>';
+  $('app').innerHTML = h;
+  bar('<button class="btn" id="mtBtn" onclick="meetTempGo()">' + ic('check', 22, 2.6) + '開始工具箱會議</button>');
+};
+function meetTempGo() {
+  var v = function (id) { return ($(id).value || '').trim(); };
+  var spec = [].slice.call(document.querySelectorAll('.mtS')).filter(function (x) { return x.checked; }).map(function (x) { return x.value; });
+  if (v('mtV').length < 2 || v('mtW').length < 2 || v('mtA').length < 2) return toast('請填廠商名稱、工程名稱、施工區域', 'err');
+  meetBusy($('mtBtn'), '開會中…');
+  api('meetCreate', { kind: 'toolbox', vendor: v('mtV'), work: v('mtW'), area: v('mtA'), spec: spec, env: v('mtE') }).then(meetOpened)
+    .catch(function (e) { $('mtErr').innerHTML = errBox('沒有開成', e.message); var b = $('mtBtn'); b.disabled = false; b.className = 'btn'; b.textContent = '再試一次'; });
+}
+PLAT_PAGES.meetNew = function () {
+  setTitle('新進人員教育訓練');
+  var t = today();
+  var h = '<div class="lead">新人用手機掃 QR Code：先簽名、看完簡報按完成，就簽到。課程結束您按「完成會議」，系統產生 P-05-01-A 內訓簽到表寄給環安衛並存 NAS。</div>' +
+    '<label class="nl req" for="mnT">課程名稱</label><input class="field" id="mnT" maxlength="40" value="新進人員一般安全衛生教育訓練">' +
+    '<label class="nl req" for="mnD">上課日期</label><input class="field" id="mnD" type="date" max="' + t + '" value="' + t + '">' +
+    '<div class="mr2"><div><label class="nl req" for="mnS">開始</label><input class="field" id="mnS" type="time" value="13:00"></div>' +
+    '<div><label class="nl req" for="mnE">結束</label><input class="field" id="mnE" type="time" value="16:00"></div></div>' +
+    '<div class="muted">一般安全衛生教育訓練新僱勞工至少 3 小時。</div>' +
+    '<label class="nl" for="mnP">地點</label><input class="field" id="mnP" maxlength="30" value="會議室"><div id="mnErr"></div>';
+  $('app').innerHTML = h;
+  bar('<button class="btn" id="mnBtn" onclick="meetNewGo()">' + ic('check', 22, 2.6) + '開始，顯示 QR Code</button>');
+};
+function meetNewGo() {
+  var v = function (id) { return ($(id).value || '').trim(); };
+  if (v('mnE') <= v('mnS')) return toast('結束時間要晚於開始時間', 'err');
+  meetBusy($('mnBtn'), '開始中…');
+  api('meetCreate', { kind: 'newhire', topic: v('mnT'), date: v('mnD'), start: v('mnS'), end: v('mnE'), place: v('mnP') }).then(meetOpened)
+    .catch(function (e) { $('mnErr').innerHTML = errBox('沒有開成', e.message); var b = $('mnBtn'); b.disabled = false; b.className = 'btn'; b.textContent = '再試一次'; });
+}
+
+// ── 開會中（主持人）──
+PLAT_PAGES.meetRoom = function () {
+  var id = S.arg.id, st = S.ms && S.ms.meet.id === id ? S.ms : null;
+  setTitle('工具箱會議');
+  if (!st) {
+    $('app').innerHTML = loading('讀取會議…');
+    meetPoll(true);
+    return;
+  }
+  var m = st.meet, tok = meetTok(id), read = meetRead(id);
+  setTitle(MEET_KIND_NAME[m.kind]);
+  var h = '<div class="card"><div class="fh"><b>' + esc(m.kind === 'newhire' ? m.topic : m.vendor) + '</b></div><div class="muted">' +
+    esc(m.kind === 'newhire' ? md(m.date) + ' ' + m.start + '～' + m.end + '・' + (m.place || '') : (m.caseId || '臨時') + '・' + m.work + '・' + m.area) +
+    (m.spec.length ? '<br>特殊作業：' + esc(m.spec.join('、')) : '') + '</div></div>';
+  if (m.status !== '進行中') {
+    h += '<div class="box ok"><div class="r">' + ic('check', 22) + '<div class="bt"><b>這場會議' + esc(m.status) + '</b>' + (m.sent ? '<div class="m">PDF 已寄給：' + esc(m.sent) + '</div>' : '') + '</div></div></div>';
+  } else if (tok) {
+    var url = meetLink(tok);
+    h += '<div class="card qrcard"><div class="qr">' + meetQrSvg(url, 260) + '</div><div class="muted" style="text-align:center">請' + (m.kind === 'newhire' ? '新進同仁' : '施工人員') + '用手機相機掃描</div>' +
+      '<div class="btns r3"><button class="btn ghost" onclick="shareLink(' + jsq('員和工業' + MEET_KIND_NAME[m.kind] + '簽到（打開後先簽名、看完簡報按完成）') + ',' + jsq(url) + ')">' + ic('share', 18, 2.4) + '傳連結</button>' +
+      '<button class="btn ghost" onclick="copyText(' + jsq(url) + ',\'連結已複製\')">' + ic('copy', 18, 2.2) + '複製</button>' +
+      '<button class="btn ghost" onclick="meetNewQr()">' + ic('refresh', 18, 2.2) + '換新 QR</button></div></div>';
+  } else {
+    h += '<div class="card"><div class="muted">這支手機沒有這場會議的 QR Code（可能重新開過 App）。按下面產生新的，舊的會失效。</div><button class="btn" onclick="meetNewQr()">' + ic('refresh', 18, 2.4) + '顯示 QR Code</button></div>';
+  }
+  var done = st.atts.filter(function (a) { return a.done; }).length;
+  h += '<div class="sec">簽到名單<small>已簽 ' + st.atts.length + ' 人，完成 ' + done + ' 人（每 5 秒更新）</small></div>';
+  h += st.atts.length ? '<div class="list">' + st.atts.map(function (a) {
+    var stp = a.done ? (/主持人/.test(a.how) ? pill('ok', 'check', '當面簽') : pill('ok', 'check', '已完成')) : pill('warn', 'clock', '看簡報中');
+    return '<div class="li"><span class="mn"><span class="nm">' + esc(a.name) + '</span><span class="mt">' + esc(a.unit + '・' + a.signedAt + ' 簽名' + (a.readAt ? '・' + a.readAt + ' 完成' : '')) + '</span></span>' + stp +
+      (m.status === '進行中' ? '<button class="btn ghost sm" aria-label="移除 ' + esc(a.name) + '" onclick="meetDel(' + a.seq + ',' + jsq(a.name) + ')">' + ic('trash', 16, 2.2) + '</button>' : '') + '</div>';
+  }).join('') + '</div>' : '<div class="empty">還沒有人簽到</div>';
+  if (m.status === '進行中') {
+    h += '<div class="btns" style="margin-top:12px"><button class="btn ghost" onclick="go(\'meetSign\',{id:' + jsq(id) + '})">' + ic('pen', 18, 2.4) + '新增簽名（用這支手機）</button>' +
+      '<button class="btn ghost" onclick="go(\'meetView\',{id:' + jsq(id) + '})">' + ic('book', 18, 2.4) + (read ? '再看一次簡報' : '看簡報（主持人）') + '</button></div>' +
+      '<button class="btn ghost sm" style="margin-top:14px" onclick="meetCancel()">取消這場會議</button>';
+    bar(read ? '<button class="btn" onclick="go(\'meetFinish\',{id:' + jsq(id) + '})">' + ic('check', 22, 2.8) + '完成會議（' + done + ' 人）</button>'
+      : '<div class="rdbar"><span>' + ic('info', 16) + ' 主持人也要把簡報看到最後一頁，才能按完成會議</span></div>');
+  } else bar('<button class="btn" onclick="S.mh=null;go(\'meet\',{},true)">回工具箱會議</button>');
+  $('app').innerHTML = h;
+  meetPoll(false);
+};
+function meetPoll(now) {
+  clearTimeout(S.mpT);
+  var go1 = function () {
+    if (S.page !== 'meetRoom' || document.visibilityState === 'hidden') { if (S.page === 'meetRoom') S.mpT = setTimeout(go1, 5000); return; }
+    var id = S.arg.id;
+    api('meetState', { id: id }, { quiet: true }).then(function (r) {
+      if (S.page !== 'meetRoom' || S.arg.id !== id) return;
+      var sig = JSON.stringify([r.meet.status, r.atts]), old = S.ms && S.ms.meet.id === id ? JSON.stringify([S.ms.meet.status, S.ms.atts]) : '';
+      S.ms = r;
+      if (sig !== old) render();
+      else S.mpT = setTimeout(go1, 5000);
+    }).catch(function (e) { if (!S.ms) $('app').innerHTML = errBox('讀不到會議', e.message); S.mpT = setTimeout(go1, 8000); });
+  };
+  if (now) go1(); else S.mpT = setTimeout(go1, 5000);
+}
+function meetNewQr() {
+  var id = S.arg.id;
+  if (meetTok(id) && !confirm('換新的 QR Code？已經掃過、還沒完成的人要重掃。')) return;
+  api('meetQr', { id: id }).then(function (r) { meetTok(id, r.token); render(); }).catch(function (e) { toast(esc(e.message), 'err', 4000); });
+}
+function meetDel(seq, name) {
+  if (!confirm('把「' + name + '」從簽到名單移除？')) return;
+  api('meetRemove', { id: S.arg.id, seq: seq }).then(function () { S.ms = null; render(); }).catch(function (e) { toast(esc(e.message), 'err', 4000); });
+}
+function meetCancel() {
+  if (!confirm('取消這場會議？QR Code 會失效，簽到紀錄不會產生 PDF。')) return;
+  api('meetCancel', { id: S.arg.id }).then(function () { S.mh = null; S.ms = null; go('meet', {}, true); toast('已取消', 'ok'); }).catch(function (e) { toast(esc(e.message), 'err', 4000); });
+}
+/** 主持人用這支手機替沒手機的人當面簽 */
+PLAT_PAGES.meetSign = function () {
+  setTitle('新增簽名');
+  var m = S.ms && S.ms.meet;
+  var h = '<div class="lead">請本人在這支手機上簽名。當面簽的視為現場已聽講說明。</div>' +
+    '<label class="nl req" for="msN">姓名</label><input class="field" id="msN" maxlength="20" placeholder="請寫全名">' +
+    '<label class="nl req" for="msU">' + (m && m.kind === 'newhire' ? '單位（部門）' : '公司') + '</label><input class="field" id="msU" maxlength="30" value="' + esc(m && m.kind !== 'newhire' ? m.vendor : '') + '">' +
+    '<div class="h2" style="margin-top:14px">請用手指簽全名</div><div class="sigwrap"><canvas id="cv" class="sigbox" aria-label="簽名區"></canvas>' +
+    '<div class="right"><button class="btn ghost sm" onclick="sigClear()">' + ic('refresh', 18) + '清除重簽</button></div></div><div id="msErr"></div>';
+  $('app').innerHTML = h;
+  bar('<button class="btn" id="msBtn" onclick="meetSignGo()">' + ic('check', 22, 2.8) + '加入簽到</button>');
+  sigInit();
+};
+function meetSignGo() {
+  var name = ($('msN').value || '').trim(), unit = ($('msU').value || '').trim();
+  if (name.length < 2) return toast('請寫姓名', 'err');
+  if (!unit) return toast('請寫公司或單位', 'err');
+  if (!SIG.drawn) return toast('請先簽名', 'err');
+  var img = sigExport(); if (!img) return toast('簽名太小，請簽大一點', 'err');
+  meetBusy($('msBtn'), '加入中…');
+  api('meetAddSign', { id: S.arg.id, name: name, unit: unit, image: img }).then(function () {
+    toast(name + ' 已加入', 'ok'); S.ms = null; back();
+  }).catch(function (e) { $('msErr').innerHTML = errBox('沒有加入', e.message); var b = $('msBtn'); b.disabled = false; b.className = 'btn'; b.textContent = '再試一次'; });
+}
+/** 簡報（主持人、參加者共用）：一頁一張直式圖，邊滑邊載；滑到最後一頁才算看完。 */
+function mrStart(o) {
+  S.mr = { n: o.total, got: 0, busy: false, moved: false, done: false, load: o.load, end: o.end };
+  var h = '<div class="rdh">共 ' + o.total + ' 頁・滑到最後一頁才算看完</div>';
+  for (var i = 0; i < o.total; i++) h += '<div class="rdp" id="mrp' + i + '"><div class="rdn">' + (i + 1) + ' / ' + o.total + '</div><div class="rdi"><span class="spin"></span></div></div>';
+  h += '<div id="mrEnd" class="rdend">— 最後一頁 —</div>';
+  $('app').innerHTML = (o.head || '') + h;
+  mrBar(); mrLoad();
+  var pg = S.page;
+  window.onscroll = function () { if (S.page !== pg) { window.onscroll = null; return; } if (window.scrollY > 40) S.mr.moved = true; mrLoad(); mrCheck(); };
+}
+function mrSeen() { var n = 0, H = window.innerHeight; for (var i = 0; i < S.mr.n; i++) { var e = $('mrp' + i); if (e && e.getBoundingClientRect().top < H * 0.8) n = i + 1; } return n; }
+function mrBar() {
+  var r = S.mr; if (!r || r.done) return;
+  bar('<div class="rdbar"><div class="rdpg"><i style="width:' + Math.round(100 * mrSeen() / Math.max(1, r.n)) + '%"></i></div><span>看到第 ' + mrSeen() + ' / ' + r.n + ' 頁，滑到最後一頁才算看完</span></div>');
+}
+function mrLoad() {
+  var r = S.mr; if (!r || r.busy || r.got >= r.n) return;
+  var last = $('mrp' + Math.max(0, r.got - 1));
+  if (r.got && last && last.getBoundingClientRect().top > window.innerHeight * 2.5) return;
+  r.busy = true;
+  r.load(r.got).then(function (o) {
+    o.pages.forEach(function (p) { var e = $('mrp' + p.i); if (e) e.querySelector('.rdi').innerHTML = '<img src="data:' + p.mime + ';base64,' + p.data + '" alt="第 ' + (p.i + 1) + ' 頁"' + (p.w && p.h ? ' width="' + p.w + '" height="' + p.h + '"' : '') + '>'; });
+    r.got += o.pages.length; r.busy = false; mrBar(); mrLoad(); mrCheck();
+  }).catch(function (e) { r.busy = false; toast(esc(e.message), 'err', 4000); setTimeout(mrLoad, 4000); });
+}
+function mrCheck() {
+  var r = S.mr; if (!r || r.done) return;
+  mrBar();
+  var end = $('mrEnd'); if (!end || r.got < r.n || (!r.moved && r.n > 1)) return;
+  if (end.getBoundingClientRect().top > window.innerHeight) return;
+  r.done = true; end.textContent = '已看完';
+  r.end();
+}
+PLAT_PAGES.meetView = function () {
+  var id = S.arg.id;
+  setTitle('簡報');
+  var st = S.ms && S.ms.meet.id === id ? S.ms : null;
+  if (!st) { back(); return; }
+  mrStart({ total: st.total, load: function (from) { return api('meetDeck', { id: id, from: from, n: 3 }, { quiet: true }); },
+    end: function () { meetRead(id, true); bar('<button class="btn" onclick="back()">' + ic('check', 22, 3) + '已看完，回到會議</button>'); toast('已看完，可以按完成會議了', 'ok'); } });
+};
+PLAT_PAGES.meetFinish = function () {
+  var id = S.arg.id, st = S.ms && S.ms.meet.id === id ? S.ms : null;
+  setTitle('完成會議');
+  if (!st) { back(); return; }
+  var m = st.meet, ck = S.mck && S.mck.id === id ? S.mck : null;
+  if (m.kind === 'toolbox' && !ck) {
+    $('app').innerHTML = loading('讀取…');
+    api('meetChecks', { id: id }).then(function (r) { S.mck = Object.assign({ id: id }, r); render(); }).catch(function (e) { $('app').innerHTML = errBox('讀不到', e.message); });
+    return;
+  }
+  var done = st.atts.filter(function (a) { return a.done; }), wait = st.atts.filter(function (a) { return !a.done; });
+  var h = '<div class="box info"><div class="r">' + ic('check', 22) + '<div class="bt"><b>' + done.length + ' 人已完成簽到</b><div class="m">' + esc(done.map(function (a) { return a.name; }).join('、') || '—') + '</div></div></div></div>';
+  if (wait.length) h += '<div class="sec">簽了名、還沒看完簡報<small>現場已經聽您說明的請勾選列入；沒勾的不算出席</small></div><div class="chk col">' +
+    wait.map(function (a) { return '<label><input type="checkbox" class="mfI" value="' + a.seq + '"> ' + esc(a.name) + '（' + esc(a.unit) + '）</label>'; }).join('') + '</div>';
+  if (m.kind === 'toolbox') {
+    var c = ck.checks, box = function (k, x) { return '<label><input type="checkbox" class="mfC" data-k="' + k + '" value="' + esc(x) + '"' + (c[k].indexOf(x) >= 0 ? ' checked' : '') + '> ' + esc(x) + '</label>'; };
+    h += '<div class="lead" style="margin-top:12px">以下是紀錄表（EF-45-011-A）要勾的項目，已依今天的特殊作業預先勾好，請依現場實際情形調整。</div>';
+    h += '<div class="sec">二、安全宣導內容</div>' + ck.haz.map(function (g) { return '<div class="nl">' + esc(g[0]) + '</div><div class="chk">' + g[1].map(function (x) { return box('haz', x); }).join('') + '</div>'; }).join('');
+    h += '<div class="sec">三、現場安全衛生措施</div>' + ck.ppe.map(function (g) { return '<div class="nl">' + esc(g[0]) + '</div><div class="chk">' + g[1].filter(function (x) { return x && x.charAt(0) !== '#'; }).map(function (x) { return box('ppe', x); }).join('') + '</div>'; }).join('');
+    h += '<div class="sec">四、其他潛在風險說明</div><textarea class="field" id="mfR" rows="3" maxlength="300">' + esc(c.risk || '') + '</textarea>';
+    h += '<div class="sec">五、特殊作業項目</div><div class="chk">' + ck.sp.reduce(function (a, l) { return a.concat(l); }, []).map(function (x) { return box('sp', x); }).join('') + '</div>';
+  }
+  h += '<div id="mfErr"></div>';
+  $('app').innerHTML = h;
+  bar('<button class="btn" id="mfBtn" onclick="meetFinishGo()">' + ic('check', 22, 2.8) + '完成，產生紀錄並寄出</button>');
+};
+function meetFinishGo() {
+  var id = S.arg.id, m = S.ms.meet;
+  var inc = [].slice.call(document.querySelectorAll('.mfI')).filter(function (x) { return x.checked; }).map(function (x) { return Number(x.value); });
+  var checks = null;
+  if (m.kind === 'toolbox') {
+    checks = { haz: [], ppe: [], sp: [], other: {}, risk: ($('mfR').value || '').trim() };
+    [].slice.call(document.querySelectorAll('.mfC')).forEach(function (x) { if (x.checked) checks[x.getAttribute('data-k')].push(x.value); });
+  }
+  meetBusy($('mfBtn'), '產生紀錄、寄信中…（約 10～30 秒）');
+  api('meetFinish', { id: id, hostRead: meetRead(id), include: inc, checks: checks }).then(function (r) {
+    S.ms = null; S.mh = null;
+    toast(r.already ? '這場會議已經完成過了' : '已完成，紀錄已寄給：' + (r.sent || []).join('、'), 'ok', 6000);
+    S.stack = [];
+    go('meetRoom', { id: id }, true);
+  }).catch(function (e) { $('mfErr').innerHTML = errBox('沒有完成', e.message); var b = $('mfBtn'); b.disabled = false; b.className = 'btn'; b.textContent = '再試一次'; });
+}
+PLAT_PAGES.meetHist = function () {
+  setTitle('會議紀錄');
+  if (!S.mhist) {
+    $('app').innerHTML = loading('讀取紀錄…');
+    api('meetList', {}).then(function (r) { S.mhist = r.list; if (S.page === 'meetHist') render(); }).catch(function (e) { $('app').innerHTML = errBox('讀不到紀錄', e.message); });
+    return;
+  }
+  var L = S.mhist;
+  var h = L.length ? '<div class="list">' + L.map(function (x) {
+    return '<div class="li"><span class="mn"><span class="mt">' + esc(md(x.date) + '・' + MEET_KIND_NAME[x.kind] + '・主持 ' + x.host) + '</span><span class="nm">' + esc(x.kind === 'newhire' ? x.topic : x.vendor + ' ' + (x.caseId || '臨時')) + '</span>' +
+      '<span class="mt">' + esc(x.finished ? x.finished + ' 人完成' : '') + '</span></span>' + meetStatusPill(x.status) +
+      (x.pdf ? '<button class="btn ghost sm" onclick="meetPdfOpen(' + jsq(x.id) + ')">' + ic('pdf', 16, 2.2) + 'PDF</button>' : x.status === '進行中' ? '<button class="btn ghost sm" onclick="go(\'meetRoom\',{id:' + jsq(x.id) + '})">回到會議</button>' : '') + '</div>'; }).join('') + '</div>'
+    : '<div class="empty">最近 90 天沒有會議紀錄</div>';
+  $('app').innerHTML = h + '<div class="muted upnote">PDF 也會存到 NAS 職安資料夾（工具箱會議：承攬管理\\備查資料\\工具箱會議；新進人員：歷年教育訓練資料）。</div>';
+};
+function meetPdfOpen(id) {
+  var w = window.open('', '_blank');
+  toast('PDF 下載中…');
+  api('meetPdf', { id: id }).then(function (r) {
+    var bin = atob(r.data), u = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    var url = URL.createObjectURL(new Blob([u], { type: 'application/pdf' }));
+    if (w) w.location = url; else location.href = url;
+  }).catch(function (e) { if (w) w.close(); toast(esc(e.message), 'err', 4000); });
+}
+
+// ── 參加者（掃 QR 進來，不用登入）──
+function meetAk() {
+  var k = 'meet_ak:' + S.meet.token.slice(0, 16), v = '';
+  try { v = localStorage.getItem(k) || ''; } catch (e) {}
+  if (!/^[0-9a-f]{32}$/.test(v)) {
+    v = ''; var a = new Uint8Array(16); (window.crypto || window.msCrypto).getRandomValues(a);
+    for (var i = 0; i < 16; i++) v += ('0' + a[i].toString(16)).slice(-2);
+    try { localStorage.setItem(k, v); } catch (e) {}
+  }
+  return v;
+}
+function meetPub(action, body) { return api(action, Object.assign({ meet: S.meet.token, akey: meetAk() }, body || {}), { token: '-' }); }
+PLAT_PAGES.meetJoin = function () {
+  var mt = S.meet;
+  setTitle('現場簽到');
+  if (!mt.d) {
+    $('app').innerHTML = loading('讀取會議…');
+    meetPub('meetOpen').then(function (d) { mt.d = d; render(); })
+      .catch(function (e) { $('app').innerHTML = errBox(e.biz ? '這個 QR Code 不能用' : '連不上系統', e.message) + (e.biz ? '' : '<button class="btn navy" onclick="render()">再試一次</button>'); });
+    return;
+  }
+  var d = mt.d, kind = MEET_KIND_NAME[d.kind];
+  S.hero = '<div class="hero-in"><div class="brand"><span class="logo"><img src="icon-192.png" alt="" style="width:100%;height:100%;border-radius:inherit;display:block"></span>員和工業・' + esc(kind) + '</div>' +
+    '<div class="hn"><div class="h1">' + esc(d.kind === 'newhire' ? d.topic : d.vendor) + '</div><div class="hsub">' +
+    esc(d.kind === 'newhire' ? md(d.date) + '・' + (d.place || '') + '・主持 ' + d.host : d.work + '・' + d.area + '・主持 ' + d.host) + '</div></div></div>';
+  if (d.me && d.me.done) {
+    $('app').innerHTML = '<div class="box ok"><div class="r">' + ic('check', 26) + '<div class="bt"><b>' + esc(d.me.name) + '，您已完成簽到</b><div class="m">' + esc(d.me.readAt) + ' 完成。謝謝您，可以關閉這個頁面。</div></div></div></div>' +
+      '<div class="muted upnote">施工時請遵守主持人說明的安全規定；有任何異常立即停工並通知員和承辦人員。</div>';
+    return;
+  }
+  if (!d.me) {
+    var h = '<div class="steps"><div class="cur"><i></i><span>1 簽名</span></div><div><i></i><span>2 看完簡報・完成</span></div></div>' +
+      '<label class="nl req" for="mjN">您的姓名</label><input class="field" id="mjN" maxlength="20" autocomplete="name" placeholder="請寫全名" value="' + esc(mt.name || '') + '" oninput="S.meet.name=this.value">' +
+      '<label class="nl req" for="mjU">' + (d.kind === 'newhire' ? '單位（部門）' : '公司') + '</label><input class="field" id="mjU" maxlength="30" value="' + esc(mt.unit != null ? mt.unit : d.kind === 'newhire' ? '' : d.vendor) + '" oninput="S.meet.unit=this.value">' +
+      '<div class="h2" style="margin-top:14px">請用手指簽全名</div><div class="sigwrap"><canvas id="cv" class="sigbox" aria-label="簽名區"></canvas>' +
+      '<div class="right"><button class="btn ghost sm" onclick="sigClear()">' + ic('refresh', 18) + '清除重簽</button></div></div><div id="mjErr"></div>';
+    $('app').innerHTML = h;
+    bar('<button class="btn" id="mjBtn" onclick="meetJoinSign()">' + ic('arrow', 22, 2.6) + '簽好了，開始看簡報</button>');
+    sigInit();
+    return;
+  }
+  var head = '<div class="steps"><div class="done"><i></i><span>' + ic('check', 14, 3.2) + '1 已簽名</span></div><div class="cur"><i></i><span>2 看完簡報・完成</span></div></div>';
+  mrStart({ total: d.total, head: head, load: function (from) { return meetPub('meetPagesPub', { from: from, n: 3 }); },
+    end: function () { bar('<button class="btn" id="mjDone" onclick="meetJoinDone()">' + ic('check', 22, 3) + '我已看完，完成簽到</button>'); } });
+};
+function meetJoinSign() {
+  var name = ($('mjN').value || '').trim(), unit = ($('mjU').value || '').trim();
+  if (name.length < 2) { $('mjN').classList.add('bad'); $('mjN').focus(); return toast('請寫您的姓名', 'err'); }
+  if (!unit) { $('mjU').classList.add('bad'); return toast('請寫公司或單位', 'err'); }
+  if (!SIG.drawn) return toast('請先簽名', 'err');
+  var img = sigExport(); if (!img) return toast('簽名太小，請簽大一點', 'err');
+  meetBusy($('mjBtn'), '送出中…');
+  meetPub('meetSign', { name: name, unit: unit, image: img }).then(function () { S.meet.d = null; window.scrollTo(0, 0); render(); })
+    .catch(function (e) { $('mjErr').innerHTML = errBox('沒有送出', e.message); var b = $('mjBtn'); b.disabled = false; b.className = 'btn'; b.textContent = '再送一次'; });
+}
+function meetJoinDone() {
+  meetBusy($('mjDone'), '送出中…');
+  meetPub('meetReadPub').then(function () { S.meet.d = null; window.scrollTo(0, 0); render(); toast('已完成簽到，謝謝您', 'ok', 4000); })
+    .catch(function (e) { toast(esc(e.message), 'err', 5000); var b = $('mjDone'); if (b) { b.disabled = false; b.className = 'btn'; b.textContent = '再送一次'; } });
+}
+
 // ───────────── 開發者模式（環安衛）：用任何同仁的畫面操作、找出他卡在哪一步；只看不送出 ─────────────
 // 只讀的動作帶 viewAs 給後端；會寫入的（送出、簽名、核准、上傳…）在手機上就攔下，後端也只放行這份清單。
 var DEV_READ = ['me', 'chemList', 'overview', 'notices', 'dayView', 'monthView', 'packages', 'tracks', 'photoGet', 'getPdf', 'team', 'nextList',
-                'eduList', 'eduGet', 'eduFile', 'consCases', 'envMe', 'envMonth', 'ping'];
+                'eduList', 'eduGet', 'eduFile', 'consCases', 'envMe', 'envMonth', 'ping', 'meetHome', 'meetState', 'meetList', 'meetDeck', 'meetChecks'];
 var DEV_SELF = ['bootstrap', 'devLogs'];                       // 這些用開發者自己的身分
 function devBanner() {
   return S.dev ? '<div class="devbar">' + ic('sliders', 18, 2.4) + '<span>開發者模式・' + esc(S.dev.name) + ' 的畫面（只看不送出）</span><button onclick="devEnd()">結束</button></div>' : '';

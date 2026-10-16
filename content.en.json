@@ -1,5 +1,5 @@
 {
- "version": "0.13.21",
+ "version": "0.14.0",
  "chapters": [
   {
    "no": 1,
@@ -536,6 +536,24 @@
      ],
      "tip": "Every day at 09:15 the computer files the record as EF-00-012-B on the NAS; when all findings are fixed it saves a \"fixes complete\" copy with the after photos. If you leave halfway, the draft stays on the phone.",
      "warn": false
+    },
+    {
+     "no": "4-6",
+     "title": "New employee training (QR sign-in)",
+     "lead": "New employees sign in with their phones; form P-05-01-A is created when the class ends.",
+     "shots": [
+      [
+       "t05_新進人員",
+       "QR code after starting the class"
+      ]
+     ],
+     "steps": [
+      "<b>EHS training</b> → <b>\"New employee training (QR sign-in)\"</b> → fill in the course name, date, start and end time, place → <b>\"Start, show QR code\"</b>.",
+      "New employees scan the QR code, enter name and unit, <b>sign</b>, read the slides and finish. Those without a phone use <b>\"Add signature\"</b> on your phone.",
+      "After you read the slides too, tap <b>\"Finish meeting\"</b>: form <b>P-05-01-A</b> is emailed to EHS and saved on the NAS under the training records folder."
+     ],
+     "tip": "General safety training for new workers is at least 3 hours; enter the real start and end times.",
+     "warn": false
     }
    ]
   },
@@ -644,6 +662,31 @@
    "sections": [
     {
      "no": "7-1",
+     "title": "Toolbox meeting (on the work day)",
+     "lead": "Hold it on site before work starts. Workers scan the QR code with their own phones, sign, and read the slides; when you finish, the record is emailed and filed automatically.",
+     "shots": [
+      [
+       "t02_開會室QR",
+       "Meeting: QR code and attendance"
+      ],
+      [
+       "t03_掃碼簽名",
+       "Workers sign first after scanning"
+      ]
+     ],
+     "steps": [
+      "<b>Contractor work requests</b> → <b>\"Toolbox meeting\"</b> at the top → tap <b>\"Start toolbox meeting\"</b> on a job working today. Only <b>approved</b> jobs within their work dates can be used; for unplanned work, use <b>\"Ad-hoc toolbox meeting\"</b> and fill in the contractor, job and area.",
+      "A <b>QR code</b> appears. Workers scan it with their phone camera: <b>sign first</b>, then scroll the slides to the last page and tap <b>\"I have read it, finish\"</b>. The list refreshes every 5 seconds.",
+      "Workers without a phone: tap <b>\"Add signature\"</b> and let them sign on your phone (counts as briefed in person). Remove a wrong entry with the trash button.",
+      "You must also tap <b>\"View slides\"</b> and reach the last page before <b>\"Finish meeting\"</b> appears.",
+      "Tap <b>\"Finish meeting\"</b>: the form (EF-45-011-A) checkboxes are pre-filled from the special work; adjust them, then tap <b>\"Finish, create record and send\"</b>. The PDF goes to you, your unit manager and EHS, and is saved to the NAS.",
+      "Already held it on <b>paper</b> today: tap <b>\"Paper sign-in done\"</b> to keep a record, and hand the paper to EHS."
+     ],
+     "tip": "People who signed but did not finish the slides are only counted if you tick \"briefed in person\" when finishing. If the QR code is shared outside, tap \"New QR\" — the old one stops working.",
+     "warn": false
+    },
+    {
+     "no": "7-2",
      "title": "Send links to contractors",
      "lead": "When a contractor will work here, send them the request links by LINE from this page.",
      "shots": [
@@ -666,7 +709,7 @@
      "warn": false
     },
     {
-     "no": "7-2",
+     "no": "7-3",
      "title": "Steps: what the contractor and I each do",
      "lead": "After Form 2, everyone signs and EHS approves before the contractor may enter.",
      "shots": [
