@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.14.3';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.14.4';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -74,12 +74,12 @@ PLAT_PAGES.menu = function () {
   var subs = {
     check: checkSub(),
     env: '空污・水污',
-    cons: '給廠商的申請連結・我承辦的案件',
+    cons: p.consTodo ? p.consTodo + ' 件等您處理' : '給廠商的申請連結・我承辦的案件',
     edu: p.eduReady ? p.eduReady + ' 堂全員完成・待您確認匯入 NAS' : p.eduUnread ? p.eduUnread + ' 則待完成' : '教育訓練與衛教文宣',
     chem: '查作業現場的化學品與危害',
     patrol: p.patrolN ? '本月已巡視 ' + p.patrolN + ' 次' : '本月還沒巡視（EF-00-012-B）',
   };
-  var badge = { check: (m.tracksOpen && !isEhs() ? m.tracksOpen : 0), edu: p.eduReady ? '!' : p.eduUnread, patrol: p.mods && p.mods.patrol && !p.patrolN && Number(today().slice(8)) >= 15 ? '!' : 0 };
+  var badge = { check: (m.tracksOpen && !isEhs() ? m.tracksOpen : 0), cons: p.consTodo || 0, edu: p.eduReady ? '!' : p.eduUnread, patrol: p.mods && p.mods.patrol && !p.patrolN && Number(today().slice(8)) >= 15 ? '!' : 0 };
   var h = '<div class="mcards">' + MODS.filter(function (x) { return !x.hide || modOn(x.key); }).map(function (x) {
     var on = modOn(x.key);
     return '<button class="mcard' + (on ? '' : ' locked') + '" style="--c:' + x.color + '" onclick="' + (on ? 'goMod(' + jsq(x.key) + ')' : 'permAsk(' + jsq(x.key) + ')') + '">' +
