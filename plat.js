@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.14.2';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.14.3';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -449,9 +449,11 @@ function consApi(sign, body) {
 function consSign(i) {
   var x = S.cons.list[i], sig = S.me.signature;
   if (!sig || !sig.image) return dlg('<b>還沒有您的簽名</b><p>請先到「設定 → 我的簽名」簽好，之後就能直接帶入。</p>', [['去簽名', function () { go('sign'); }, '']]);
-  dlg('<b>用您的簽名簽這個案件？</b><p>' + esc(x.id + '・' + x.vendor) + '<br>' + esc(x.work) + '</p><img class="sigprev" src="' + sig.image + '" alt="我的簽名">' +
-    '<p class="sm">會以「員和承辦人員 ' + esc(S.me.person.name) + '」簽名，簽完不能撤回。</p>',
-    [['確認簽名', function () { consSignGo(i); }, ''], ['改開簽名頁自己簽', function () { consFallback(x); }, 'ghost']]);
+  // v0.14.3（10/16 Jason）：監督人員、施工人員都簽好了 → 簽名與提交審核一次完成，不用簽完再等、再按一次
+  var last = x.repSigned && (x.workers || []).length > 0 && x.wSigned >= x.workers.length;
+  dlg('<b>' + (last ? '簽名並提交審核？' : '用您的簽名簽這個案件？') + '</b><p>' + esc(x.id + '・' + x.vendor) + '<br>' + esc(x.work) + '</p><img class="sigprev" src="' + sig.image + '" alt="我的簽名">' +
+    '<p class="sm">會以「員和承辦人員 ' + esc(S.me.person.name) + '」簽名，簽完不能撤回。' + (last ? '監督人員與施工人員都已簽名，簽完會直接送環安衛審核。' : '') + '</p>',
+    [[last ? '簽名並提交審核' : '確認簽名', function () { consSignGo(i); }, ''], ['改開簽名頁自己簽', function () { consFallback(x); }, 'ghost']]);
 }
 function consSignGo(i) {
   var x = S.cons.list[i];
@@ -465,22 +467,22 @@ function consSignGo(i) {
     }
     if (!r.ok) return toast(esc(r.error || '簽名沒有成功'), 'err', 5000);
     x.handlerSigned = true; x.canSubmit = x.status === '施工人員簽名中';
-    if (r.workersDone) dlg('<b>簽好了</b><p>工人都簽完了，要現在提交審核嗎？提交後環安衛會收到通知。</p>', [['提交審核', function () { consSubmit(i); }, '']]);
-    else toast('已簽名；等工人都簽完再提交審核', 'ok', 4000);
     if (!x.demo) consSigMark(x.id, 'sign');
+    if (r.workersDone) return consSubmit(i, true);                    // 施工人員都簽完：直接接著提交審核（同一次操作）
+    toast('已簽名；等施工人員都簽完再提交審核', 'ok', 4000);
     var el = $('consList'); if (el) el.innerHTML = consListHtml();
     if (!x.demo) setTimeout(function () { consLoad(true); }, 1500);
   }).catch(function (e) { busyOff(); if (e.noApi) { toast('承攬商系統還不能在 App 內簽名，改開原本的簽名頁', '', 3500); consFallback(x); } else toast(esc(e.message), 'err', 4000); });
 }
-function consSubmit(i) {
+function consSubmit(i, afterSign) {
   var x = S.cons.list[i];
-  busyOn('提交審核中…');
+  busyOn(afterSign ? '已簽名，提交審核中…' : '提交審核中…');
   consApi(x.sign, { action: 'submitForReview' }).then(function (r) {
     busyOff();
-    if (!r.ok) return toast(esc(r.error || '提交沒有成功'), 'err', 6000);
+    if (!r.ok) { var el0 = $('consList'); if (el0) el0.innerHTML = consListHtml(); return toast(esc(r.error || '提交沒有成功'), 'err', 6000); }
     x.status = '待審核'; x.canSubmit = false; x.sign = null;
     if (!x.demo) { consSigMark(x.id, 'submit'); setTimeout(function () { consLoad(true); }, 1500); }
-    toast('已提交審核，環安衛會收到通知', 'ok', 4000);
+    toast(afterSign ? '已簽名並提交審核，環安衛會收到通知' : '已提交審核，環安衛會收到通知', 'ok', 4500);
     var el = $('consList'); if (el) el.innerHTML = consListHtml();
   }).catch(function (e) { busyOff(); if (e.noApi) consFallback(x); else toast(esc(e.message), 'err', 4000); });
 }
