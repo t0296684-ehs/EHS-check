@@ -319,6 +319,19 @@ padding:12px 18px;border-radius:14px;font-size:15px;font-weight:700;z-index:50;m
 .center{text-align:center}
 .nw{white-space:nowrap}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+/* 新手引導：下一步閃橘框＋上方提示條（v0.14.2） */
+.coachOn{position:relative;outline:3px solid var(--orange)!important;outline-offset:3px;border-radius:14px;animation:coachP 1.4s ease-in-out infinite}
+@keyframes coachP{0%,100%{box-shadow:0 0 0 0 rgba(255,122,26,.55)}50%{box-shadow:0 0 0 9px rgba(255,122,26,0)}}
+.coach{display:flex;align-items:center;gap:8px;margin:8px 2px 6px;padding:9px 12px;border-radius:12px;background:var(--orange);color:var(--navy);font-size:16px;font-weight:700;line-height:1.4;box-shadow:0 3px 10px rgba(255,122,26,.3)}
+.coach b{font-weight:900}.coach .ca{flex-shrink:0;animation:coachB .9s ease-in-out infinite}
+.coach.up .ca{animation-name:coachU}.coach.rt{flex-direction:row-reverse;text-align:right}
+.coach span{flex:1}.coach .cok{display:inline-flex;width:auto;min-height:36px;margin-left:8px;padding:4px 14px;font-size:15px;background:var(--navy);color:#fff;vertical-align:middle}
+.coach.cbar{margin:0}
+@keyframes coachB{0%,100%{transform:translateY(-2px)}50%{transform:translateY(4px)}}
+@keyframes coachU{0%,100%{transform:translateY(2px)}50%{transform:translateY(-4px)}}
+.tact.coachOn{border-radius:12px;outline-color:#FFB27A!important}
+.btn.coachOn{outline-color:var(--navy)!important}
+@media (prefers-reduced-motion:reduce){.coachOn,.coach .ca{animation:none!important}}
 .li.off{opacity:.62;cursor:default}.li.off .nm{color:var(--ink2,inherit)}
 #busy{position:fixed;inset:0;z-index:100;background:rgba(20,35,60,.78);display:flex;align-items:center;justify-content:center;padding:24px}
 #busy .bx{background:#fff;border-radius:20px;padding:28px 22px;max-width:360px;width:100%;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
@@ -466,6 +479,10 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 .li.cs .mn{display:flex;flex-direction:column;gap:3px;text-align:left;flex:1;min-width:0}
 .li.cs .btn{margin-top:8px;min-height:46px;font-size:15px}
 .li.cs .cs2{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
+.li.cs{cursor:pointer}.li.cs .csr{display:flex;align-items:center;gap:2px;flex-shrink:0}.csok{display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:6px 12px;border-radius:999px;background:#E3F6EA;color:#14703A;font-size:15px;font-weight:800;align-self:flex-start}
+.cstab{margin:0 0 10px}#consList .chips{margin-bottom:10px}#consList .field{margin-bottom:10px}
+.cy{display:inline-flex;align-items:center;gap:3px;color:#14703A;font-weight:800}.cn{color:#B42318;font-weight:800}
+.cswk{display:flex;flex-wrap:wrap;gap:6px}.cswk span{padding:4px 10px;border-radius:10px;background:#EEF2F7;font-size:14px}
 .li.off{opacity:.55}
 .edi .edb{white-space:pre-wrap;font-size:17px;line-height:1.6}
 .edimg{display:block;width:100%;border-radius:14px;margin-top:8px}

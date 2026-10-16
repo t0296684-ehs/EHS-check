@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.14.1';
+var APP_VERSION = '0.14.2';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -452,6 +452,7 @@ function render() {
   $('bar').innerHTML = ''; padBar();
   fn();
   drawTop();
+  if (window.coachAfter) coachAfter();
 }
 function netTag() { var on = navigator.onLine; return '<span class="net' + (on ? '' : ' off') + '" id="net"><i></i>' + (on ? '已連線' : '離線') + '</span>'; }
 /** 頁面最上方的常用鈕：通知固定在最右上角（有未讀顯示數字），使用教學、設定在它左邊。 */
@@ -578,6 +579,7 @@ function doBind() {
   }
   api('bind', { name: sel.name, pin: pin, device: navigator.userAgent.slice(0, 80) }).then(function (d) {
     setClock(d.me.serverNow); rcClear(); lsSet(LS.TOKEN, d.token); lsSet(LS.ME, d.me); authSave(); S.me = normMe(d.me); S.stack = []; S.pf = false;
+    lsSet('chk.coach.menu', 'todo');                // 剛在這支手機登入：第一次進主選單給新手引導
     S.landed = true; go(d.me.signature ? landing() : 'sign', {}, true);
     toast('歡迎，' + esc(d.me.person.name), 'ok');
     rebindJobs(d.me.person.name, d.token);
@@ -663,7 +665,7 @@ function sigInit() {
   function pt(e) { var r = cv.getBoundingClientRect(); var t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; }
   function start(e) { e.preventDefault(); size(); down = true; last = pt(e); }
   function move(e) { if (!down) return; e.preventDefault(); var p = pt(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; SIG.drawn = true; }
-  function end() { down = false; }
+  function end() { if (down && SIG.drawn && !document.querySelector('.coach.cbar')) coachSign(); down = false; }
   cv.addEventListener('mousedown', start); cv.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
   cv.addEventListener('touchstart', start, { passive: false }); cv.addEventListener('touchmove', move, { passive: false }); cv.addEventListener('touchend', end);
   SIG.drawn = false;
@@ -690,6 +692,7 @@ function sigUpload(inp) {
     if (vert && out.c.width > out.c.height * 1.2) toast('這張看起來是橫的簽名；直式要由上往下簽，請確認後再儲存', 'err', 5000);
     else if (!vert && out.c.height > out.c.width * 1.2) toast('這張看起來是直的簽名；這一步要橫式，請確認後再按下一步', 'err', 5000);
     else toast('已放進簽名框，確認沒問題就按下面的按鈕', 'ok', 3000);
+    coachSign();
   };
   img.src = url;
 }
@@ -820,12 +823,13 @@ function sigAutoV() {
   var box = $('vprev'); if (!box) return;
   box.innerHTML = loading('把橫式簽名轉成直式…');
   sigToVertical(SIG.h, nameLen(), function (o, exact) {
-    if (!o) { box.innerHTML = '<div class="muted">這個簽名沒辦法自動轉成直式，請在下面的框裡<b>由上往下</b>簽。</div>'; return; }
+    if (!o) { box.innerHTML = '<div class="muted">這個簽名沒辦法自動轉成直式，請在下面的框裡<b>由上往下</b>簽。</div>'; return coachSign(); }
     SIG.vprev = o;
     box.innerHTML = '<div class="mr"><b>自動轉成的直式簽名</b></div>' +
       '<div class="muted">請確認<b>每個字都完整、上下順序正確</b>' + (exact ? '' : '（字有連在一起，系統是猜著切的，特別注意）') + '。</div>' +
       '<div class="vpv"><img alt="自動轉成的直式簽名" src="' + o.toDataURL('image/png') + '"></div>' +
       '<div class="btns r12"><button class="btn ghost" onclick="vpNo()">我自己簽</button><button class="btn" onclick="vpYes()">' + ic('check', 20, 2.8) + '用這個直式</button></div>';
+    coachSign();
   });
 }
 function vpYes() {
@@ -839,7 +843,7 @@ function vpYes() {
   sigNext();
 }
 function vpNo() { SIG.vprev = null; $('vprev').innerHTML = '<div class="muted">好，請在下面的框裡<b>由上往下</b>簽全名；也可以上傳直式簽名照片。</div>'; sigClear(); }
-function sigClear() { var cv = $('cv'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; }
+function sigClear() { var cv = $('cv'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; coachSign(); }
 /** 裁到筆跡範圍、縮小、存成透明 PNG（約 5～15 KB）。 */
 function sigExport() {
   var cv = $('cv'), ctx = cv.getContext('2d');
@@ -866,6 +870,101 @@ function sigNext() {
     var raw = lsGet(LS.ME, null); if (raw) { raw.signature = S.me.signature; lsSet(LS.ME, raw); }
     toast('簽名已存', 'ok'); S.stack = []; go(landing(), {}, true);
   }).catch(function (e) { toast(esc(e.message), 'err', 4000); btn.disabled = false; btn.className = 'btn'; btn.textContent = '再試一次'; });
+}
+
+// ───────────── 新手引導（v0.14.2，10/16 Jason：第一次設定不知道要按哪裡）─────────────
+// 下一步要按的地方：橘色閃框＋上方一條「↓ 點這裡」的提示；做完一步提示自動移到下一步。只在登入、簽名、第一次進主選單出現。
+var COACH = { last: '' };
+function coachClear() {
+  [].forEach.call(document.querySelectorAll('.coach'), function (e) { e.remove(); });
+  [].forEach.call(document.querySelectorAll('.coachOn'), function (e) { e.classList.remove('coachOn'); });
+}
+/** 在 el 前面插一條提示並讓 el 閃框；dir 'up' 時箭頭朝上（提示放在 el 後面）。換了新的一步才捲過去。 */
+function coachAt(el, text, dir, key) {
+  if (!el) return;
+  var d = document.createElement('div');
+  d.className = 'coach' + (dir === 'up' ? ' up' : '') + (dir === 'right' ? ' up rt' : '');
+  d.setAttribute('role', 'status');
+  d.innerHTML = '<svg class="ca" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+    (dir ? '<path d="M12 20V5M5 11l7-7 7 7"/>' : '<path d="M12 4v15M5 13l7 7 7-7"/>') + '</svg><span>' + text + '</span>';
+  el.classList.add('coachOn');
+  if (dir) el.parentNode.insertBefore(d, el.nextSibling); else el.parentNode.insertBefore(d, el);
+  if (key && key !== COACH.last) {
+    COACH.last = key;
+    setTimeout(function () { try { (dir ? el : d).scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} }, 60);
+  }
+}
+/** 下方固定列的按鈕：提示放在按鈕上面（同一列裡） */
+function coachBar(id, text, key) {
+  var b = $(id); if (!b) return;
+  var wrap = b.closest('.in') || b.parentNode;
+  var d = document.createElement('div'); d.className = 'coach cbar'; d.setAttribute('role', 'status');
+  d.innerHTML = '<svg class="ca" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15M5 13l7 7 7-7"/></svg><span>' + text + '</span>';
+  wrap.insertBefore(d, wrap.firstChild);
+  b.classList.add('coachOn');
+  COACH.last = key || id;
+  padBar();
+}
+/** 登入頁：部門 → 課別 → 名字 → 啟用碼 → 確認 */
+function coachLogin() {
+  if (S.cur !== 'login' || !S.boot) return;
+  coachClear();
+  var a = S.arg || {}, ps = S.loginPs || [];
+  var sel = a.i != null ? ps[a.i] : null;
+  if (!a.dept && !a.mgr) {
+    var sub = document.querySelector('.dsub .depts');
+    if (sub) return coachAt(sub, '再點您的課別（主管請點「單位負責人」）', '', 'grp');
+    return coachAt(document.querySelector('.depts'), '第一步：點您的部門', '', 'dept');
+  }
+  if (!ps.length) return;
+  if (!sel) return coachAt(document.querySelector('#app .list'), '點您的名字', '', 'name');
+  var pin = $('pin');
+  if (pin && !/^\d{4}$/.test(pin.value.trim())) {
+    if (!pin.oninput) pin.oninput = function () { if (/^\d{4}$/.test(pin.value.trim()) || COACH.last === 'bind') coachLogin(); };
+    return coachAt(pin, '輸入環安衛中心給您的 4 位數字', 'up', 'pin');
+  }
+  coachBar('bindBtn', '確認名字沒錯，按這裡完成', 'bind');
+}
+/** 簽名頁：簽名框 → 下一步／儲存；直式有自動轉的預覽時先指「用這個直式」 */
+function coachSign() {
+  if (S.cur !== 'sign') return;
+  coachClear();
+  var v = S.arg.step === 'v', yes = document.querySelector('#vprev .btn:not(.ghost)');
+  if (v && yes && !SIG.drawn) return coachAt(yes.parentNode, '確認每個字都完整、順序對，按「用這個直式」', '', 'vyes');
+  if (v && document.querySelector('#vprev .spin')) return;          // 自動轉換中，轉好再指
+  if (!SIG.drawn) return coachAt(document.querySelector('.sigwrap'), v ? '在直的框裡由上往下簽全名' : '用手指在框裡簽您的全名', '', v ? 'cvv' : 'cvh');
+  coachBar('sigBtn', v ? '簽好了，按這裡儲存' : '簽好了，按這裡下一步', v ? 'savev' : 'nexth');
+}
+/** 第一次進主選單（剛在這支手機登入的人）：先指功能卡，再指右上角「教學」，各按一次「知道了」 */
+function coachMenu() {
+  if (S.cur !== 'menu' || S.dev) return;
+  var st = lsGet('chk.coach.menu', '');
+  if (st !== 'todo' && st !== 'todo2') return;
+  coachClear();
+  var ok = '<button class="btn sm cok" onclick="coachMenuNext()">知道了</button>';
+  if (st === 'todo') {
+    var c = document.querySelector('.mcards .mcard:not(.locked)');
+    if (c) coachAt(c, '要做的事從這些功能進去，例如每天的檢點點「日常檢點」' + ok, '', 'm1');
+    else coachMenuNext();
+    return;
+  }
+  var g = document.querySelector('#top .tact[aria-label="使用教學"]'), app = $('app');
+  if (!g || !app) return coachMenuNext();
+  g.classList.add('coachOn');
+  var d = document.createElement('div'); d.className = 'coach up rt'; d.setAttribute('role', 'status');
+  d.innerHTML = '<svg class="ca" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5M5 11l7-7 7 7"/></svg><span>不會用時，點右上角「教學」看操作說明' + ok + '</span>';
+  app.insertBefore(d, app.firstChild);
+  window.scrollTo(0, 0);
+}
+function coachMenuNext() {
+  var st = lsGet('chk.coach.menu', '');
+  lsSet('chk.coach.menu', st === 'todo' ? 'todo2' : 'done');
+  coachClear(); coachMenu();
+}
+function coachAfter() {           // render() 畫完頁面與頁首之後呼叫
+  if (S.cur === 'login') return coachLogin();
+  if (S.cur === 'sign') return coachSign();
+  if (S.cur === 'menu') return coachMenu();
 }
 
 // ───────────── 首頁（依角色：先講要做的事）─────────────

@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.14.1';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.14.2';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -326,28 +326,118 @@ function dlg(html, buttons) {
   d.onclick = function (e) { if (e.target === d) d.remove(); };
   document.body.appendChild(d);
 }
-function consLoad() {
+function consLoad(fresh) {
   if (!navigator.onLine) { S.cons = S.cons || { off: true, list: [] }; var el0 = $('consList'); if (el0) el0.innerHTML = consListHtml(); return; }
-  apiR('consCases', {}, { quiet: true }).then(function (r) { S.cons = { at: Date.now(), list: r.list, total: r.total, demo: r.demo }; var el = $('consList'); if (el && S.page === 'cons') el.innerHTML = consListHtml(); })
-    .catch(function (e) { S.cons = { at: Date.now(), err: e.message, list: [] }; var el = $('consList'); if (el && S.page === 'cons') el.innerHTML = consListHtml(); });
+  var done = function (r) { S.cons = { at: Date.now(), list: r.list, total: r.total, demo: r.demo, today: r.today }; consSigFix(); var el = $('consList'); if (el && S.page === 'cons') el.innerHTML = consListHtml(); };
+  var fail = function (e) { S.cons = { at: Date.now(), err: e.message, list: [] }; var el = $('consList'); if (el && S.page === 'cons') el.innerHTML = consListHtml(); };
+  // 剛簽完名／提交：直接問承攬商系統最新狀態（不用手機與伺服器的暫存）
+  if (fresh) return api('consCases', { fresh: true }, { quiet: true }).then(function (r) { rcClear(); done(r); }).catch(fail);
+  apiR('consCases', {}, { quiet: true }).then(done).catch(fail);
 }
+/** 這支手機剛簽過的案件：承攬商系統表格還沒更新到（最多幾分鐘）前，先照手機的紀錄顯示「已簽名」，不會又跳出「在 App 內簽名」 */
+function consSigMark(id, what) { try { var o = JSON.parse(localStorage.getItem('cons_sig') || '{}'); o[id] = { what: what, at: Date.now() }; localStorage.setItem('cons_sig', JSON.stringify(o)); } catch (e) {} }
+function consSigFix() {
+  var o = {}; try { o = JSON.parse(localStorage.getItem('cons_sig') || '{}'); } catch (e) {}
+  var keep = {}, now = Date.now();
+  (S.cons.list || []).forEach(function (x) {
+    var m = o[x.id]; if (!m || now - m.at > 30 * 60000) return;
+    keep[x.id] = m;
+    if (!x.handlerSigned) { x.handlerSigned = true; x.canSubmit = !!x.sign && x.status === '施工人員簽名中'; }
+    if (m.what === 'submit' && x.status === '施工人員簽名中') { x.status = '待審核'; x.canSubmit = false; x.sign = null; }
+  });
+  try { localStorage.setItem('cons_sig', JSON.stringify(keep)); } catch (e) {}
+}
+/** 已核准的案件依日期給更有用的說法：待進場／施工中／已完工 */
+function consStage(x) {
+  var t = (S.cons && S.cons.today) || today();
+  if (x.status === '已核准') return x.end && x.end < t ? '已完工' : x.start && x.start > t ? '已核准・待進場' : '施工中';
+  return x.status;
+}
+var CONS_DONE_ST = ['已結案', '已駁回', '已完工'];
+function consIsDone(x) { return CONS_DONE_ST.indexOf(consStage(x)) >= 0; }
+function consYear(x) { var d = x.start || x.apply || ''; return d ? String(Number(d.slice(0, 4)) - 1911) : '—'; }
+function consTodo(x) { return !!(x.sign && (!x.handlerSigned || x.canSubmit)); }
 function consListHtml() {
   var c = S.cons;
   if (!c) return loading('讀取案件…');
   if (c.off) return '<div class="muted">連上網路後顯示案件</div>';
   if (c.err) return '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">' + esc(c.err) + '</div></div></div></div>';
-  if (!c.list.length) return '<div class="empty">目前沒有您承辦中的案件</div>';
-  return '<div class="list">' + c.list.map(function (x, i) {
-    var hint = x.status === '待簽名' ? '等廠商監督人員簽名' : x.status === '施工人員簽名中' ? (x.handlerSigned ? (x.canSubmit ? '您已簽，可以提交審核' : '您已簽，等廠商提交審核') : '工人簽完後，換您簽名') :
-      x.status === '暫緩－文件不齊' ? '暫緩：承攬商安全衛生承諾書還沒簽回。環安衛收到用印正本、在廠商主檔打勾後自動恢復，廠商才會收到簽名信' :
-      x.status === '待審核' ? '環安衛審核中' : x.status === '已核准' ? '已核准，可以進場' : x.status === '補件退回' ? '退回補件，請提醒廠商' : '';
+  if (!c.list.length) return '<div class="empty">目前沒有您承辦的案件</div>';
+  var f = S.consF = S.consF || { tab: 'on', year: '', dept: '', q: '' };
+  var on = c.list.filter(function (x) { return !consIsDone(x); }), off = c.list.filter(consIsDone);
+  var h = '<div class="seg2 cstab"><button class="' + (f.tab === 'on' ? 'on' : '') + '" onclick="consF(\'tab\',\'on\')">進行中 ' + on.length + '</button>' +
+    '<button class="' + (f.tab === 'off' ? 'on' : '') + '" onclick="consF(\'tab\',\'off\')">已完成 ' + off.length + '</button></div>';
+  var src = f.tab === 'on' ? on : off;
+  // 已完成：依年度分；環安衛（看全部人的案件）再依承辦部門分
+  var years = [], depts = [];
+  src.forEach(function (x) { var y = consYear(x); if (years.indexOf(y) < 0) years.push(y); var d = x.dept || '未指定'; if (depts.indexOf(d) < 0) depts.push(d); });
+  years.sort(function (a, b) { return b < a ? -1 : 1; });
+  if (f.tab === 'off' && years.length > 1) {
+    if (f.year && years.indexOf(f.year) < 0) f.year = '';
+    var yr = f.year || years[0];
+    h += '<div class="chips">' + years.map(function (y) { return '<button class="chip' + (y === yr ? ' on' : '') + '" onclick="consF(\'year\',' + jsq(y) + ')">' + esc(y === '—' ? '未填日期' : y + ' 年') + '</button>'; }).join('') + '</div>';
+    src = src.filter(function (x) { return consYear(x) === yr; });
+  }
+  var multi = c.list.some(function (x) { return !x.mine; });
+  if (multi && depts.length > 1) {
+    if (f.dept && depts.indexOf(f.dept) < 0) f.dept = '';
+    h += '<div class="chips">' + [''].concat(depts).map(function (d) { return '<button class="chip' + (d === f.dept ? ' on' : '') + '" onclick="consF(\'dept\',' + jsq(d) + ')">' + esc(d || '全部部門') + '</button>'; }).join('') + '</div>';
+    if (f.dept) src = src.filter(function (x) { return (x.dept || '未指定') === f.dept; });
+  }
+  if (c.list.length > 8) h += '<input class="field" type="search" placeholder="搜尋廠商、工程、案件編號" value="' + esc(f.q) + '" oninput="S.consF.q=this.value;consListOnly()">';
+  h += '<div id="consRows">' + consRows(src) + '</div>';
+  return h;
+}
+function consF(k, v) { S.consF[k] = S.consF[k] === v && k !== 'tab' ? '' : v; if (k === 'tab') { S.consF.year = ''; } var el = $('consList'); if (el) el.innerHTML = consListHtml(); }
+function consListOnly() { var el = $('consList'); if (el) el.innerHTML = consListHtml(); var q = el && el.querySelector('input[type=search]'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
+function consRows(src) {
+  var f = S.consF, q = (f.q || '').trim().toLowerCase();
+  if (q) src = src.filter(function (x) { return (x.id + ' ' + x.vendor + ' ' + x.work + ' ' + x.area + ' ' + x.owner).toLowerCase().indexOf(q) >= 0; });
+  if (!src.length) return '<div class="empty">' + (q ? '找不到「' + esc(f.q) + '」' : f.tab === 'on' ? '目前沒有進行中的案件' : '沒有已完成的案件') + '</div>';
+  if (f.tab === 'on') src = src.filter(consTodo).concat(src.filter(function (x) { return !consTodo(x); }));   // 輪到我做的排最上面
+  return '<div class="list">' + src.map(function (x) {
+    var i = S.cons.list.indexOf(x), st = consStage(x);
+    var hint = x.status === '待簽名' ? '等廠商監督人員簽名' : x.status === '施工人員簽名中' ? (x.handlerSigned ? (x.canSubmit ? '您已簽，可以提交審核' : '您已簽，等施工人員簽完') : '施工人員簽完後，換您簽名') :
+      x.status === '暫緩－文件不齊' ? '暫緩：承諾書還沒簽回' : x.status === '待審核' ? '環安衛審核中' : x.status === '補件退回' ? '退回補件，請提醒廠商' : '';
     var act = '';
-    if (x.sign && !x.handlerSigned) act = '<button class="btn" onclick="consSign(' + i + ')">' + ic('pen', 18, 2.4) + '在 App 內簽名</button>';
-    else if (x.sign && x.canSubmit) act = '<button class="btn" onclick="consSubmit(' + i + ')">' + ic('up', 18, 2.6) + '提交審核</button>';
-    return '<div class="li cs"><span class="mn"><span class="mt">' + esc(x.id + (x.owner && !x.mine ? '・承辦 ' + x.owner : '')) + '</span><span class="nm">' + esc(x.vendor) + '</span>' +
+    if (x.sign && !x.handlerSigned) act = '<button class="btn" onclick="event.stopPropagation();consSign(' + i + ')">' + ic('pen', 18, 2.4) + '在 App 內簽名</button>';
+    else {
+      if (x.handlerSigned && x.mine && ['施工人員簽名中', '待審核'].indexOf(x.status) >= 0) act = '<span class="csok">' + ic('check', 16, 3) + '您已簽名完成</span>';
+      if (x.sign && x.canSubmit) act += '<button class="btn" onclick="event.stopPropagation();consSubmit(' + i + ')">' + ic('up', 18, 2.6) + '提交審核</button>';
+    }
+    var pc = st === '施工中' ? 'ok' : st === '已核准・待進場' ? 'info' : st === '已完工' ? 'na' : CONS_PILL[x.status] || 'na';
+    return '<div class="li cs" role="button" tabindex="0" onclick="consOpen(' + i + ')"><span class="mn"><span class="mt">' + esc(x.id + (x.owner && !x.mine ? '・承辦 ' + x.owner : '')) + '</span><span class="nm">' + esc(x.vendor) + '</span>' +
       '<span class="mt">' + esc([x.work, x.area].filter(String).join('・')) + '</span><span class="mt">' + esc((x.start ? md(x.start) : '') + (x.end && x.end !== x.start ? '～' + md(x.end) : '')) + (hint ? '・' + esc(hint) : '') + '</span>' +
-      act + '</span>' + pill(CONS_PILL[x.status] || 'na', '', x.status) + '</div>';
-  }).join('') + '</div>' + (c.total > c.list.length ? '<div class="muted upnote">只列進行中與最近 45 天結束的案件</div>' : '');
+      act + '</span><span class="csr">' + pill(pc, '', st) + ic('chev', 18, 2.6) + '</span></div>';
+  }).join('') + '</div>';
+}
+/** 案件明細（小視窗，比照危害性化學品）：廠商、聯絡、施工內容、人員、簽名進度 */
+function consOpen(i) {
+  var x = S.cons.list[i]; if (!x) return;
+  var d0 = $('pDlg'); if (d0) d0.remove();
+  var dd = document.createElement('div'); dd.id = 'pDlg'; dd.className = 'dlg';
+  var row = function (k, v, raw) { return v ? '<div class="chr"><b>' + esc(k) + '</b><span>' + (raw ? v : esc(v)) + '</span></div>' : ''; };
+  var tel = String(x.phone || '').replace(/[^\d+#]/g, '');
+  var days = x.start ? (x.start === x.end || !x.end ? md(x.start) : md(x.start) + '～' + md(x.end)) : '';
+  var spec = x.spec && !/無特殊作業|以上皆非/.test(x.spec) ? x.spec : '無';
+  var ok = function (b) { return b ? '<span class="cy">' + ic('check', 14, 3) + '已簽</span>' : '<span class="cn">未簽</span>'; };
+  var ws = (x.workers || []);
+  var act = '';
+  if (x.sign && !x.handlerSigned) act = '<button class="btn" onclick="$(\'pDlg\').remove();consSign(' + i + ')">' + ic('pen', 18, 2.4) + '在 App 內簽名</button>';
+  else if (x.sign && x.canSubmit) act = '<button class="btn" onclick="$(\'pDlg\').remove();consSubmit(' + i + ')">' + ic('up', 18, 2.6) + '提交審核</button>';
+  dd.innerHTML = '<div class="bx chd"><button class="chclose" aria-label="關閉" onclick="$(\'pDlg\').remove()">' + ic('x', 26, 2.8) + '</button>' +
+    '<div class="muted">' + esc(x.id) + '</div><div class="mr"><b class="chn">' + esc(x.vendor) + '</b></div>' +
+    '<div class="chf"><span>' + esc(consStage(x)) + '</span>' + (x.handlerSigned ? '<span>承辦人已簽名</span>' : '') + '</div>' +
+    '<div class="chsec">施工內容</div>' + row('工程名稱', x.work) + row('施工區域', x.area) + row('施工期間', days) + row('申請日', x.apply ? md(x.apply) : '') +
+    row('特殊作業', spec) + row('環境潛在危害', x.env) + row('備註', x.note) +
+    '<div class="chsec">廠商聯絡</div>' + (x.contact || tel || x.email ? row('聯絡人', x.contact) + row('電話', tel ? '<a href="tel:' + esc(tel) + '">' + esc(x.phone) + '</a>' : '', true) + row('Email', x.email) : '<div class="muted">廠商主檔沒有聯絡資料</div>') +
+    row('現場監督人員', x.sup) +
+    '<div class="chsec">施工人員' + (ws.length ? '（' + ws.length + ' 人）' : '') + '</div>' + (ws.length ? '<div class="cswk">' + ws.map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('') + '</div>' : '<div class="muted">Form 2 沒有填施工人員</div>') +
+    '<div class="chsec">簽名進度</div>' + row('廠商監督人員', ok(x.repSigned), true) +
+    (ws.length || x.wSigned ? row('施工人員', x.wSigned + ' / ' + (ws.length || '—') + ' 人', false) : '') + row('員和承辦人員' + (x.owner ? '（' + x.owner + '）' : ''), ok(x.handlerSigned), true) +
+    (act ? '<div class="btns" style="margin-top:12px">' + act + '</div>' : '') + '</div>';
+  document.body.appendChild(dd);
+  dd.addEventListener('click', function (e) { if (e.target === dd) dd.remove(); });
 }
 /** 呼叫承攬商系統的 APP_API（手機直接送，帶該案通行碼；跟原本簽名頁一樣的安全等級）。沒裝 APP_API → reject({noApi}) */
 function consApi(sign, body) {
@@ -369,12 +459,17 @@ function consSignGo(i) {
   busyOn('簽名中…', '約 5～10 秒');
   consApi(x.sign, { action: 'handlerSign', name: S.me.person.name, dataUrl: S.me.signature.image }).then(function (r) {
     busyOff();
+    if (!r.ok && /已簽|已經簽/.test(r.error || '')) {                 // 承攬商系統說已經簽過：照已簽處理，不要再叫他簽
+      consSigMark(x.id, 'sign'); x.handlerSigned = true; x.canSubmit = x.status === '施工人員簽名中';
+      toast('這個案件您已經簽過名了', 'ok', 3500); var el2 = $('consList'); if (el2) el2.innerHTML = consListHtml(); return consLoad(true);
+    }
     if (!r.ok) return toast(esc(r.error || '簽名沒有成功'), 'err', 5000);
     x.handlerSigned = true; x.canSubmit = x.status === '施工人員簽名中';
     if (r.workersDone) dlg('<b>簽好了</b><p>工人都簽完了，要現在提交審核嗎？提交後環安衛會收到通知。</p>', [['提交審核', function () { consSubmit(i); }, '']]);
     else toast('已簽名；等工人都簽完再提交審核', 'ok', 4000);
+    if (!x.demo) consSigMark(x.id, 'sign');
     var el = $('consList'); if (el) el.innerHTML = consListHtml();
-    if (!x.demo) S.cons.at = 0;
+    if (!x.demo) setTimeout(function () { consLoad(true); }, 1500);
   }).catch(function (e) { busyOff(); if (e.noApi) { toast('承攬商系統還不能在 App 內簽名，改開原本的簽名頁', '', 3500); consFallback(x); } else toast(esc(e.message), 'err', 4000); });
 }
 function consSubmit(i) {
@@ -384,6 +479,7 @@ function consSubmit(i) {
     busyOff();
     if (!r.ok) return toast(esc(r.error || '提交沒有成功'), 'err', 6000);
     x.status = '待審核'; x.canSubmit = false; x.sign = null;
+    if (!x.demo) { consSigMark(x.id, 'submit'); setTimeout(function () { consLoad(true); }, 1500); }
     toast('已提交審核，環安衛會收到通知', 'ok', 4000);
     var el = $('consList'); if (el) el.innerHTML = consListHtml();
   }).catch(function (e) { busyOff(); if (e.noApi) consFallback(x); else toast(esc(e.message), 'err', 4000); });
