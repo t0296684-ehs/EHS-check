@@ -930,7 +930,7 @@ function cnVHome() {
     on.sort(function (a, b) { return (b.todo ? 1 : 0) - (a.todo ? 1 : 0); });             // 要處理的排前面
     var row = function (x) {
       var st = x.status === '已核准' ? (x.start > d.today ? '已核准・待進場' : x.end < d.today ? '已完工' : '施工中') : x.status;
-      return '<button class="li cs" onclick="S.cpub={kind:\'case\',vs:S.cpub.vs,demo:S.cpub.demo,cid:' + jsq(x.id) + ',f:{}};render()"><span class="mn"><span class="mt">' + esc(x.id + '・承辦 ' + x.handler) + '</span><span class="nm">' + esc(x.work) + '</span>' +
+      return '<button class="li cs" onclick="S.cpub={kind:\'case\',vs:S.cpub.vs,demo:S.cpub.demo,cid:' + jsq(x.id) + ',f:{}};render()"><span class="mn"><span class="mt">' + esc(x.id + '・承辦 ' + (x.handler || '—')) + '</span><span class="nm">' + esc(x.work) + '</span>' +
         '<span class="mt">' + esc(x.area + '・' + x.start + (x.end !== x.start ? '～' + x.end.slice(5) : '')) + '</span>' +
         (x.todo && on.indexOf(x) >= 0 ? '<span class="mt" style="color:#B45309;font-weight:800">' + ic('warn', 14, 2.6) + ' ' + esc(x.todo) + '</span>' : '') + '<span class="mt">' + esc('施工人員 ' + x.wSigned + '/' + x.workers + ' 已簽' + (x.permits ? '・許可 ' + x.permits + ' 張' : '') + (x.docs ? '・文件 ' + x.docs + ' 份' : '')) + '</span></span>' +
         '<span class="csr">' + pill(CN_ST_PILL[x.status] || 'na', '', st) + ic('chev', 18, 2.6) + '</span></button>';
