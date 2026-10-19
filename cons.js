@@ -5,6 +5,7 @@
 //   #cons=sign&w=簽名權杖     施工人員掃碼親簽（名單上沒有的可現場補充；斷線保留、恢復自動補送）
 //   #cons=hsign&h=承辦權杖    員和承辦人員掃碼簽名（不用 App；比照舊系統 HandlerSignPage）
 // 員工：主選單「施工申請」—— 傳邀請連結、承辦簽名與提交、環安衛審核、承諾書登記。後端：mod/cons.gs。
+var PLAT_PAGES = window.PLAT_PAGES || {};                           // plat.js 沒載到時（GitHub 漏傳）：廠商、施工人員的連結照樣能用
 var CN_ST_PILL = { '暫緩－文件不齊': 'warn', '施工人員簽名中': 'info', '待審核': 'warn', '已核准': 'ok', '補件退回': 'bad', '已駁回': 'na', '已結案': 'na' };
 (function () {
   var st = document.createElement('style');
@@ -485,7 +486,9 @@ function cnFixStart() {
 function cnFixForm() {
   var P = S.cpub, f = P.f;
   var kept = P.d.workers.filter(function (w) { return P.keep.indexOf(w.seq) >= 0; });
-  $('app').innerHTML = '<div class="muted">改完按「送出修改」。改了期間、區域或特殊作業，員和承辦人員要重新簽名。</div>' +
+  var back = P.d.status === '補件退回' && P.d.comment;                 // 退回補件：環安衛要補的東西放在最上面，邊看邊改
+  $('app').innerHTML = (back ? '<div class="box bad"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>環安衛要您補正</b><div class="m">' + esc(P.d.comment).replace(/\n/g, '<br>') + '</div></div></div></div>' : '') +
+    '<div class="muted">改完按「送出修改」。改了期間、區域或特殊作業，員和承辦人員要重新簽名。</div>' +
     '<div class="sec">已登記的施工人員<small>按 × 移除；已簽名的保留簽名</small></div><div class="card">' +
     (kept.length ? kept.map(function (w) { return '<div class="cnwk"><span>' + esc(w.name) + (w.signed ? '（已簽）' : '') + '</span><button type="button" class="rm btn ghost sm" onclick="cnKeepRm(' + w.seq + ')">×</button></div>'; }).join('') : '<div class="muted">（都移除了）</div>') + '</div>' +
     cnCaseForm(P.form, f, true) + cnFilesBox('caFiles', P.form) + cnSigBox('換了施工負責人才需要簽名（沒換可以不簽）') + cnOk('caBtn') + '<div id="caErr"></div>';
@@ -932,7 +935,7 @@ function cnVHome() {
       var st = x.status === '已核准' ? (x.start > d.today ? '已核准・待進場' : x.end < d.today ? '已完工' : '施工中') : x.status;
       return '<button class="li cs" onclick="S.cpub={kind:\'case\',vs:S.cpub.vs,demo:S.cpub.demo,cid:' + jsq(x.id) + ',f:{}};render()"><span class="mn"><span class="mt">' + esc(x.id + '・承辦 ' + (x.handler || '—')) + '</span><span class="nm">' + esc(x.work) + '</span>' +
         '<span class="mt">' + esc(x.area + '・' + x.start + (x.end !== x.start ? '～' + x.end.slice(5) : '')) + '</span>' +
-        (x.todo && on.indexOf(x) >= 0 ? '<span class="mt" style="color:#B45309;font-weight:800">' + ic('warn', 14, 2.6) + ' ' + esc(x.todo) + '</span>' : '') + '<span class="mt">' + esc('施工人員 ' + x.wSigned + '/' + x.workers + ' 已簽' + (x.permits ? '・許可 ' + x.permits + ' 張' : '') + (x.docs ? '・文件 ' + x.docs + ' 份' : '')) + '</span></span>' +
+        (x.todo && on.indexOf(x) >= 0 ? '<span class="mt" style="color:#B45309;font-weight:800">▶ ' + esc(x.todo) + '</span>' : '') + '<span class="mt">' + esc('施工人員 ' + x.wSigned + '/' + x.workers + ' 已簽' + (x.permits ? '・許可 ' + x.permits + ' 張' : '') + (x.docs ? '・文件 ' + x.docs + ' 份' : '')) + '</span></span>' +
         '<span class="csr">' + pill(CN_ST_PILL[x.status] || 'na', '', st) + ic('chev', 18, 2.6) + '</span></button>';
     };
     h += '<div class="sec">進行中 ' + on.length + '</div>' + (on.length ? '<div class="list">' + on.map(row).join('') + '</div>' : '<div class="empty">目前沒有進行中的案件</div>') +

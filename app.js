@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.18.5';
+var APP_VERSION = '0.18.6';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -261,6 +261,10 @@ function flush() {
   if (S.page === 'home') render();
   var sent = 0, failed = 0, relogin = '';
   return obAll().then(function (jobs) {
+    // 10/19：「本月的試算表是改版前的項目」後端已修好（整月空白的區塊會換成本月版本）→ 之前卡住的自動再送一次（只一次）
+    return Promise.all(jobs.filter(function (j) { return j.status !== 'pending' && j.status !== 'auth' && !j.requeued && /改版前的項目/.test(j.message || ''); })
+      .map(function (j) { j.status = 'pending'; j.requeued = true; return obPut(j); })).then(function () { return jobs; });
+  }).then(function (jobs) {
     var p = Promise.resolve(), stop = false;
     jobs.filter(function (j) { return j.status === 'pending'; }).forEach(function (j) {
       p = p.then(function () {
@@ -479,7 +483,7 @@ function drawTop() {
     '<div class="tb-t"><div class="tb-ttl" id="ttl">' + esc(S.title) + '</div>' + (S.me ? '<div class="tb-sub">' + esc(whoLine()) + '</div>' : '') + '</div>' + mb + netTag() + (S.me && !S.share && ['login', 'url', 'proxy', 'sign', 'psign', 'notice'].indexOf(S.cur) < 0 ? bellBtn() : '') + '</div>' + (S.topExtra || '');
 }
 function setTitle(t) { S.title = t; document.title = t === '員和環安衛系統' ? t : t + '｜員和環安衛系統'; }
-function bar(html) { $('bar').innerHTML = '<div class="bar"><div class="in">' + html + '</div></div>'; padBar(); }
+function bar(html) { $('bar').innerHTML = html ? '<div class="bar"><div class="in">' + html + '</div></div>' : ''; padBar(); }   // 沒有按鈕就不留空白底條（10/19：蓋住頁面最下面的內容）
 function padBar() { var b = $('bar').firstChild; document.documentElement.style.setProperty('--barh', (b ? b.offsetHeight : 0) + 'px'); }
 
 var PAGES = {};
