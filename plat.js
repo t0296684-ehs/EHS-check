@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.18.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.18.1';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -1236,6 +1236,17 @@ PLAT_PAGES.meetRoom = function () {
   if (m.status === '進行中') h += '<div class="btns" style="margin:4px 0 2px"><button class="btn" onclick="go(\'meetView\',{id:' + jsq(id) + '})">' + ic('book', 18, 2.4) + (read ? '再看一次簡報' : '看簡報（主持人）') + '</button>' +
     '<button class="btn ghost" onclick="go(\'meetSign\',{id:' + jsq(id) + '})">' + ic('pen', 18, 2.4) + '新增簽名（用這支手機）</button></div>' +
     '<div class="muted" style="margin-bottom:6px">看簡報時按左上角返回、或看完按「已看完，回到會議」，都會回到這一頁；會議會一直保留到您按完成或取消。</div>';
+  if (m.status === '進行中' && st.roster && st.roster.length) {
+    var rs = st.roster, pick = S.mRoster = S.mRoster && S.mRoster.id === id ? S.mRoster : { id: id, on: rs.filter(function (w) { return w.signed && !w.inMeet; }).map(function (w) { return w.seq; }) };
+    h += '<div class="sec">本案申請的施工人員<small>勾今天有到場的，按下面帶入（沿用施工申請時本人簽的名）</small></div><div class="card">' + rs.map(function (w) {
+      var dis = w.inMeet || !w.signed;
+      return '<label class="ck" style="display:flex;gap:10px;align-items:center;padding:6px 0"><input type="checkbox"' + (w.inMeet || pick.on.indexOf(w.seq) >= 0 ? ' checked' : '') + (dis ? ' disabled' : '') +
+        ' onchange="meetRosterTog(' + w.seq + ',this.checked)"><span><b>' + esc(w.name) + '</b>' + (w.extra ? ' <small class="muted">現場補充</small>' : '') + '<br><small class="muted">' +
+        (w.inMeet ? '已在簽到名單' : w.signed ? '施工申請時已簽名' : '施工申請時還沒簽名 → 請他掃 QR 簽') + '</small></span></label>';
+    }).join('') + '<button class="btn" id="mrBtn" onclick="meetRosterGo()">' + ic('check', 18, 2.6) + '帶入勾選的人（' + pick.on.filter(function (q) { return rs.some(function (w) { return w.seq === q && !w.inMeet; }); }).length + ' 位）</button>' +
+      '<div class="muted sm">名單上沒有的人：請他掃上面的 QR，或按「新增簽名」。帶錯的人在下方簽到名單按垃圾桶移除。</div></div>';
+  }
+  if (m.status === '進行中' && st.demo) h += '<div class="muted sm" style="margin:4px 2px">示範區：施工人員掃 QR、看完簡報後重新簽名。</div>';
   h += '<div class="sec">簽到名單<small>已簽 ' + st.atts.length + ' 人，完成 ' + done + ' 人（每 5 秒更新）</small></div>';
   h += st.atts.length ? '<div class="list">' + st.atts.map(function (a) {
     var stp = a.done ? (/主持人/.test(a.how) ? pill('ok', 'check', '當面簽') : pill('ok', 'check', '已完成')) : pill('warn', 'clock', '看簡報中');
@@ -1251,6 +1262,14 @@ PLAT_PAGES.meetRoom = function () {
   $('app').innerHTML = h;
   meetPoll(false);
 };
+function meetRosterTog(seq, on) { var p = S.mRoster, k = p.on.indexOf(seq); if (on && k < 0) p.on.push(seq); if (!on && k >= 0) p.on.splice(k, 1); var y = window.scrollY; render(); window.scrollTo(0, y); }
+function meetRosterGo() {
+  var p = S.mRoster, rs = (S.ms && S.ms.roster) || [], seqs = p.on.filter(function (q) { return rs.some(function (w) { return w.seq === q && !w.inMeet; }); });
+  if (!seqs.length) return toast('請勾選要帶入的施工人員', 'err');
+  meetBusy($('mrBtn'), '帶入中…');
+  api('meetRoster', { id: S.arg.id, seqs: seqs }).then(function (r) { toast('已帶入 ' + r.added.length + ' 位' + (r.skipped.length ? '；' + r.skipped.join('、') : ''), 'ok', 4500); S.mRoster = null; meetPoll(true); })
+    .catch(function (e) { toast(esc(e.message), 'err', 5000); render(); });
+}
 function meetPoll(now) {
   clearTimeout(S.mpT);
   var go1 = function () {
