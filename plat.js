@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.14.4';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.15.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -1466,7 +1466,7 @@ function meetJoinDone() {
 // ───────────── 開發者模式（環安衛）：用任何同仁的畫面操作、找出他卡在哪一步；只看不送出 ─────────────
 // 只讀的動作帶 viewAs 給後端；會寫入的（送出、簽名、核准、上傳…）在手機上就攔下，後端也只放行這份清單。
 var DEV_READ = ['me', 'chemList', 'overview', 'notices', 'dayView', 'monthView', 'packages', 'tracks', 'photoGet', 'getPdf', 'team', 'nextList',
-                'eduList', 'eduGet', 'eduFile', 'consCases', 'envMe', 'envMonth', 'ping', 'meetHome', 'meetState', 'meetList', 'meetDeck', 'meetChecks'];
+                'eduList', 'eduGet', 'eduFile', 'consCases', 'consHome', 'consDetail', 'consVendors', 'envMe', 'envMonth', 'ping', 'meetHome', 'meetState', 'meetList', 'meetDeck', 'meetChecks'];
 var DEV_SELF = ['bootstrap', 'devLogs'];                       // 這些用開發者自己的身分
 function devBanner() {
   return S.dev ? '<div class="devbar">' + ic('sliders', 18, 2.4) + '<span>開發者模式・' + esc(S.dev.name) + ' 的畫面（只看不送出）</span><button onclick="devEnd()">結束</button></div>' : '';
