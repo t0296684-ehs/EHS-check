@@ -24,7 +24,7 @@ var CN_ST_PILL = { '暫緩－文件不齊': 'warn', '施工人員簽名中': 'in
 function cnRoute() {
   var h = location.hash, m = /[#&]cons=(reg|apply|case|sign|hsign|vlogin)(?=&|$)/.exec(h);
   if (!m) return null;
-  if (m[1] === 'vlogin') { var vs0 = cnVs(); return vs0 ? { kind: 'vhome', vs: vs0, f: {} } : { kind: 'login', f: {} }; }
+  if (m[1] === 'vlogin') { var vs0 = cnVs(); return vs0 ? { kind: 'vhome', vs: vs0, f: {} } : { kind: 'login', f: { clTax: (/[#&]t=(\d{8})/.exec(h) || [])[1] || '' } }; }   // t＝統編（環安衛分享的登入連結帶好帳號）
   var g = function (k) { var x = new RegExp('[#&]' + k + '=([0-9a-fA-F]+)').exec(h); return x ? x[1].toLowerCase() : ''; };
   return { kind: m[1], i: g('i'), c: g('c'), w: g('w'), h: g('h'), f: {}, step: 0 };
 }
@@ -685,11 +685,24 @@ function cnVendors() {
         (v.ups && v.ups.length ? '<span class="mt">廠商上傳的承諾書：' + v.ups.map(function (f) { return '<button class="btn ghost sm" onclick="cnCommitView(' + jsq(v.id) + ',' + jsq(f.id) + ')">' + ic('down', 14, 2.4) + esc(f.at.slice(5, 10) + ' ' + f.name) + '</button>'; }).join(' ') + '</span>' : '') +
         (v.commit ? '<span class="mt">' + pill('ok', 'check', '承諾書已收到 ' + (v.commitAt || '')) + ' <button class="btn ghost sm" onclick="cnCommit(' + jsq(v.id) + ',false)">實際未收到？</button></span>'
           : '<button class="btn sm" onclick="cnCommit(' + jsq(v.id) + ',true)">' + ic('check', 16, 3) + (v.ups && v.ups.length ? '看過上傳檔，確認收到承諾書' : '已收到承諾書用印正本') + '</button>') +
-        '<span class="mt">登入碼' + (v.codeAt ? ' ' + esc(v.codeAt) + ' 寄出' : '還沒寄') + ' <button class="btn ghost sm" onclick="cnVCode(' + jsq(v.id) + ')">重寄登入碼</button></span></span></div>';
+        '<span class="mt">登入碼' + (v.codeAt ? ' ' + esc(v.codeAt) + ' 發出' : '還沒發') + ' <button class="btn ghost sm" onclick="cnVCode(' + jsq(v.id) + ')">寄新的登入碼</button>' +
+          ' <button class="btn ghost sm" onclick="cnVCodeShow(' + jsq(v.id) + ')">產生登入碼給我</button></span>' +
+        '<span class="mt"><button class="btn sm" onclick="shareLink(' + jsq('員和工業承攬商專區（' + v.name + '）：帳號是貴公司統一編號 ' + v.tax + '，登入碼請看 Email 或洽員和環安衛') + ',' + jsq(v.loginUrl) + ')">' + ic('share', 16, 2.4) + '分享登入連結</button></span>' +
+        (v.caseIds && v.caseIds.length ? '<span class="mt">' + v.caseIds.map(function (id) { return '<button class="btn ghost sm" onclick="go(\'consCase\',{id:' + jsq(id) + '})">' + esc(id) + '</button>'; }).join(' ') + '</span>' : '') + '</span></div>';
     }).join('') + '</div>' : '<div class="empty">還沒有廠商建檔</div>';
   }).catch(function (e) { var el = $('cnList'); if (el) el.innerHTML = errBox('讀不到廠商', e.message); });
 }
 function cnCommitView(vid, fid) { toast('下載中…', '', 1500); api('consCommitFile', { vid: vid, fid: fid }).then(cnB64Save).catch(function (e) { toast(esc(e.message), 'err', 4000); }); }
+/** 產生登入碼、只顯示給環安衛（不寄信），由環安衛自己交給廠商。 */
+function cnVCodeShow(vid) {
+  if (!confirm('產生一組新的登入碼（舊的作廢），只顯示在這裡、不寄信，由您自己交給廠商？')) return;
+  api('consVendorCode', { vid: vid, show: true }).then(function (r) {
+    var msg = ['員和工業承攬商專區（' + r.name + '）', '帳號（統一編號）：' + r.tax, '登入碼：' + r.code, '登入：' + r.url].join(String.fromCharCode(10));
+    $('cnList').insertAdjacentHTML('afterbegin', '<div class="box ok"><div class="r">' + ic('check', 22) + '<div class="bt"><b>' + esc(r.name) + ' 的登入資料</b><div class="m">帳號（統編）：' + esc(r.tax) +
+      '<br>登入碼：<b style="font-size:20px;letter-spacing:3px">' + esc(r.code) + '</b><br><button class="btn sm" style="margin-top:6px" onclick="shareLink(' + jsq('員和工業承攬商專區登入') + ',' + jsq(msg) + ')">' + ic('share', 16, 2.4) + '傳給廠商</button></div></div></div></div>');
+    window.scrollTo(0, 0);
+  }).catch(function (e) { toast(esc(e.message), 'err', 4000); });
+}
 function cnVCode(vid) {
   if (!confirm('寄一組新的登入碼到這家廠商建檔的 Email？舊的會作廢。')) return;
   api('consVendorCode', { vid: vid }).then(function (r) { toast('已寄到 ' + r.to, 'ok', 4000); cnVendors(); }).catch(function (e) { toast(esc(e.message), 'err', 4000); });
