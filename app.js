@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.18.3';
+var APP_VERSION = '0.18.4';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -140,9 +140,10 @@ function api(action, body, opt) {
     if (DEV_READ.indexOf(action) < 0) { var de = new Error('開發者模式：這一步會送出資料，已攔下（' + S.dev.name + ' 按下去就會送出）'); de.biz = true; de.dev = true; devBlock(); return Promise.reject(de); }
     devAs = { viewAs: S.dev.name };
   }
+  var op = /^cons/.test(action) && RC_KEEP.indexOf(action) < 0 ? { op: (body && body.op) || newId() } : {};   // 承攬商送出：自動重送不會重複建立（後端以 op 去重）
   function once() {
     var rid = newId();
-    var payload = JSON.stringify(Object.assign({ action: action, token: opt.token === '-' ? '' : (opt.token || lsGet(LS.TOKEN, '')) }, body || {}, { rid: rid, appVer: APP_VERSION }, devAs));
+    var payload = JSON.stringify(Object.assign({ action: action, token: opt.token === '-' ? '' : (opt.token || lsGet(LS.TOKEN, '')) }, body || {}, op, { rid: rid, appVer: APP_VERSION }, devAs));
     return fetch(url, { method: 'POST', redirect: 'follow', body: payload }).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();

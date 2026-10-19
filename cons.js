@@ -13,7 +13,7 @@ var CN_ST_PILL = { '暫緩－文件不齊': 'warn', '施工人員簽名中': 'in
     '.cnwh{margin-bottom:2px}.cnwh span{font-size:13px;font-weight:800;color:var(--sub);padding-left:4px}.cnw .rm{min-height:44px;border:0;background:#F1F4F8;border-radius:10px;font-size:20px}.cnqr{display:flex;justify-content:center;margin:10px 0}.cnqr svg{width:220px;height:220px}' +
     '.cnno{background:#FFF8EC;border-left:4px solid #E58A00;border-radius:0 10px 10px 0;padding:10px 14px;margin:8px 0}.cnno b{display:block;margin-bottom:4px}.cnno li{margin:3px 0}' +
     '.cnwk{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #EEF1F5}.cnagree{display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-size:15px}' +
-    '.cnagree input{width:24px;height:24px;flex-shrink:0;margin-top:2px}.cnok{border:2px solid #E58A00;border-radius:12px;padding:12px;background:#FFF8EC}.cnok small{display:block;color:#5A6472;font-size:13px;margin-top:2px}.cnpm{border:1.5px solid #E58A00;border-radius:12px;padding:10px 12px;margin:10px 0;background:#FFFCF5}' +
+    '.cnagree input{width:24px;height:24px;flex-shrink:0;margin-top:2px}.cnok{border:2px solid #E58A00;border-radius:12px;padding:12px;background:#FFF8EC}.cnok small{display:block;color:#5A6472;font-size:13px;margin-top:2px}.btn.off{background:#DDE2E9;color:#4A5564;box-shadow:none}.shake{animation:cnsh .5s}@keyframes cnsh{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}.cnpm{border:1.5px solid #E58A00;border-radius:12px;padding:10px 12px;margin:10px 0;background:#FFFCF5}' +
     '.cnpm h4{margin:0 0 6px;font-size:16px;color:#92400E}.cntd{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #EEF1F5}.cntd i{flex-shrink:0;width:22px;height:22px;border-radius:50%;' +
     'display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-weight:900;font-size:13px}.cntd .y{background:#DCFCE7;color:#166534}.cntd .n{background:#FEF3C7;color:#92400E}' +
     '.cntd small{display:block;color:var(--sub)}.cnqrbox{border:1.5px solid #D5DCE6;border-radius:12px;padding:10px 12px;margin:10px 0}.cnqrbox h4{margin:0;font-size:16px}' +
@@ -101,8 +101,8 @@ function cnRedraw() { cnKeep(); var y = window.scrollY; render(); window.scrollT
 function cnOk(btn, note) {
   return '<label class="cnagree cnok"><input type="checkbox" id="cnOk" onchange="cnOkTog(' + jsq(btn) + ')"><span><b>我已確認上述資料無誤</b>' + (note ? '<small>' + esc(note) + '</small>' : '') + '</span></label>';
 }
-function cnOkTog(btn) { var b = $(btn), c = $('cnOk'); if (b && !/busy/.test(b.className)) b.disabled = !(c && c.checked); }
-function cnOkChk() { var c = $('cnOk'); if (c && !c.checked) { toast('請先勾「我已確認上述資料無誤」', 'err'); c.focus(); return false; } return true; }
+function cnOkTog(btn) { var b = $(btn), c = $('cnOk'); if (b && !/busy/.test(b.className)) b.classList.toggle('off', !(c && c.checked)); }
+function cnOkChk() { var c = $('cnOk'); if (c && !c.checked) { toast('請先看過上面的資料，勾「我已確認上述資料無誤」', 'err'); c.parentNode.scrollIntoView({ block: 'center', behavior: 'smooth' }); c.parentNode.classList.add('shake'); setTimeout(function () { c.parentNode.classList.remove('shake'); }, 600); return false; } return true; }
 /** 施工申請暫存在這支手機（附件、簽名不存；7 天內回來可以接著填）。 */
 function cnDraftKey() { var P = S.cpub; return 'cons_draft:' + (P.i || 'v') + ':' + (P.vendor ? P.vendor.tax : ''); }
 function cnDraftGet() { try { var o = JSON.parse(localStorage.getItem(cnDraftKey()) || 'null'); return o && Date.now() - o.t < 7 * 864e5 ? o : null; } catch (e) { return null; } }
@@ -188,7 +188,18 @@ function cnReg() {
     cnField('crAddr', '公司地址', f.crAddr, { max: 100 }) + '<label class="nl">承攬類別（可複選）</label>' + cnChips('types', P.form.types, f.types) + '<div id="crErr"></div>';
   bar('<button class="btn" id="crBtn" onclick="cnRegGo()">' + ic('check', 22, 3) + '送出建檔</button>');
 }
+/** Email 常見打錯（跟後端 csMailTypo_ 同一張表）：送出前問一次要不要改，不硬擋。 */
+function cnMailFix(id) {
+  var el = $(id), v = el ? el.value.trim() : '', m = /^([^@\s]+)@([^@\s]+)$/.exec(v.toLowerCase()); if (!m) return true;
+  var fx = { 'gmial.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com', 'gamil.com': 'gmail.com', 'gmail.com.tw': 'gmail.com', 'yahoo.com.t': 'yahoo.com.tw',
+             'yahoo.con.tw': 'yahoo.com.tw', 'yaho.com.tw': 'yahoo.com.tw', 'hotmial.com': 'hotmail.com', 'hotmail.con': 'hotmail.com', 'msa.hinet.ne': 'msa.hinet.net', 'ms.hinet.net': 'msa.hinet.net', 'outlook.con': 'outlook.com' }[m[2]];
+  if (!fx) return true;
+  var g = m[1] + '@' + fx;
+  if (confirm('Email「' + v + '」好像打錯了，是不是「' + g + '」？\n\n按「確定」改成 ' + g + '\n按「取消」維持原本的')) { el.value = g; S.cpub.f[id] = g; }
+  return true;
+}
 function cnRegGo() {
+  cnMailFix('crEmail');
   var b = { tax: cnV('crTax'), name: cnV('crName'), owner: cnV('crOwner'), contact: cnV('crContact'), phone: cnV('crPhone'), email: cnV('crEmail'), addr: cnV('crAddr'), types: S.cpub.f.types || [], vs: cnVs() };
   cnBusy('crBtn', '送出中…');
   cnPub('consPubReg', b).then(function (d) { S.cpub.done = d; window.scrollTo(0, 0); render(); })
@@ -217,8 +228,8 @@ function cnApply() {
       '<label class="cnagree"><input type="checkbox" id="caCommitDecl"' + (f.commitDeclared ? ' checked' : '') + ' onchange="S.cpub.f.commitDeclared=this.checked"><span>本公司建檔時已提交承諾書（或已寄出用印正本）</span></label>' +
       '<div class="muted sm">還沒交的話，請把負責人簽名、蓋公司大小章的承諾書拍照或掃描，在這裡上傳：</div>' + cnFilesBoxK('commitFiles', 'caCommit', 2)) +
     cnCaseForm(P.form, f) + cnFilesBox('caFiles', P.form) + cnAgree() + cnSigBox('施工負責人請簽全名') +
-    cnOk('caBtn', '送出後要改，只能在員和承辦人員簽名前修改；送審後要等環安衛退回') + '<div id="caErr"></div>';
-  bar('<button class="btn ghost" onclick="cnDraftPut(true)">' + ic('down', 18, 2.4) + '暫存</button><button class="btn" id="caBtn" disabled onclick="cnApplyGo()">' + ic('check', 22, 3) + '送出申請</button>');
+    cnOk('caBtn', '提交審核前還可以用案件連結修改；提交審核後，要等環安衛退回才能改') + '<div id="caErr"></div>';
+  bar('<button class="btn ghost" onclick="cnDraftPut(true)">' + ic('down', 18, 2.4) + '暫存</button><button class="btn off" id="caBtn" onclick="cnApplyGo()">' + ic('check', 22, 3) + '送出申請</button>');
   sigInit();
   if (!$('app').dataset.dr) { $('app').dataset.dr = '1'; $('app').addEventListener('input', function () { if (S.cpub && S.cpub.kind === 'apply') cnDraftAuto(); }); }
 }
@@ -333,7 +344,7 @@ function cnCaseBody() {
            sup: cnV('caSup'), supPhone: cnV('caSupPhone'), email: cnV('caEmail'), note: cnV('caNote'), files: f.files || [] };
 }
 function cnApplyGo() {
-  cnKeep();
+  cnMailFix('caEmail'); cnKeep();
   var b = cnCaseBody(), f = S.cpub.f, o = S.cpub.form;
   b.tax = S.cpub.vendor.tax; b.agree = !!($('caAgree') && $('caAgree').checked);
   b.commitDeclared = !!f.commitDeclared; b.commitFiles = f.commitFiles || [];
@@ -351,6 +362,7 @@ function cnApplyGo() {
   if (!SIG.drawn) return toast('施工負責人請簽名', 'err');
   if (!cnOkChk()) return;
   b.image = sigExport(); if (!b.image) return toast('簽名太小，請簽大一點', 'err');
+  b.op = f.op = f.op || newId();                                   // 「再送一次」沿用同一個 op：上一次其實已送到就不會多一件
   cnBusy('caBtn', b.files.length ? '上傳中…（有附件會久一點）' : '送出中…');
   cnPub('consPubApply', b).then(function (d) { cnDraftDel(); S.cpub.done = d; window.scrollTo(0, 0); render(); })
     .catch(function (e) { $('caErr').innerHTML = errBox('沒有送出', e.message); cnUnbusy('caBtn', '再送一次'); });
@@ -423,7 +435,7 @@ function cnCase() {
     h += '<div class="box bad"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>「' + esc(d.pmMissing.join('、')) + '」還沒申請作業許可</b><div class="m">申請了特殊作業就要有許可單，沒有不能提交審核。' +
       (d.canPermit ? '<button class="btn sm" onclick="cnPmStart()">' + ic('plus', 16, 2.6) + '現在申請</button>' : '') + '</div></div></div></div>';
   if (d.canSubmit) h += (left.length ? '<div class="muted sm">施工人員還有 ' + left.length + ' 位沒簽（' + esc(left.map(function (w) { return w.name; }).join('、')) + '），可以先提交，他們之後仍可補簽。</div>' : '') +
-    cnOk('cnSubBtn') + '<button class="btn" id="cnSubBtn" disabled onclick="cnPubSubmit()">' + ic('up', 20, 2.6) + '提交審核</button>';
+    cnOk('cnSubBtn') + '<button class="btn off" id="cnSubBtn" onclick="cnPubSubmit()">' + ic('up', 20, 2.6) + '提交審核</button>';
   if (d.status === '已核准') h += cnStCard('ok', '', '已核准，施工期間可進場。進場當天請先參加工具箱會議；入廠施工許可證等文件已寄到 Email。');
   h += '<div class="sec">施工人員簽名 ' + d.wSigned + '/' + d.workers.length + '<button class="btn ghost sm" onclick="S.cpub.reload=true;render()">' + ic('refresh', 16, 2.4) + '更新</button></div><div class="card">' +
     d.workers.map(function (w) {
@@ -477,7 +489,7 @@ function cnFixForm() {
     '<div class="sec">已登記的施工人員<small>按 × 移除；已簽名的保留簽名</small></div><div class="card">' +
     (kept.length ? kept.map(function (w) { return '<div class="cnwk"><span>' + esc(w.name) + (w.signed ? '（已簽）' : '') + '</span><button type="button" class="rm btn ghost sm" onclick="cnKeepRm(' + w.seq + ')">×</button></div>'; }).join('') : '<div class="muted">（都移除了）</div>') + '</div>' +
     cnCaseForm(P.form, f, true) + cnFilesBox('caFiles', P.form) + cnSigBox('換了施工負責人才需要簽名（沒換可以不簽）') + cnOk('caBtn') + '<div id="caErr"></div>';
-  bar('<button class="btn ghost" onclick="if(confirm(\'放棄這次修改？\')){S.cpub.fix=false;render()}">取消</button><button class="btn" id="caBtn" disabled onclick="cnFixGo()">' + ic('check', 22, 3) + '送出修改</button>');
+  bar('<button class="btn ghost" onclick="if(confirm(\'放棄這次修改？\')){S.cpub.fix=false;render()}">取消</button><button class="btn off" id="caBtn" onclick="cnFixGo()">' + ic('check', 22, 3) + '送出修改</button>');
   sigInit();
 }
 function cnKeepRm(seq) { var k = S.cpub.keep.indexOf(seq); if (k >= 0) S.cpub.keep.splice(k, 1); cnWk(-2); }
@@ -575,7 +587,7 @@ function cnHSign() {
     h = cnStCard('ok', '承辦人員已簽名（' + d.handlerSignedBy + '）', d.status === '待審核' ? '已提交，環安衛審核中。這個畫面可以關閉。' : d.canSubmit ? '可以提交審核了。' : '') + h;
     if (d.status === '施工人員簽名中' && !d.canSubmit) h += cnStCard('warn', '還不能提交', !d.supSigned ? '施工負責人還沒簽名。' : d.pmMissing && d.pmMissing.length ? '廠商還沒申請「' + esc(d.pmMissing.join('、')) + '」作業許可，請施工負責人在案件頁申請。' : '');
     $('app').innerHTML = h + (d.canSubmit ? cnOk('hsBtn') : '') + '<div id="hsErr"></div>';
-    bar(d.canSubmit ? '<button class="btn" id="hsBtn" disabled onclick="cnHSubmit()">' + ic('up', 20, 2.6) + '提交審核</button>' : '');
+    bar(d.canSubmit ? '<button class="btn off" id="hsBtn" onclick="cnHSubmit()">' + ic('up', 20, 2.6) + '提交審核</button>' : '');
     return;
   }
   if (!d.canSign) {
@@ -590,7 +602,7 @@ function cnHSign() {
     (left.length ? '<div class="muted sm">施工人員還有 ' + left.length + ' 位沒簽，可以先提交，他們之後仍可補簽。</div>' : '') +
     cnSigBox('請用手指簽全名') + cnOk('hsBtn', '請確認上面的工程、區域、期間、特殊作業都對') + '<div id="hsErr"></div>';
   $('app').innerHTML = h;
-  bar('<button class="btn" id="hsBtn" disabled onclick="cnHSignGo()">' + ic('check', 22, 3) + '簽名並提交審核</button>');
+  bar('<button class="btn off" id="hsBtn" onclick="cnHSignGo()">' + ic('check', 22, 3) + '簽名並提交審核</button>');
   sigInit();
 }
 function cnHSignGo() {
@@ -687,13 +699,14 @@ function cnCaseStaff(d) {
   h += '<div class="sec">歷程</div><div class="card">' + d.history.map(function (x) { return '<div class="cnwk"><span><b>' + esc(x.act) + '</b>' + (x.note ? '・' + esc(x.note) : '') + '<br><small class="muted">' + esc(x.who) + '</small></span><small class="muted">' + esc(x.at.slice(5)) + '</small></div>'; }).join('') + '</div>';
   if (d.comment) h += '<div class="box info"><div class="r">' + ic('info', 20) + '<div class="bt"><b>審核意見</b><div class="m">' + esc(d.comment).replace(/\n/g, '<br>') + '</div></div></div></div>';
   if (S.cnEdit && S.cnEdit.id === d.id) return cnEhsEditForm(d, h);
+  if (S.cnRv && S.cnRv.id === d.id) return cnReviewForm(d, h);
   if (d.canEhsEdit) h += '<button class="btn line" onclick="cnEhsEditStart()">' + ic('pen', 18, 2.4) + '修改廠商申請內容（特殊作業勾錯、漏勾）</button>';
   if (d.pmMissing && d.pmMissing.length && ['施工人員簽名中', '待審核', '補件退回'].indexOf(d.status) >= 0) h += cnStCard('warn', '「' + d.pmMissing.join('、') + '」還沒有作業許可', '要請施工負責人在案件連結申請，沒有不能提交審核。');
   var left = d.workers.length - d.wSigned;
   if (d.canSign || d.canSubmit) h += cnOk('cnBtn', left ? '施工人員還有 ' + left + ' 位沒簽，可以先提交，他們之後仍可補簽' : '');
   $('app').innerHTML = h + '<div id="cnErr"></div>';
-  if (d.canSign) bar('<button class="btn" id="cnBtn" disabled onclick="cnHandlerSign()">' + ic('pen', 20, 2.4) + '簽名並提交審核' + (left ? '（' + left + ' 位未簽）' : '') + '</button>');
-  else if (d.canSubmit) bar('<button class="btn" id="cnBtn" disabled onclick="cnSubmit()">' + ic('up', 20, 2.6) + '提交審核</button>');
+  if (d.canSign) bar('<button class="btn off" id="cnBtn" onclick="cnHandlerSign()">' + ic('pen', 20, 2.4) + '簽名並提交審核' + (left ? '（' + left + ' 位未簽）' : '') + '</button>');
+  else if (d.canSubmit) bar('<button class="btn off" id="cnBtn" onclick="cnSubmit()">' + ic('up', 20, 2.6) + '提交審核</button>');
   else if (d.canReview) bar('<button class="btn ghost" onclick="cnReview(\'return\')">退回補件</button><button class="btn ghost" onclick="cnReview(\'reject\')">駁回</button><button class="btn" id="cnBtn" onclick="cnReview(\'approve\')">' + ic('check', 20, 3) + '核准</button>');
   else bar('');
 }
@@ -743,15 +756,30 @@ function cnEhsEditGo() {
     cnAfter('已修改並通知廠商' + (r.needPermit && r.needPermit.length ? '；已退回補件，請廠商申請「' + r.needPermit.join('、') + '」許可' : '') + (r.cancelled && r.cancelled.length ? '；取消 ' + r.cancelled.length + ' 張許可' : ''))();
   }).catch(cnErr);
 }
+/** 審核：退回補件／駁回要寫原因（常用原因點一下帶入），核准可以留備註。10/19 晚：不用瀏覽器的 prompt 小框框。 */
+var CN_RV_WHY = ['施工人員還沒全部簽名', '請補施工計畫書', '請補特殊作業許可', '承諾書要負責人簽名並蓋公司大小章', '施工期間或區域不正確', '施工人員資料不完整'];
 function cnReview(dec) {
-  var name = { approve: '核准', 'return': '退回補件', reject: '駁回' }[dec], d = S.cnD;
+  var d = S.cnD;
   if (dec === 'approve' && d.gaps && d.gaps.length && !confirm('還有：\n' + d.gaps.join('\n') + '\n\n仍要核准？（會記進歷程）')) return;
-  var ask = dec === 'approve' ? '備註（選填，廠商會看到）' : name + '原因（廠商會看到；要補的東西用「；」分開會逐條列出）';
-  var c = prompt(ask, ''); if (c === null) return;
-  if (dec !== 'approve' && c.trim().length < 2) return toast('請寫原因', 'err');
+  S.cnRv = { id: d.id, dec: dec, txt: '' }; cnCaseStaff(d); window.scrollTo(0, 0);
+}
+function cnRvAdd(x) { var el = $('rvTxt'), v = el.value.trim(); if (v.split('\n').indexOf(x) < 0) el.value = (v ? v + '\n' : '') + x; S.cnRv.txt = el.value; el.focus(); }
+function cnReviewForm(d, h) {
+  var R = S.cnRv, name = { approve: '核准', 'return': '退回補件', reject: '駁回' }[R.dec], must = R.dec !== 'approve';
+  var f = '<div class="sec">' + name + '<small>' + (must ? '原因廠商會看到；一行一項會逐條列出' : '備註選填，廠商會看到') + '</small></div><div class="card">' +
+    (must ? '<label class="nl">常用原因（點一下帶入）</label><div class="cwrap">' + CN_RV_WHY.concat(d.gaps || []).filter(function (x, i, a) { return a.indexOf(x) === i; }).map(function (x) {
+      return '<button type="button" class="chip" onclick="cnRvAdd(' + jsq(x) + ')">' + esc(x) + '</button>'; }).join('') + '</div>' : '') +
+    '<label class="nl' + (must ? ' req' : '') + '" for="rvTxt">' + (must ? name + '原因' : '備註') + '</label><textarea class="field" id="rvTxt" rows="4" maxlength="500" oninput="S.cnRv.txt=this.value">' + esc(R.txt || '') + '</textarea>' +
+    (R.dec === 'reject' ? '<div class="box bad"><div class="r">' + ic('warn', 20) + '<div class="bt"><b>駁回＝這件申請結束</b><div class="m">廠商不能再補件，要重新申請。只是缺東西請用「退回補件」。</div></div></div></div>' : '') + '</div>';
+  $('app').innerHTML = f + h + '<div id="cnErr"></div>';
+  bar('<button class="btn ghost" onclick="S.cnRv=null;cnCaseStaff(S.cnD)">取消</button><button class="btn' + (R.dec === 'reject' ? ' red' : '') + '" id="cnBtn" onclick="cnReviewGo()">' + ic('check', 20, 3) + '確認' + name + '</button>');
+}
+function cnReviewGo() {
+  var R = S.cnRv, d = S.cnD, name = { approve: '核准', 'return': '退回補件', reject: '駁回' }[R.dec], c = ($('rvTxt') ? $('rvTxt').value : R.txt || '').trim();
+  if (R.dec !== 'approve' && c.length < 2) { toast('請寫' + name + '原因（廠商會看到）', 'err'); if ($('rvTxt')) $('rvTxt').focus(); return; }
   cnBusy('cnBtn', '送出中…');
-  api('consReview', { id: d.id, decision: dec, comment: c.trim().replace(/[；;]\s*/g, '\n') }).then(function (r) {
-    cnAfter('已' + name + (r.held && r.held.length ? '；' + r.held.length + ' 張許可還沒放行' : ''))();
+  api('consReview', { id: d.id, decision: R.dec, comment: c.replace(/[；;]\s*/g, '\n') }).then(function (r) {
+    S.cnRv = null; cnAfter('已' + name + (r.held && r.held.length ? '；' + r.held.length + ' 張許可還沒放行' : ''))();
   }).catch(cnErr);
 }
 function cnVendors() {
@@ -834,23 +862,29 @@ function cnPmForm() {
   var same = types.some(function (t) { return d.pmSameDay.indexOf(t) >= 0; });
   var h = '<div class="muted">施工期間 ' + esc(d.start + '～' + d.end) + '。動火、吊掛許可限當天，隔天要重新申請。注意事項要逐項確認做到才能送出。</div>' +
     '<label class="nl req">作業類別</label>' + cnChips('types', d.pmTypes, types) +
-    '<div class="r2">' + cnField('pmStart', '作業日期', f.pmStart, { type: 'date', max: 10 }) + (same ? '' : cnField('pmEnd', '結束日期（多日才填）', f.pmEnd, { type: 'date', max: 10, req: false })) + '</div>' +
+    '<div class="r2">' + cnField('pmStart', '作業日期', f.pmStart, { type: 'date', max: 10, change: 'cnRedraw()' }) + (same ? '' : cnField('pmEnd', '結束日期（多日才填）', f.pmEnd, { type: 'date', max: 10, req: false })) + '</div>' +
     '<div class="r2">' + cnField('pmFrom', '起始時間', f.pmFrom || '08:00', { type: 'time', max: 5 }) + cnField('pmTo', '結束時間', f.pmTo || '17:00', { type: 'time', max: 5 }) + '</div>' +
     cnField('pmArea', '作業區域', f.pmArea) + cnField('pmDesc', '工程內容概述', f.pmDesc, { max: 100 }) +
     (types.indexOf('動火作業') >= 0 ? '<label class="nl req">動火方式</label>' + cnChips('hot', d.hotList, f.hot) : '');
-  if (types.indexOf('局限空間作業') >= 0) h += '<div class="sec">作業環境測定<small>O2 ≥ ' + d.pmSafe.O2_MIN + '%、LEL ≤ ' + d.pmSafe.LEL_MAX + '%、H2S ≤ ' + d.pmSafe.H2S_MAX + 'ppm、CO ≤ ' + d.pmSafe.CO_MAX + 'ppm</small></div>' +
-    '<div class="r2">' + cnField('pmO2', 'O2（%）', f.pmO2, { mode: 'decimal', max: 6 }) + cnField('pmLel', 'LEL（%）', f.pmLel, { mode: 'decimal', max: 6 }) + '</div>' +
-    '<div class="r2">' + cnField('pmH2s', 'H2S（ppm）', f.pmH2s, { mode: 'decimal', max: 6 }) + cnField('pmCo', 'CO（ppm）', f.pmCo, { mode: 'decimal', max: 6 }) + '</div>' +
-    cnField('pmWho', '測定人員', f.pmWho, { max: 20 }) + cnField('pmLift', '關聯吊掛許可編號（需要吊掛才填）', f.pmLift, { max: 20, req: false });
+  if (types.indexOf('局限空間作業') >= 0) {
+    var gToday = (f.pmStart || '') === d.today;
+    h += '<div class="sec">作業環境測定<small>O2 ≥ ' + d.pmSafe.O2_MIN + '%、LEL ≤ ' + d.pmSafe.LEL_MAX + '%、H2S ≤ ' + d.pmSafe.H2S_MAX + 'ppm、CO ≤ ' + d.pmSafe.CO_MAX + 'ppm</small></div>' +
+      (gToday ? '<div class="muted sm">今天作業、已經在現場測好才填；還沒測就空著，進入前在案件頁按「填氣體測定值」。</div>' +
+        '<div class="r2">' + cnField('pmO2', 'O2（%）', f.pmO2, { mode: 'decimal', max: 6, req: false }) + cnField('pmLel', 'LEL（%）', f.pmLel, { mode: 'decimal', max: 6, req: false }) + '</div>' +
+        '<div class="r2">' + cnField('pmH2s', 'H2S（ppm）', f.pmH2s, { mode: 'decimal', max: 6, req: false }) + cnField('pmCo', 'CO（ppm）', f.pmCo, { mode: 'decimal', max: 6, req: false }) + '</div>' +
+        cnField('pmWho', '測定人員', f.pmWho, { max: 20, req: false })
+      : '<div class="cnno">氣體要在<b>作業當天、進入前</b>現場測定。申請後許可單是「待測定」，當天進入前在案件頁按<b>「填氣體測定值」</b>，合格才放行。</div>') +
+      cnField('pmLift', '關聯吊掛許可編號（需要吊掛才填）', f.pmLift, { max: 20, req: false });
+  }
   types.forEach(function (t) {
     var c = f.chk[t] || [];
     h += '<div class="sec">' + esc(t) + '注意事項<small>逐項確認</small></div><div class="card">' + d.pmCheck[t].map(function (x, i) {
       return '<label class="cnagree" style="margin:6px 0"><input type="checkbox"' + (c[i] ? ' checked' : '') + ' onchange="cnPmTogChk(' + jsq(t) + ',' + i + ')"><span>' + (i + 1) + '. ' + esc(x) + '</span></label>';
     }).join('') + '</div>';
   });
-  h += cnField('pmSup', '申請人（施工現場監督人員）', f.pmSup, { max: 20 }) + cnSigBox('申請人請簽全名') + '<div id="pmErr"></div>';
+  h += cnField('pmSup', '申請人（施工現場監督人員）', f.pmSup, { max: 20 }) + cnSigBox('申請人請簽全名') + cnOk('pmBtn') + '<div id="pmErr"></div>';
   $('app').innerHTML = h;
-  bar('<button class="btn ghost" onclick="S.cpub.pm=false;S.cpub.f={};render()">取消</button><button class="btn" id="pmBtn" onclick="cnPmGo()">' + ic('check', 22, 3) + '送出申請</button>');
+  bar('<button class="btn ghost" onclick="S.cpub.pm=false;S.cpub.f={};render()">取消</button><button class="btn off" id="pmBtn" onclick="cnPmGo()">' + ic('check', 22, 3) + '送出申請</button>');
   sigInit();
 }
 function cnPmGo() {
@@ -860,6 +894,7 @@ function cnPmGo() {
   if (!b.types.length) return toast('請勾選作業類別', 'err');
   if (!SIG.drawn) return toast('請簽名', 'err');
   b.image = sigExport(); if (!b.image) return toast('簽名太小，請簽大一點', 'err');
+  if (!cnOkChk()) return;
   cnBusy('pmBtn', '送出中…');
   cnPub('consPubPermit', b).then(function (r) {
     S.cpub.pm = false; S.cpub.f = {}; S.cpub.reload = true; window.scrollTo(0, 0); render();
@@ -892,10 +927,12 @@ function cnVHome() {
     '</div><button class="btn sm" style="margin-top:8px" onclick="S.cpub.tab=\'v\';render()">去處理</button></div></div></div>';
   if (tab === 'c') {
     var on = d.cases.filter(function (x) { return ['已駁回', '已結案'].indexOf(x.status) < 0 && x.end >= d.today; }), off = d.cases.filter(function (x) { return on.indexOf(x) < 0; });
+    on.sort(function (a, b) { return (b.todo ? 1 : 0) - (a.todo ? 1 : 0); });             // 要處理的排前面
     var row = function (x) {
       var st = x.status === '已核准' ? (x.start > d.today ? '已核准・待進場' : x.end < d.today ? '已完工' : '施工中') : x.status;
       return '<button class="li cs" onclick="S.cpub={kind:\'case\',vs:S.cpub.vs,demo:S.cpub.demo,cid:' + jsq(x.id) + ',f:{}};render()"><span class="mn"><span class="mt">' + esc(x.id + '・承辦 ' + x.handler) + '</span><span class="nm">' + esc(x.work) + '</span>' +
-        '<span class="mt">' + esc(x.area + '・' + x.start + (x.end !== x.start ? '～' + x.end.slice(5) : '')) + '</span><span class="mt">' + esc('施工人員 ' + x.wSigned + '/' + x.workers + ' 已簽' + (x.permits ? '・許可 ' + x.permits + ' 張' : '') + (x.docs ? '・文件 ' + x.docs + ' 份' : '')) + '</span></span>' +
+        '<span class="mt">' + esc(x.area + '・' + x.start + (x.end !== x.start ? '～' + x.end.slice(5) : '')) + '</span>' +
+        (x.todo && on.indexOf(x) >= 0 ? '<span class="mt" style="color:#B45309;font-weight:800">' + ic('warn', 14, 2.6) + ' ' + esc(x.todo) + '</span>' : '') + '<span class="mt">' + esc('施工人員 ' + x.wSigned + '/' + x.workers + ' 已簽' + (x.permits ? '・許可 ' + x.permits + ' 張' : '') + (x.docs ? '・文件 ' + x.docs + ' 份' : '')) + '</span></span>' +
         '<span class="csr">' + pill(CN_ST_PILL[x.status] || 'na', '', st) + ic('chev', 18, 2.6) + '</span></button>';
     };
     h += '<div class="sec">進行中 ' + on.length + '</div>' + (on.length ? '<div class="list">' + on.map(row).join('') + '</div>' : '<div class="empty">目前沒有進行中的案件</div>') +
