@@ -1,5 +1,5 @@
 {
- "version": "0.16.0",
+ "version": "0.17.0",
  "chapters": [
   {
    "no": 1,
@@ -723,11 +723,11 @@
      ],
      "steps": [
       "Main menu <b>Construction</b> → <b>Application link</b> → <b>Send to contractor</b> (LINE) or <b>Copy link</b>. The link is valid for <b>30 days</b>; cases sent through it are assigned to you (you are the handler).",
-      "The contractor enters their <b>tax ID</b>. New contractors register first; the system emails the <b>contractor safety commitment</b>, which the owner signs and stamps and mails back to the EHS center.",
+      "The contractor enters their <b>tax ID</b>. New contractors register first; the system emails the <b>safety commitment</b> and a <b>login code</b>. After the owner signs and stamps it, they <b>photograph or scan it and upload it in the app</b> (or mail the original).",
       "The contractor fills in the work and period, adds workers one per row with <b>＋ Add a worker</b> (name + last 4 ID digits), may attach files such as the work plan, and the <b>site supervisor signs</b> to submit.",
       "If <b>hot work, lifting, confined space or work at height</b> is ticked, the screen asks them to <b>fill in the permit in the same application</b> (dates, times, every precaution confirmed) — no separate form. Ask contractors to apply <b>3 days before</b> work starts."
      ],
-     "tip": "After submitting, the contractor receives <b>two QR codes</b> by email (① worker signatures, ② handler signature), the case link and a <b>6-digit query code</b>.",
+     "tip": "After submitting, the contractor receives <b>two QR codes</b> by email (① workers, ② handler) and the case link; under each QR they can <b>share the QR image</b> to a LINE group. If the commitment is not yet confirmed, they must tick that it was submitted or upload it.",
      "warn": false
     },
     {
@@ -791,15 +791,37 @@
       ],
       [
        "c18_承攬商查詢",
-       "Contractor enters the 6-digit code"
+       "Contractor login"
       ]
      ],
      "steps": [
       "<b>Cases</b> tab: open cases marked <b>Awaiting your review</b>. <b>Check before review</b> lists unsigned workers, missing permits and the commitment status; check attachments, same-phone warnings and history, then <b>Approve</b>, <b>Return</b> or <b>Reject</b> (separate items with “；” and they are listed one by one in the contractor's email).",
-      "<b>Contractors & commitments</b> tab: when the signed and stamped original arrives, tap <b>Commitment original received</b>; held cases resume and the contractor is notified. If it was not actually received, tap <b>Not actually received?</b> and the contractor is asked to resend it.",
-      "<b>Contractor case lookup</b>: at the bottom of the app login page, <b>Contractor case lookup</b> — enter only the <b>6-digit query code</b> from the email to see signatures, review, permits and progress, even after the case ends. Without the email, enter the tax ID and the case links are sent to the registered email."
+      "<b>Contractors & commitments</b> tab: open the uploaded commitment, check the owner signature and company stamps, then tap <b>Confirm commitment received</b>; held cases resume and the contractor is notified. If not actually received, tap <b>Not actually received?</b>. Use <b>Resend login code</b> if a contractor forgot it.",
+      "<b>Contractor login</b>: at the bottom of the app login page tap <b>Contractor login</b> — account = <b>tax ID</b>, login code = the <b>6 digits</b> emailed at registration; the phone remembers it. If forgotten, enter the tax ID and a new code is sent to the registered email."
      ],
      "tip": "Approved documents and permits are saved to the NAS by the PC schedule every morning.",
+     "warn": false
+    },
+    {
+     "no": "7-6",
+     "title": "Contractor area: what contractors can see",
+     "lead": "After logging in, contractors can study YH rules and risks before work and see all of their own cases.",
+     "shots": [
+      [
+       "c21_承攬商專區_案件",
+       "Cases (current and history)"
+      ],
+      [
+       "c22_承攬商專區_施工前必讀",
+       "Read before work"
+      ]
+     ],
+     "steps": [
+      "<b>Cases</b>: current and past; open one to see signatures, the two QR codes, permits, <b>download approved documents</b> and the <b>high-risk work related to this case</b>.",
+      "<b>Read before work</b>: YH safety rules, site hazards (chemicals, dust, forklifts, emergencies), 9 <b>high-risk work</b> cards (safety signs, main hazards, must-do) and the permit precautions and confined-space limits.",
+      "<b>Company & commitment</b>: company data, commitment status, download the pre-filled commitment, upload the stamped copy."
+     ],
+     "tip": "Contractors only see their own company; workers' ID digits never appear on screen.",
      "warn": false
     }
    ]

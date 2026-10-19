@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.16.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.17.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -517,10 +517,10 @@ PLAT_PAGES.edu = function () {
   if (isEhs()) h += '<div class="btns"><button class="btn" onclick="S.ep=null;go(\'eduPost\')">' + ic('plus', 18, 2.4) + '發布新文宣</button><button class="btn ghost" onclick="S.es=null;go(\'eduStats\')">' + ic('review', 18, 2.4) + '閱讀紀錄</button></div>' +
     '<button class="btn line" style="margin-top:10px" onclick="go(\'meetNew\')">' + ic('helmet', 18, 2.4) + '新進人員教育訓練（現場掃碼簽到）</button>';
   // 10/19 晚 Jason：通知說有未完成的，點進來要一眼看出是哪幾則 → 第一個分頁「待完成」（數字＝還沒做完的），有待完成就先開它
-  var isTodo = function (x) { return x.course ? !x.done : x.needAck ? !x.acked : !x.opened; };
-  var todoL = isEhs() ? [] : e.list.filter(isTodo).sort(function (a, b) { return String(a.due || '9999').localeCompare(String(b.due || '9999')) || (b.course ? 1 : 0) - (a.course ? 1 : 0); });
+  var isTodo = function (x) { return x.forMe !== false && (x.course ? !isEhs() && !x.done : x.needAck ? !x.acked : !x.opened); };   // 環安衛看得到全部，待完成只算發給自己的
+  var todoL = e.list.filter(isTodo).sort(function (a, b) { return String(a.due || '9999').localeCompare(String(b.due || '9999')) || (b.course ? 1 : 0) - (a.course ? 1 : 0); });
   var view = e.view || (todoL.length ? 'todo' : 'all');
-  var tabs = (isEhs() ? [] : [['todo', '待完成', todoL.length]]).concat([['all', '全部'], ['lib', '教材庫'], ['risk', '高風險作業']]);
+  var tabs = [['todo', '待完成', todoL.length]].concat([['all', '全部'], ['lib', '教材庫'], ['risk', '高風險作業']]);
   h += '<div class="seg2 cstab" style="grid-template-columns:repeat(' + tabs.length + ',minmax(0,1fr))">' + tabs.map(function (v) {
     return '<button class="' + (view === v[0] ? 'on' : '') + '" onclick="S.edu.view=' + jsq(v[0]) + ';render()"><span>' + esc(v[1]) + '</span>' + (v[2] ? ' <b data-raw>' + v[2] + '</b>' : '') + '</button>'; }).join('') + '</div>';
   if (view === 'lib') { $('app').innerHTML = h + eduLibHtml(e); return; }

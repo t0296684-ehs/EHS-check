@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.16.0';
+var APP_VERSION = '0.17.0';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -564,8 +564,8 @@ PAGES.login = function () {
   var sel = a.i != null ? ps[a.i] : null;
   if (sel && sel.needPin) h += step(3, false, '<label for="pin">輸入啟用碼</label>') + '<input id="pin" class="field pin" inputmode="numeric" autocomplete="one-time-code" placeholder="環安衛中心給您的啟用碼">';
   h += '<div id="loginErr"></div>';
-  if (!a.spc && !a.dept && !a.mgr && !curG) h += '<button class="card fcard cnlog" onclick="S.cpub={kind:\'login\',f:{}};render()"><div class="fh">' + ic('helmet', 22, 2.2) + '<b>承攬商查詢案件</b></div>' +
-    '<div class="muted">廠商、施工負責人：輸入 Email 裡的 6 碼查詢密碼，看簽名、審核與施工狀況（不用選部門）。</div></button>';
+  if (!a.spc && !a.dept && !a.mgr && !curG) h += '<button class="card fcard cnlog" onclick="S.cpub={kind:\'login\',f:{}};render()"><div class="fh">' + ic('helmet', 22, 2.2) + '<b>承攬商登入</b></div>' +
+    '<div class="muted">施工廠商：帳號＝統一編號、登入碼＝建檔時寄到 Email 的 6 碼。看貴公司全部施工案件與施工前必讀（不用選部門）。</div></button>';
   $('app').innerHTML = h;
   if (sel) bar('<button class="btn" id="bindBtn" onclick="doBind()">確認，我是 ' + esc(sel.name) + '</button>');
 };
@@ -2987,6 +2987,7 @@ function bfStop() {
   keepStorage();
   setTimeout(splashDone, 3000);
   var cr = window.cnRoute && cnRoute();
+  if (!cr && !lsGet(LS.TOKEN, '') && window.cnVs && cnVs()) cr = { kind: 'vhome', vs: cnVs(), f: {} };   // 承攬商登入過的手機：直接進承攬商專區（跟員工一樣登入一次就好）
   if (cr) {                                     // 承攬商（廠商、施工人員）連結：不用登入，不碰這支手機原本的登入、草稿、待上傳
     S.cpub = cr; S.page = 'consPub';
     window.addEventListener('hashchange', function () { location.reload(); });
@@ -3028,4 +3029,36 @@ function bfStop() {
     }
   });
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) swReg();
+})();
+
+// ───────────── 往右滑回上一頁（10/19 Jason：跟好用的 App 一樣，不必按左上角）─────────────
+// 從螢幕左邊緣（24px 內）往右滑超過 1/4 寬放開 → 等於按左上角「返回」；滑動時畫面跟著手指走一點點。
+// Android 的系統返回手勢／返回鍵也一樣回上一頁（用一筆瀏覽紀錄墊著，按到首頁時才真的離開）。
+(function () {
+  var sx = 0, sy = 0, on = false, dx = 0, app = null;
+  var backBtn = function () { var b = document.getElementById('back'); return b && b.offsetParent !== null ? b : null; };
+  document.addEventListener('touchstart', function (e) {
+    var t = e.touches[0]; on = false;
+    if (e.touches.length !== 1 || t.clientX > 24 || !backBtn()) return;
+    sx = t.clientX; sy = t.clientY; dx = 0; on = true; app = document.getElementById('app');
+  }, { passive: true });
+  document.addEventListener('touchmove', function (e) {
+    if (!on) return;
+    var t = e.touches[0]; dx = t.clientX - sx;
+    if (Math.abs(t.clientY - sy) > 40 && dx < 40) { on = false; if (app) app.style.transform = ''; return; }   // 其實是上下捲動
+    if (app && dx > 0) { app.style.transition = 'none'; app.style.transform = 'translateX(' + Math.min(dx * 0.5, 120) + 'px)'; }
+  }, { passive: true });
+  document.addEventListener('touchend', function () {
+    if (!on) return; on = false;
+    if (app) { app.style.transition = 'transform .15s ease-out'; app.style.transform = ''; }
+    if (dx > Math.max(80, window.innerWidth / 4)) { var b = backBtn(); if (b) b.click(); }
+  });
+  // Android 返回：墊一筆紀錄；按返回時有「返回」鈕就回上一頁並再墊一筆，在首頁就讓它離開
+  if (window.history && history.pushState && !/[#&](cons|meet)=/.test(location.hash)) {
+    try { history.pushState({ ehsGuard: 1 }, ''); } catch (e) {}
+    window.addEventListener('popstate', function () {
+      var b = backBtn();
+      if (b) { b.click(); try { history.pushState({ ehsGuard: 1 }, ''); } catch (e) {} }
+    });
+  }
 })();

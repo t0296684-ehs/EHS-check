@@ -22,8 +22,9 @@ var CN_ST_PILL = { '暫緩－文件不齊': 'warn', '施工人員簽名中': 'in
 })();
 
 function cnRoute() {
-  var h = location.hash, m = /[#&]cons=(reg|apply|case|sign|hsign)(?=&|$)/.exec(h);
+  var h = location.hash, m = /[#&]cons=(reg|apply|case|sign|hsign|vlogin)(?=&|$)/.exec(h);
   if (!m) return null;
+  if (m[1] === 'vlogin') { var vs0 = cnVs(); return vs0 ? { kind: 'vhome', vs: vs0, f: {} } : { kind: 'login', f: {} }; }
   var g = function (k) { var x = new RegExp('[#&]' + k + '=([0-9a-fA-F]+)').exec(h); return x ? x[1].toLowerCase() : ''; };
   return { kind: m[1], i: g('i'), c: g('c'), w: g('w'), h: g('h'), f: {}, step: 0 };
 }
@@ -40,8 +41,17 @@ function cnDev() {
 }
 function cnPub(action, body) {
   var P = S.cpub, b = Object.assign({ ak: cnDev() }, body || {});
-  if (P.i) b.i = P.i; if (P.c) b.c = P.c; if (P.w) b.w = P.w; if (P.h) b.h = P.h; if (P.pin && !P.c) b.pin = P.pin;
-  return api(action, b, { token: '-' });
+  if (P.i) b.i = P.i; if (P.c) b.c = P.c; if (P.w) b.w = P.w; if (P.h) b.h = P.h; if (P.vs && !P.c) { b.vs = P.vs; if (P.cid) b.cid = P.cid; }
+  return api(action, b, { token: '-' }).catch(function (e) { if (e.biz && /請重新登入|登入已失效/.test(e.message)) cnVs(null); throw e; });
+}
+/** 承攬商登入權杖（跟員工的啟用碼一樣登入一次、手機記住）。 */
+function cnVs(v) {
+  try { if (v === null) localStorage.removeItem('cons_vs'); else if (v) localStorage.setItem('cons_vs', v); else return /^[0-9a-f]{64}$/.test(localStorage.getItem('cons_vs') || '') ? localStorage.getItem('cons_vs') : ''; } catch (e) { return ''; }
+}
+function cnB64Save(r) {
+  var bin = atob(r.data), a = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+  var url = URL.createObjectURL(new Blob([a], { type: r.type || 'application/octet-stream' })), el = document.createElement('a');
+  el.href = url; el.download = r.name; document.body.appendChild(el); el.click(); setTimeout(function () { URL.revokeObjectURL(url); el.remove(); }, 4000);
 }
 function cnHero(title, sub) {
   S.hero = '<div class="hero-in"><div class="brand"><span class="logo"><img src="icon-192.png" alt="" style="width:100%;height:100%;border-radius:inherit;display:block"></span>員和工業・承攬商施工申請</div>' +
@@ -88,6 +98,7 @@ function cnStCard(st, title, msg) { return '<div class="box ' + st + '"><div cla
 PLAT_PAGES.consPub = function () {
   var P = S.cpub;
   if (P.kind === 'login') return cnLogin();
+  if (P.kind === 'vhome') return cnVHome();
   if (P.kind === 'reg') return cnReg();
   if (P.kind === 'apply') return cnApply();
   if (P.kind === 'case') return cnCase();
@@ -95,31 +106,32 @@ PLAT_PAGES.consPub = function () {
   return cnSign();
 };
 
-// 承攬商查詢案件：只輸入 Email 裡的 6 碼查詢密碼（10/19 Jason）；找不到信 → 用統編把連結寄回建檔信箱（舊系統 FindLinks）
+// 承攬商登入：帳號＝統一編號、登入碼＝建檔時寄到 Email 的 6 碼（10/19 晚 Jason）；登入一次這支手機就記住。忘記 → 輸入統編，新的寄到建檔信箱
 function cnLogin() {
   var P = S.cpub;
-  setTitle('承攬商查詢案件');
-  cnHero('承攬商查詢案件', '輸入 Email 裡的 6 碼查詢密碼');
-  $('app').innerHTML = cnField('clPin', '查詢密碼（6 位數字）', P.f.clPin, { mode: 'numeric', max: 6, ph: '例：482913', hint: '在「施工申請已收到」那封 Email 裡；不是員工的 4 碼啟用碼。案件結束後也能查。' }) + '<div id="clErr"></div>' +
-    '<div class="sec">找不到那封信？</div><div class="card"><div class="muted">輸入貴公司統一編號，系統會把進行中案件的連結寄到<b>建檔時登記的信箱</b>（這個畫面不會顯示任何案件資料）。</div>' +
-    cnField('clTax', '統一編號', P.f.clTax, { mode: 'numeric', max: 8, ph: '8 位數字', req: false }) +
-    '<button class="btn line" id="clFind" onclick="cnFindGo()">' + ic('mail', 18, 2.4) + '寄出案件連結</button><div id="clFindMsg"></div></div>' +
+  setTitle('承攬商登入');
+  cnHero('承攬商登入', '看貴公司全部施工案件與施工前必讀');
+  $('app').innerHTML = cnField('clTax', '帳號（統一編號）', P.f.clTax, { mode: 'numeric', max: 8, ph: '8 位數字' }) +
+    cnField('clCode', '登入碼（6 位數字）', P.f.clCode, { mode: 'numeric', max: 6, ph: '建檔時寄到 Email 的 6 碼', hint: '不是員工的 4 碼啟用碼。登入一次後這支手機會記住。' }) + '<div id="clErr"></div>' +
+    '<div class="sec">忘記登入碼、還沒有登入碼？</div><div class="card"><div class="muted">在上面輸入統一編號後按下面的按鈕，系統會把新的登入碼寄到貴公司<b>建檔時登記的信箱</b>（舊的作廢；這個畫面不會顯示任何資料）。</div>' +
+    '<button class="btn line" id="clFind" onclick="cnFindGo()">' + ic('mail', 18, 2.4) + '寄新的登入碼到建檔信箱</button><div id="clFindMsg"></div></div>' +
     '<button class="btn ghost" onclick="S.cpub=null;S.page=\'login\';render()">' + ic('back', 18, 2.4) + '回員工登入</button>';
-  bar('<button class="btn" id="clBtn" onclick="cnLoginGo()">' + ic('arrow', 22, 2.6) + '查詢</button>');
+  bar('<button class="btn" id="clBtn" onclick="cnLoginGo()">' + ic('arrow', 22, 2.6) + '登入</button>');
 }
 function cnLoginGo() {
-  var pin = cnV('clPin').replace(/\D/g, '');
-  if (!/^\d{6}$/.test(pin)) return toast('查詢密碼是 6 位數字', 'err');
-  cnBusy('clBtn', '查詢中…');
-  api('consPubCase', { pin: pin, ak: cnDev() }, { token: '-' }).then(function (d) { S.cpub = { kind: 'case', c: d.caseToken, f: {}, d: d }; window.scrollTo(0, 0); render(); })
-    .catch(function (e) { $('clErr').innerHTML = errBox('查不到', e.message); cnUnbusy('clBtn', '查詢'); });
+  var tax = cnV('clTax').replace(/\D/g, ''), code = cnV('clCode').replace(/\D/g, '');
+  if (!/^\d{8}$/.test(tax)) return toast('統一編號是 8 位數字', 'err');
+  if (!/^\d{6}$/.test(code)) return toast('登入碼是 6 位數字', 'err');
+  cnBusy('clBtn', '登入中…');
+  api('consPubVLogin', { tax: tax, code: code, ak: cnDev() }, { token: '-' }).then(function (d) { cnVs(d.vs); S.cpub = { kind: 'vhome', vs: d.vs, f: {} }; window.scrollTo(0, 0); render(); })
+    .catch(function (e) { $('clErr').innerHTML = errBox('沒有登入', e.message); cnUnbusy('clBtn', '登入'); });
 }
 function cnFindGo() {
   var tax = cnV('clTax').replace(/\D/g, '');
-  if (!/^\d{8}$/.test(tax)) return toast('統一編號是 8 位數字', 'err');
+  if (!/^\d{8}$/.test(tax)) return toast('請先在上面輸入 8 位數字的統一編號', 'err');
   cnBusy('clFind', '寄送中…');
-  api('consPubFind', { tax: tax }, { token: '-' }).then(function (d) { $('clFindMsg').innerHTML = cnStCard('ok', '', esc(d.msg)); cnUnbusy('clFind', '寄出案件連結'); })
-    .catch(function (e) { $('clFindMsg').innerHTML = errBox('沒有寄出', e.message); cnUnbusy('clFind', '寄出案件連結'); });
+  api('consPubFind', { tax: tax }, { token: '-' }).then(function (d) { $('clFindMsg').innerHTML = cnStCard('ok', '', esc(d.msg)); cnUnbusy('clFind', '寄新的登入碼到建檔信箱'); })
+    .catch(function (e) { $('clFindMsg').innerHTML = errBox('沒有寄出', e.message); cnUnbusy('clFind', '寄新的登入碼到建檔信箱'); });
 }
 
 // 廠商建檔
@@ -129,10 +141,16 @@ function cnReg() {
   if (!P.form) { $('app').innerHTML = loading('讀取中…'); cnPub('consPubForm').then(function (d) { P.form = d; render(); }).catch(cnFail); return; }
   cnHero('承攬商建檔', '員和承辦人員：' + P.form.handler);
   if (P.done) {
-    $('app').innerHTML = '<div class="box ok"><div class="r">' + ic('check', 26) + '<div class="bt"><b>' + esc(P.done.name) + ' 建檔完成</b><div class="m">' +
-      (P.done.updated ? '已更新貴公司原本的建檔資料。' : '「承攬商安全衛生承諾書」已寄到您的 Email，請負責人簽名、蓋公司大小章後寄回正本。') + '</div></div></div></div>' +
-      '<button class="btn" onclick="location.hash=' + jsq(P.done.applyUrl.split('#')[1]) + ';location.reload()">' + ic('arrow', 20, 2.6) + '接著填施工申請</button>';
-    return;
+    var dn = P.done;
+    if (dn.vs) cnVs(dn.vs);
+    $('app').innerHTML = cnStCard('ok', dn.name + ' 建檔完成', dn.updated ? '已更新貴公司原本的建檔資料。' : '「承攬商安全衛生承諾書」已寄到您的 Email：請負責人簽名、蓋公司大小章，拍照或掃描後在下面上傳（也可以寄回正本）。') +
+      (dn.code ? '<div class="card"><div class="kv"><span>帳號（統編）</span><b>' + esc(dn.tax) + '</b></div><div class="kv"><span>登入碼</span><b style="font-size:22px;letter-spacing:4px">' + esc(dn.code) + '</b></div>' +
+        '<div class="muted sm">以後在員和環安衛系統登入頁按「承攬商登入」，就能看貴公司全部施工案件與施工前必讀。這支手機已經登入，不用再輸入。登入碼也寄到 Email 了。</div></div>' : '') +
+      (dn.vs ? '<div class="sec">上傳用印後的承諾書<small>拍照或掃描都可以</small></div><div class="card">' + cnFilesBox('crCommit', { fileMax: 2 }) +
+        (S.cpub.f.files && S.cpub.f.files.length ? '<button class="btn" id="crUp" onclick="cnCommitUp(\'crUp\')">' + ic('up', 18, 2.6) + '上傳承諾書</button>' : '') + '</div>' : '') +
+      '<button class="btn" onclick="location.hash=' + jsq(dn.applyUrl.split('#')[1]) + ';location.reload()">' + ic('arrow', 20, 2.6) + '接著填施工申請</button>' +
+      (dn.vs ? '<button class="btn ghost" onclick="S.cpub={kind:\'vhome\',vs:' + jsq(dn.vs) + ',f:{}};render()">' + ic('helmet', 18, 2.4) + '進入承攬商專區</button>' : '');
+    bar(''); return;
   }
   $('app').innerHTML = '<div class="muted">第一次到員和施工的廠商填一次；資料有變更可以再填一次（同一統編會更新原資料）。</div>' +
     cnField('crTax', '統一編號', f.crTax, { mode: 'numeric', max: 8, ph: '8 位數字' }) + cnField('crName', '公司名稱（全名）', f.crName) +
@@ -142,7 +160,7 @@ function cnReg() {
   bar('<button class="btn" id="crBtn" onclick="cnRegGo()">' + ic('check', 22, 3) + '送出建檔</button>');
 }
 function cnRegGo() {
-  var b = { tax: cnV('crTax'), name: cnV('crName'), owner: cnV('crOwner'), contact: cnV('crContact'), phone: cnV('crPhone'), email: cnV('crEmail'), addr: cnV('crAddr'), types: S.cpub.f.types || [] };
+  var b = { tax: cnV('crTax'), name: cnV('crName'), owner: cnV('crOwner'), contact: cnV('crContact'), phone: cnV('crPhone'), email: cnV('crEmail'), addr: cnV('crAddr'), types: S.cpub.f.types || [], vs: cnVs() };
   cnBusy('crBtn', '送出中…');
   cnPub('consPubReg', b).then(function (d) { S.cpub.done = d; window.scrollTo(0, 0); render(); })
     .catch(function (e) { $('crErr').innerHTML = errBox('沒有送出', e.message); cnUnbusy('crBtn', '再送一次'); });
@@ -162,7 +180,9 @@ function cnApply() {
     return;
   }
   $('app').innerHTML = '<div class="steps"><div class="done"><i></i><span>' + ic('check', 14, 3.2) + esc(P.vendor.name) + '</span></div><div class="cur"><i></i><span>2 施工內容・人員・簽名</span></div></div>' +
-    (P.vendor.commit ? '' : cnStCard('warn', '', '環安衛中心還沒收到貴公司承諾書用印正本：可以先申請、施工人員可以先簽名，正本寄達後才會進入審核。')) +
+    (P.vendor.commit ? '' : '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>環安衛還沒確認貴公司的承攬商安全衛生承諾書</b><div class="m">可以先申請、施工人員可以先簽名；承諾書確認後才會進入審核。</div></div></div></div>' +
+      '<label class="cnagree"><input type="checkbox" id="caCommitDecl"' + (f.commitDeclared ? ' checked' : '') + ' onchange="S.cpub.f.commitDeclared=this.checked"><span>本公司建檔時已提交承諾書（或已寄出用印正本）</span></label>' +
+      '<div class="muted sm">還沒交的話，請把負責人簽名、蓋公司大小章的承諾書拍照或掃描，在這裡上傳：</div>' + cnFilesBoxK('commitFiles', 'caCommit', 2)) +
     cnCaseForm(P.form, f) + cnFilesBox('caFiles', P.form) + cnAgree() + cnSigBox('施工負責人請簽全名') + '<div id="caErr"></div>';
   bar('<button class="btn" id="caBtn" onclick="cnApplyGo()">' + ic('check', 22, 3) + '送出申請</button>');
   sigInit();
@@ -240,14 +260,16 @@ function cnWk(k) {
   var y = window.scrollY; render(); window.scrollTo(0, y);
 }
 // 附件（施工計畫書、勞保證明、證照…）：選了先放手機記憶體，送出時一起上傳
-function cnFilesBox(id, o) {
-  var fs = S.cpub.f.files = S.cpub.f.files || [];
-  return '<div class="sec">附件<small>施工計畫書、證照等（選填，最多 ' + (o.fileMax || 3) + ' 個，每個 8MB 以內）</small></div>' +
-    (fs.length ? '<div class="card">' + fs.map(function (x, i) { return '<div class="cnfile"><span>' + esc(x.name) + '</span><button type="button" class="btn ghost sm" onclick="S.cpub.f.files.splice(' + i + ',1);cnRedraw()">移除</button></div>'; }).join('') + '</div>' : '') +
-    (fs.length < (o.fileMax || 3) ? '<label class="btn line" for="' + id + '">' + ic('plus', 18, 2.6) + '選擇檔案</label><input type="file" id="' + id + '" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" style="display:none" onchange="cnFilesAdd(this)">' : '');
+function cnFilesBox(id, o) { return cnFilesBoxK('files', id, (o && o.fileMax) || 3); }
+function cnFilesBoxK(key, id, max) {
+  var fs = S.cpub.f[key] = S.cpub.f[key] || [];
+  var o = { fileMax: max };
+  return (key === 'files' ? '<div class="sec">附件<small>施工計畫書、證照等（選填，最多 ' + (o.fileMax || 3) + ' 個，每個 8MB 以內）</small></div>' : '') +
+    (fs.length ? '<div class="card">' + fs.map(function (x, i) { return '<div class="cnfile"><span>' + esc(x.name) + '</span><button type="button" class="btn ghost sm" onclick="S.cpub.f[' + jsq(key) + '].splice(' + i + ',1);cnRedraw()">移除</button></div>'; }).join('') + '</div>' : '') +
+    (fs.length < (o.fileMax || 3) ? '<label class="btn line" for="' + id + '">' + ic('plus', 18, 2.6) + '選擇檔案</label><input type="file" id="' + id + '" data-key="' + key + '" data-max="' + (o.fileMax || 3) + '" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" style="display:none" onchange="cnFilesAdd(this)">' : '');
 }
 function cnFilesAdd(el) {
-  var fs = S.cpub.f.files, max = ((S.cpub.form || (S.cpub.d && S.cpub.d.form) || {}).fileMax) || 3, list = [].slice.call(el.files || []);
+  var fs = S.cpub.f[el.dataset.key || 'files'], max = Number(el.dataset.max) || 3, list = [].slice.call(el.files || []);
   var left = list.slice(0, Math.max(0, max - fs.length));
   if (list.length > left.length) toast('附件最多 ' + max + ' 個', 'err');
   var n = left.length; if (!n) return;
@@ -278,6 +300,8 @@ function cnApplyGo() {
   cnKeep();
   var b = cnCaseBody(), f = S.cpub.f, o = S.cpub.form;
   b.tax = S.cpub.vendor.tax; b.agree = !!($('caAgree') && $('caAgree').checked);
+  b.commitDeclared = !!f.commitDeclared; b.commitFiles = f.commitFiles || [];
+  if (!S.cpub.vendor.commit && !b.commitDeclared && !b.commitFiles.length) return toast('請勾「建檔時已提交承諾書」或上傳承諾書', 'err');
   b.permits = (f.spec || []).filter(function (t) { return (o.permit || []).indexOf(t) >= 0; }).map(function (t) {
     var p = (f.pm || {})[t] || {};
     return { type: t, dates: p.dates || [], start: p.start || b.start, end: p.end || b.end, from: p.from, to: p.to, area: p.area, desc: p.desc, lift: p.lift, checks: p.chk || [] };
@@ -297,19 +321,36 @@ function cnApplyGo() {
 /** 兩組 QR（① 施工人員各自用自己的手機掃 ② 員和承辦人員掃）：申請完成頁、案件頁共用。 */
 function cnQrPair(d, wUrl, hUrl, showH) {
   return '<div class="cnqrbox"><h4>① 施工人員簽名</h4><div class="muted sm">每位施工人員用<b>自己的手機</b>掃、看完危害告知後親簽，不用圍著同一支手機。也可以按「傳給施工人員」丟到工班 LINE 群組。</div>' +
-    '<div class="cnqr">' + meetQrSvg(wUrl, 220) + '</div><div class="btns"><button class="btn ghost" onclick="shareLink(' + jsq('員和工業施工人員簽名（' + d.id + '）') + ',' + jsq(wUrl) + ')">' + ic('share', 18, 2.4) + '傳給施工人員</button>' +
+    '<div class="cnqr">' + meetQrSvg(wUrl, 220) + '</div><div class="btns r3"><button class="btn ghost" onclick="cnQrImg(' + jsq(wUrl) + ',' + jsq('施工人員簽名QR_' + d.id) + ')">' + ic('share', 18, 2.4) + '分享 QR 圖</button>' +
+    '<button class="btn ghost" onclick="shareLink(' + jsq('員和工業施工人員簽名（' + d.id + '）') + ',' + jsq(wUrl) + ')">' + ic('share', 18, 2.4) + '傳連結</button>' +
     '<button class="btn ghost" onclick="copyText(' + jsq(wUrl) + ',' + jsq('已複製') + ')">' + ic('copy', 18, 2.2) + '複製</button></div></div>' +
     (showH ? '<div class="cnqrbox"><h4>② 員和承辦人員簽名</h4><div class="muted sm">請員和承辦人員 <b>' + esc(d.handler || '') + '</b> 掃描簽名（不用安裝 App），簽名時可以一併提交審核。' +
       '施工人員都簽好後，系統也會通知承辦人員。</div><div class="cnqr">' + meetQrSvg(hUrl, 220) + '</div>' +
-      '<div class="btns"><button class="btn ghost" onclick="shareLink(' + jsq('員和工業施工申請・承辦人員簽名（' + d.id + '）') + ',' + jsq(hUrl) + ')">' + ic('share', 18, 2.4) + '傳給承辦人員</button>' +
+      '<div class="btns r3"><button class="btn ghost" onclick="cnQrImg(' + jsq(hUrl) + ',' + jsq('承辦人員簽名QR_' + d.id) + ')">' + ic('share', 18, 2.4) + '分享 QR 圖</button>' +
+      '<button class="btn ghost" onclick="shareLink(' + jsq('員和工業施工申請・承辦人員簽名（' + d.id + '）') + ',' + jsq(hUrl) + ')">' + ic('share', 18, 2.4) + '傳連結</button>' +
       '<button class="btn ghost" onclick="copyText(' + jsq(hUrl) + ',' + jsq('已複製') + ')">' + ic('copy', 18, 2.2) + '複製</button></div></div>' : '');
+}
+/** QR 圖片（白底、下方寫用途）：手機能分享檔案就直接開分享（LINE 群組傳圖），不行就存到手機。 */
+function cnQrImg(url, name) {
+  if (!window.qrcode) return toast('QR 元件沒有載入', 'err');
+  var q = qrcode(0, 'M'); q.addData(url); q.make();
+  var n = q.getModuleCount(), cell = 10, pad = 40, w = n * cell + pad * 2, cv = document.createElement('canvas'), x = cv.getContext('2d');
+  cv.width = w; cv.height = w + 70;
+  x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); x.fillStyle = '#000';
+  for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) x.fillRect(pad + c * cell, pad + r * cell, cell, cell);
+  x.font = 'bold 30px sans-serif'; x.textAlign = 'center'; x.fillText(name.replace(/_/g, '　'), w / 2, w + 40);
+  cv.toBlob(function (blob) {
+    var file = new File([blob], name + '.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: name, text: url }).catch(function () {});
+    else { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name + '.png'; document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 3000); toast('QR 圖已存到手機，可以傳到 LINE', 'ok'); }
+  }, 'image/png');
 }
 function cnApplyDone() {
   var d = S.cpub.done;
   $('app').innerHTML = cnStCard('ok', '申請已送出（' + d.id + '）', (d.status === '暫緩－文件不齊' ? '承諾書正本寄達後才會進入審核；施工人員可以先簽名。' : '接下來：施工人員掃 ① 簽名 → 承辦人員掃 ② 簽名 → 提交審核。') +
       (d.late ? '<br>注意：有特殊作業，開工日距今不到 3 天。' : '') + '<br>兩組 QR 與案件連結也已寄到您的 Email。') +
-    '<div class="card"><div class="kv"><span>案件編號</span><b>' + esc(d.id) + '</b></div><div class="kv"><span>查詢密碼</span><b style="font-size:22px;letter-spacing:4px">' + esc(d.pin) + '</b></div>' +
-    '<div class="muted sm">請記下來。找不到連結時，打開員和環安衛系統登入頁按「承攬商查詢案件」，輸入這 6 碼就能看；案件結束後也能查。</div></div>' +
+    '<div class="card"><div class="kv"><span>案件編號</span><b>' + esc(d.id) + '</b></div>' +
+    '<div class="muted sm">貴公司全部案件：員和環安衛系統登入頁按「承攬商登入」，帳號＝統一編號 ' + esc(d.tax) + '、登入碼＝建檔時寄到 Email 的 6 碼。</div></div>' +
     (d.permits && d.permits.length ? '<div class="sec">特殊作業許可（已一起送出）</div><div class="card">' + d.permits.map(function (x) {
       return '<div class="cnwk"><span>' + esc(x.type + '・' + x.start + (x.end !== x.start ? '～' + x.end.slice(5) : '')) + '</span>' + pill(CN_PM_PILL[x.status] || 'na', '', x.status) + '</div>'; }).join('') +
       (d.permits.some(function (x) { return x.status === '待測定'; }) ? '<div class="muted sm">局限空間：作業當天進入前，在案件頁填氣體測定值，合格才放行。</div>' : '') + '</div>' : '') +
@@ -333,7 +374,8 @@ function cnCase() {
   if (P.fix) return cnFixForm();
   if (P.pm) return cnPmForm();
   var left = d.workers.filter(function (w) { return !w.signed; });
-  var h = '<div class="card"><div class="kv"><span>狀態</span><b>' + pill(CN_ST_PILL[d.status] || 'na', '', d.status) + '</b></div>' +
+  var h = (P.vs ? '<button class="btn ghost" onclick="S.cpub={kind:\'vhome\',vs:S.cpub.vs,f:{},tab:\'c\'};render()">' + ic('back', 18, 2.4) + '回我的案件</button>' : '') +
+    '<div class="card"><div class="kv"><span>狀態</span><b>' + pill(CN_ST_PILL[d.status] || 'na', '', d.status) + '</b></div>' +
     (d.comment && (d.status === '補件退回' || d.status === '已駁回') ? '<div class="box bad"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>環安衛意見</b><div class="m">' + esc(d.comment).replace(/\n/g, '<br>') + '</div></div></div></div>' : '') +
     '<div class="kv"><span>工程</span><b>' + esc(d.work) + '</b></div><div class="kv"><span>區域</span><b>' + esc(d.area) + '</b></div>' +
     '<div class="kv"><span>期間</span><b>' + esc(d.start + ' ～ ' + d.end) + '</b></div><div class="kv"><span>特殊作業</span><b>' + esc(d.spec) + '</b></div>' +
@@ -355,6 +397,10 @@ function cnCase() {
   }
   h += '<div class="sec">附件</div><div class="card">' + (d.files.length ? d.files.map(function (x) { return '<div class="cnfile"><span>' + esc(x.name) + '</span><small class="muted">' + esc(String(x.at || '').slice(5)) + '</small></div>'; }).join('') : '<div class="muted">沒有附件</div>') +
     (d.canAttach ? cnFilesBox('cnAtt', d.form) + (S.cpub.f.files && S.cpub.f.files.length ? '<button class="btn" id="cnAttBtn" onclick="cnAttachGo()">' + ic('up', 18, 2.6) + '上傳 ' + S.cpub.f.files.length + ' 個附件</button>' : '') : '') + '</div>';
+  if (d.docs && d.docs.length) h += '<div class="sec">核准文件<small>入廠施工許可證等，施工期間請備查</small></div><div class="card">' + d.docs.map(function (x) {
+    return '<div class="cnfile"><span>' + esc(x.name) + '</span><button class="btn ghost sm" onclick="cnDocGet(' + jsq(x.id) + ')">' + ic('down', 16, 2.4) + '下載</button></div>'; }).join('') + '</div>';
+  var rk = cnRiskFor(d.spec + '、' + (d.env || ''));
+  if (rk.length) h += '<div class="sec">本案相關的高風險作業<small>點開看主要危害與一定要做的防護</small></div>' + cnRiskList(rk);
   h += '<div class="sec">危害告知<small>施工人員簽名前會看到的內容</small></div>' + d.notice.map(function (s) { return '<div class="cnno"><b>' + esc(s.t) + '</b><ul>' + s.x.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>'; }).join('');
   $('app').innerHTML = h + '<div id="cnErr"></div>';
   bar('');
@@ -600,14 +646,7 @@ function cnCaseStaff(d) {
   else if (d.canReview) bar('<button class="btn ghost" onclick="cnReview(\'return\')">退回補件</button><button class="btn ghost" onclick="cnReview(\'reject\')">駁回</button><button class="btn" id="cnBtn" onclick="cnReview(\'approve\')">' + ic('check', 20, 3) + '核准</button>');
   else bar('');
 }
-function cnFileGet(fid) {
-  toast('下載中…', '', 1500);
-  api('consFile', { id: S.cnD.id, fid: fid }).then(function (r) {
-    var bin = atob(r.data), a = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
-    var url = URL.createObjectURL(new Blob([a], { type: r.type || 'application/octet-stream' })), el = document.createElement('a');
-    el.href = url; el.download = r.name; document.body.appendChild(el); el.click(); setTimeout(function () { URL.revokeObjectURL(url); el.remove(); }, 4000);
-  }).catch(function (e) { toast(esc(e.message), 'err', 4000); });
-}
+function cnFileGet(fid) { toast('下載中…', '', 1500); api('consFile', { id: S.cnD.id, fid: fid }).then(cnB64Save).catch(function (e) { toast(esc(e.message), 'err', 4000); }); }
 function cnAfter(msg) { return function () { toast(msg, 'ok', 3500); rcClear(); render(); }; }
 function cnErr(e) { var el = $('cnErr'); if (el) el.innerHTML = errBox('沒有完成', e.message); var b = $('cnBtn'); if (b) { b.disabled = false; b.className = 'btn'; b.textContent = '再試一次'; } }
 function cnLeftOk() {
@@ -633,10 +672,17 @@ function cnVendors() {
     el.innerHTML = d.list.length ? '<div class="list">' + d.list.map(function (v) {
       return '<div class="li cs"><span class="mn"><span class="mt">' + esc(v.id + '・統編 ' + v.tax) + '</span><span class="nm">' + esc(v.name) + '</span><span class="mt">' + esc((v.contact || '') + ' ' + (v.phone || '')) +
         '・案件 ' + v.cases + (v.hold ? '（暫緩 ' + v.hold + '）' : '') + '</span>' +
+        (v.ups && v.ups.length ? '<span class="mt">廠商上傳的承諾書：' + v.ups.map(function (f) { return '<button class="btn ghost sm" onclick="cnCommitView(' + jsq(v.id) + ',' + jsq(f.id) + ')">' + ic('down', 14, 2.4) + esc(f.at.slice(5, 10) + ' ' + f.name) + '</button>'; }).join(' ') + '</span>' : '') +
         (v.commit ? '<span class="mt">' + pill('ok', 'check', '承諾書已收到 ' + (v.commitAt || '')) + ' <button class="btn ghost sm" onclick="cnCommit(' + jsq(v.id) + ',false)">實際未收到？</button></span>'
-          : '<button class="btn sm" onclick="cnCommit(' + jsq(v.id) + ',true)">' + ic('check', 16, 3) + '已收到承諾書用印正本</button>') + '</span></div>';
+          : '<button class="btn sm" onclick="cnCommit(' + jsq(v.id) + ',true)">' + ic('check', 16, 3) + (v.ups && v.ups.length ? '看過上傳檔，確認收到承諾書' : '已收到承諾書用印正本') + '</button>') +
+        '<span class="mt">登入碼' + (v.codeAt ? ' ' + esc(v.codeAt) + ' 寄出' : '還沒寄') + ' <button class="btn ghost sm" onclick="cnVCode(' + jsq(v.id) + ')">重寄登入碼</button></span></span></div>';
     }).join('') + '</div>' : '<div class="empty">還沒有廠商建檔</div>';
   }).catch(function (e) { var el = $('cnList'); if (el) el.innerHTML = errBox('讀不到廠商', e.message); });
+}
+function cnCommitView(vid, fid) { toast('下載中…', '', 1500); api('consCommitFile', { vid: vid, fid: fid }).then(cnB64Save).catch(function (e) { toast(esc(e.message), 'err', 4000); }); }
+function cnVCode(vid) {
+  if (!confirm('寄一組新的登入碼到這家廠商建檔的 Email？舊的會作廢。')) return;
+  api('consVendorCode', { vid: vid }).then(function (r) { toast('已寄到 ' + r.to, 'ok', 4000); cnVendors(); }).catch(function (e) { toast(esc(e.message), 'err', 4000); });
 }
 function cnCommit(vid, ok) {
   var why = '';
@@ -725,4 +771,82 @@ function cnPmReview(id, dec) {
   else if (!confirm('核准這張許可單？')) return;
   api('consPermitReview', { id: id, decision: dec, comment: c.trim() }).then(function () { toast(dec === 'approve' ? '已核准' : '已不核准', 'ok'); rcClear(); render(); })
     .catch(function (e) { toast(esc(e.message), 'err', 5000); });
+}
+
+
+// ── 承攬商專區（登入後）：案件（進行中＋歷史）、施工前必讀、公司與承諾書 ──
+function cnVHome() {
+  var P = S.cpub;
+  setTitle('承攬商專區');
+  if (!P.d || P.reload) {
+    P.reload = false; if (!P.d) $('app').innerHTML = loading('讀取中…');
+    cnPub('consPubVHome').then(function (d) { P.d = d; render(); }).catch(function (e) { if (/重新登入|已失效/.test(e.message)) { S.cpub = { kind: 'login', f: {} }; return render(); } cnFail(e); }); return;
+  }
+  var d = P.d, tab = P.tab || 'c';
+  cnHero(d.vendor.name, '承攬商專區・統編 ' + d.vendor.tax);
+  var h = '<div class="seg2 cstab" style="grid-template-columns:repeat(3,minmax(0,1fr))">' + [['c', '施工案件'], ['r', '施工前必讀'], ['v', '公司・承諾書']].map(function (x) {
+    return '<button class="' + (tab === x[0] ? 'on' : '') + '" onclick="S.cpub.tab=' + jsq(x[0]) + ';render()">' + esc(x[1]) + '</button>'; }).join('') + '</div>';
+  if (d.commit.st !== 'ok' && tab !== 'v') h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>承攬商安全衛生承諾書</b><div class="m">' + esc(d.commit.text) +
+    '</div><button class="btn sm" style="margin-top:8px" onclick="S.cpub.tab=\'v\';render()">去處理</button></div></div></div>';
+  if (tab === 'c') {
+    var on = d.cases.filter(function (x) { return ['已駁回', '已結案'].indexOf(x.status) < 0 && x.end >= d.today; }), off = d.cases.filter(function (x) { return on.indexOf(x) < 0; });
+    var row = function (x) {
+      var st = x.status === '已核准' ? (x.start > d.today ? '已核准・待進場' : x.end < d.today ? '已完工' : '施工中') : x.status;
+      return '<button class="li cs" onclick="S.cpub={kind:\'case\',vs:S.cpub.vs,cid:' + jsq(x.id) + ',f:{}};render()"><span class="mn"><span class="mt">' + esc(x.id + '・承辦 ' + x.handler) + '</span><span class="nm">' + esc(x.work) + '</span>' +
+        '<span class="mt">' + esc(x.area + '・' + x.start + (x.end !== x.start ? '～' + x.end.slice(5) : '')) + '</span><span class="mt">' + esc('施工人員 ' + x.wSigned + '/' + x.workers + ' 已簽' + (x.permits ? '・許可 ' + x.permits + ' 張' : '') + (x.docs ? '・文件 ' + x.docs + ' 份' : '')) + '</span></span>' +
+        '<span class="csr">' + pill(CN_ST_PILL[x.status] || 'na', '', st) + ic('chev', 18, 2.6) + '</span></button>';
+    };
+    h += '<div class="sec">進行中 ' + on.length + '</div>' + (on.length ? '<div class="list">' + on.map(row).join('') + '</div>' : '<div class="empty">目前沒有進行中的案件</div>') +
+      '<div class="muted sm" style="margin:6px 2px">新的施工申請：請向員和承辦人員索取「施工申請連結」。</div>' +
+      '<div class="sec">歷史紀錄 ' + off.length + '</div>' + (off.length ? '<div class="list">' + off.map(row).join('') + '</div>' : '<div class="empty">沒有歷史紀錄</div>');
+  } else if (tab === 'r') {
+    h += '<div class="muted sm" style="margin:6px 2px 4px">進廠施工前，請負責人和每位施工人員都看過。</div>' +
+      '<div class="sec">員和施工安全衛生規定</div><div class="card"><ol style="margin:0 0 0 20px">' + d.rules.map(function (x) { return '<li style="margin:4px 0">' + esc(x) + '</li>'; }).join('') + '</ol></div>' +
+      '<div class="sec">員和廠區危害告知</div>' + d.notice.map(function (s0) { return '<div class="cnno"><b>' + esc(s0.t) + '</b><ul>' + s0.x.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>'; }).join('') +
+      '<div class="sec">高風險作業<small>點開看主要危害與一定要做的防護</small></div>' + cnRiskList(RISK.map(function (r, i) { return i; })) +
+      '<div class="sec">特殊作業許可的注意事項<small>申請時要逐項確認做到</small></div>' + Object.keys(d.pmCheck).map(function (t) {
+        return '<details class="card" style="margin:8px 0"><summary style="font-weight:800;font-size:16px">' + esc(t) + '</summary><ol style="margin:8px 0 0 20px">' + d.pmCheck[t].map(function (x) { return '<li style="margin:3px 0">' + esc(x) + '</li>'; }).join('') + '</ol>' +
+          (t === '局限空間作業' ? '<div class="muted sm">進入前測定標準：O2 ≥ ' + d.pmSafe.O2_MIN + '%、LEL ≤ ' + d.pmSafe.LEL_MAX + '%、H2S ≤ ' + d.pmSafe.H2S_MAX + 'ppm、CO ≤ ' + d.pmSafe.CO_MAX + 'ppm</div>' : '') + '</details>';
+      }).join('');
+  } else {
+    var v = d.vendor, row2 = function (k, x) { return x ? '<div class="kv"><span>' + esc(k) + '</span><b>' + esc(x) + '</b></div>' : ''; };
+    h += '<div class="sec">公司資料</div><div class="card">' + row2('公司', v.name) + row2('統一編號', v.tax) + row2('聯絡人', v.contact) + row2('電話', v.phone) + row2('Email', v.email) + row2('承攬類別', v.types) +
+      '<div class="muted sm">資料有變更：請向員和承辦人員索取建檔連結，用這支手機（已登入）重新填一次。</div></div>' +
+      '<div class="sec">承攬商安全衛生承諾書</div><div class="card"><div class="kv"><span>狀態</span><b>' + pill(d.commit.st === 'ok' ? 'ok' : 'warn', d.commit.st === 'ok' ? 'check' : '', d.commit.text) + '</b></div>' +
+      (d.commitFiles.length ? d.commitFiles.map(function (x) { return '<div class="cnfile"><span>' + esc(x.name) + '</span><small class="muted">已上傳 ' + esc(x.at.slice(5)) + '</small></div>'; }).join('') : '') +
+      '<button class="btn line" id="vcBlank" onclick="cnCommitBlank()">' + ic('down', 18, 2.4) + '下載承諾書（已帶入公司資料）</button>' +
+      (d.commit.st !== 'ok' ? '<div class="muted sm" style="margin-top:8px">負責人簽名、蓋公司大章與負責人小章後，拍照或掃描上傳：</div>' + cnFilesBoxK('files', 'vcUp', 2) +
+        (P.f.files && P.f.files.length ? '<button class="btn" id="vcUpBtn" onclick="cnCommitUp(\'vcUpBtn\')">' + ic('up', 18, 2.6) + '上傳承諾書</button>' : '') : '') + '</div>' +
+      '<button class="btn ghost" onclick="cnVLogout()">' + ic('logout', 18, 2.4) + '登出這支手機</button>';
+  }
+  $('app').innerHTML = h + '<div id="vErr"></div>';
+  bar('');
+}
+function cnCommitUp(btn) {
+  cnBusy(btn, '上傳中…');
+  var P = S.cpub, vs = P.vs || cnVs();
+  api('consPubVCommit', { vs: vs, files: P.f.files || [] }, { token: '-' }).then(function () { P.f.files = []; toast('已上傳，環安衛確認後會通知', 'ok', 4000); if (P.kind === 'vhome') { P.reload = true; } render(); })
+    .catch(function (e) { toast(esc(e.message), 'err', 5000); cnUnbusy(btn, '再試一次'); });
+}
+function cnCommitBlank() { cnBusy('vcBlank', '產生中…（約 10 秒）'); cnPub('consPubVCommitBlank').then(function (r) { cnB64Save(r); cnUnbusy('vcBlank', '下載承諾書（已帶入公司資料）'); }).catch(function (e) { toast(esc(e.message), 'err'); cnUnbusy('vcBlank', '下載承諾書（已帶入公司資料）'); }); }
+function cnDocGet(fid) { toast('下載中…', '', 1500); cnPub('consPubVDoc', { fid: fid, cid: S.cpub.cid || S.cpub.d.id }).then(cnB64Save).catch(function (e) { toast(esc(e.message), 'err', 4000); }); }
+function cnVLogout() { if (!confirm('登出這支手機？下次要重新輸入統編與登入碼。')) return; cnPub('consPubVLogout').catch(function () {}); cnVs(null); S.cpub = { kind: 'login', f: {} }; render(); }
+/** 案件申報的作業 → 對應的高風險作業卡（RISK 在 plat.js）。 */
+function cnRiskFor(txt) {
+  var map = [['動火', 0], ['高架', 1], ['局限', 2], ['吊掛', 3], ['電氣', 4], ['堆高機', 5], ['有機溶劑', 6], ['粉塵', 7], ['化學品', 8]], out = [];
+  map.forEach(function (m) { if (String(txt).indexOf(m[0]) >= 0 && out.indexOf(m[1]) < 0) out.push(m[1]); });
+  return out;
+}
+function cnRiskList(idx) {
+  if (typeof RISK === 'undefined') return '';
+  var open = S.cpub.rk;
+  return '<div class="list">' + idx.map(function (i) {
+    var r = RISK[i], d = r.zh, on = open === i;
+    return '<div class="li rk' + (on ? ' on' : '') + '" role="button" tabindex="0" onclick="S.cpub.rk=' + (on ? 'null' : i) + ';cnRedraw()" style="display:block">' +
+      '<div style="display:flex;align-items:center;gap:10px">' + r.icons.map(function (n) { return '<img src="' + n + '.svg" alt="" style="width:40px;height:40px;flex-shrink:0">'; }).join('') +
+      '<b style="font-size:17px;flex:1">' + esc(d[0]) + '</b>' + ic('chev', 18, 2.6) + '</div>' +
+      (on ? '<div style="margin-top:10px"><div class="sec" style="margin:6px 0 2px">主要危害</div><ul style="margin:0 0 6px 18px">' + d[1].map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' +
+        '<div class="sec" style="margin:6px 0 2px">一定要做</div><ol style="margin:0 0 6px 18px">' + d[2].map(function (x) { return '<li><b>' + esc(x) + '</b></li>'; }).join('') + '</ol>' +
+        '<div class="muted sm">法規依據：' + esc(d[3]) + '</div></div>' : '') + '</div>';
+  }).join('') + '</div>';
 }
