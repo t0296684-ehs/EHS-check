@@ -10,7 +10,7 @@ var CN_ST_PILL = { '暫緩－文件不齊': 'warn', '施工人員簽名中': 'in
   var st = document.createElement('style');
   st.textContent = '.cwrap{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 6px}.cwrap .chip{min-height:40px;font-size:15px}' +
     '.cnw{display:grid;grid-template-columns:1fr 92px 44px;gap:6px;align-items:center;margin-bottom:6px}.cnw .field{margin:0}' +
-    '.cnw .rm{min-height:44px;border:0;background:#F1F4F8;border-radius:10px;font-size:20px}.cnqr{display:flex;justify-content:center;margin:10px 0}.cnqr svg{width:220px;height:220px}' +
+    '.cnwh{margin-bottom:2px}.cnwh span{font-size:13px;font-weight:800;color:var(--sub);padding-left:4px}.cnw .rm{min-height:44px;border:0;background:#F1F4F8;border-radius:10px;font-size:20px}.cnqr{display:flex;justify-content:center;margin:10px 0}.cnqr svg{width:220px;height:220px}' +
     '.cnno{background:#FFF8EC;border-left:4px solid #E58A00;border-radius:0 10px 10px 0;padding:10px 14px;margin:8px 0}.cnno b{display:block;margin-bottom:4px}.cnno li{margin:3px 0}' +
     '.cnwk{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #EEF1F5}.cnagree{display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-size:15px}' +
     '.cnagree input{width:24px;height:24px;flex-shrink:0;margin-top:2px}.cnpm{border:1.5px solid #E58A00;border-radius:12px;padding:10px 12px;margin:10px 0;background:#FFFCF5}' +
@@ -41,6 +41,11 @@ function cnDev() {
 }
 function cnPub(action, body) {
   var P = S.cpub, b = Object.assign({ ak: cnDev() }, body || {});
+  if (P.demo) {                                                         // 示範（勞檢用）：資料是假的，什麼都不送出
+    if (action === 'consPubVHome') return Promise.resolve(P.demo.home);
+    if (action === 'consPubCase') return Promise.resolve(P.demo.cases[P.cid]);
+    var e0 = new Error('示範模式：這個動作不會真的送出'); e0.biz = true; toast('示範模式：不會真的送出', '', 2500); return Promise.reject(e0);
+  }
   if (P.i) b.i = P.i; if (P.c) b.c = P.c; if (P.w) b.w = P.w; if (P.h) b.h = P.h; if (P.vs && !P.c) { b.vs = P.vs; if (P.cid) b.cid = P.cid; }
   return api(action, b, { token: '-' }).catch(function (e) { if (e.biz && /請重新登入|登入已失效/.test(e.message)) cnVs(null); throw e; });
 }
@@ -111,7 +116,8 @@ function cnLogin() {
   var P = S.cpub;
   setTitle('承攬商登入');
   cnHero('承攬商登入', '看貴公司全部施工案件與施工前必讀');
-  $('app').innerHTML = cnField('clTax', '帳號（統一編號）', P.f.clTax, { mode: 'numeric', max: 8, ph: '8 位數字' }) +
+  if (P.demoLogin) { P.f.clTax = P.f.clTax || P.demoLogin.tax; P.f.clCode = P.f.clCode || P.demoLogin.code; }
+  $('app').innerHTML = (P.demoLogin ? '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><b>示範模式</b><div class="m">帳號、登入碼是示範用的假資料，已經幫您填好，直接按「登入」。示範中不會送出任何資料。</div></div></div></div>' : '') + cnField('clTax', '帳號（統一編號）', P.f.clTax, { mode: 'numeric', max: 8, ph: '8 位數字' }) +
     cnField('clCode', '登入碼（6 位數字）', P.f.clCode, { mode: 'numeric', max: 6, ph: '建檔時寄到 Email 的 6 碼', hint: '不是員工的 4 碼啟用碼。登入一次後這支手機會記住。' }) + '<div id="clErr"></div>' +
     '<div class="sec">忘記登入碼、還沒有登入碼？</div><div class="card"><div class="muted">在上面輸入統一編號後按下面的按鈕，系統會把新的登入碼寄到貴公司<b>建檔時登記的信箱</b>（舊的作廢；這個畫面不會顯示任何資料）。</div>' +
     '<button class="btn line" id="clFind" onclick="cnFindGo()">' + ic('mail', 18, 2.4) + '寄新的登入碼到建檔信箱</button><div id="clFindMsg"></div></div>' +
@@ -120,6 +126,7 @@ function cnLogin() {
 }
 function cnLoginGo() {
   var tax = cnV('clTax').replace(/\D/g, ''), code = cnV('clCode').replace(/\D/g, '');
+  if (S.cpub.demoLogin) { S.cpub = { kind: 'vhome', demo: S.cpub.demoLogin.data, d: S.cpub.demoLogin.data.home, f: {} }; window.scrollTo(0, 0); return render(); }
   if (!/^\d{8}$/.test(tax)) return toast('統一編號是 8 位數字', 'err');
   if (!/^\d{6}$/.test(code)) return toast('登入碼是 6 位數字', 'err');
   cnBusy('clBtn', '登入中…');
@@ -214,6 +221,7 @@ function cnCaseForm(o, f, fix) {
     '<label class="nl">施工期間可能產生的狀況</label>' + cnChips('situ', o.situ, f.situ) +
     '<label class="nl">施工環境可能的危害</label>' + cnChips('env', o.env, f.env) +
     '<div class="sec">' + (fix ? '新增施工人員' : '施工人員') + '<small>一列一人；沒有身分證的外籍人員填居留證末 4 碼</small></div>' +
+    '<div class="cnw cnwh"><span>姓名</span><span>身分證末 4 碼</span><span></span></div>' +
     ws.map(function (w, k) {
       return '<div class="cnw"><input class="field" data-wk="1" maxlength="20" placeholder="姓名" value="' + esc(w.name) + '" oninput="S.cpub.f.workers[' + k + '].name=this.value">' +
         '<input class="field" data-wk="1" inputmode="numeric" maxlength="4" placeholder="末4碼" value="' + esc(w.id4) + '" oninput="S.cpub.f.workers[' + k + '].id4=this.value.replace(/\\D/g,\'\')">' +
@@ -374,7 +382,7 @@ function cnCase() {
   if (P.fix) return cnFixForm();
   if (P.pm) return cnPmForm();
   var left = d.workers.filter(function (w) { return !w.signed; });
-  var h = (P.vs ? '<button class="btn ghost" onclick="S.cpub={kind:\'vhome\',vs:S.cpub.vs,f:{},tab:\'c\'};render()">' + ic('back', 18, 2.4) + '回我的案件</button>' : '') +
+  var h = (P.vs || P.demo ? '<button class="btn ghost" onclick="S.cpub={kind:\'vhome\',vs:S.cpub.vs,demo:S.cpub.demo,d:S.cpub.demo?S.cpub.demo.home:null,f:{},tab:\'c\'};render()">' + ic('back', 18, 2.4) + '回我的案件</button>' : '') +
     '<div class="card"><div class="kv"><span>狀態</span><b>' + pill(CN_ST_PILL[d.status] || 'na', '', d.status) + '</b></div>' +
     (d.comment && (d.status === '補件退回' || d.status === '已駁回') ? '<div class="box bad"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>環安衛意見</b><div class="m">' + esc(d.comment).replace(/\n/g, '<br>') + '</div></div></div></div>' : '') +
     '<div class="kv"><span>工程</span><b>' + esc(d.work) + '</b></div><div class="kv"><span>區域</span><b>' + esc(d.area) + '</b></div>' +
@@ -578,6 +586,8 @@ PLAT_PAGES.cons = function () {
     '送出後廠商的 Email 會收到兩組 QR：施工人員各自掃碼簽名、您（承辦人員）掃碼簽名。</div>' +
     '<div class="btns r3"><button class="btn" onclick="cnInvite(\'apply\',\'share\')">' + ic('share', 18, 2.4) + '傳給廠商</button>' +
     '<button class="btn ghost" onclick="cnInvite(\'apply\',\'copy\')">' + ic('copy', 18, 2.2) + '複製連結</button><button class="btn ghost" onclick="cnInvite(\'apply\',\'open\')">' + ic('ext', 18, 2.2) + '打開看看</button></div></div>';
+  if (isEhs() || (S.me && (S.me.depts || []).some(function (d) { return /^示範/.test(d.id || d); }))) h += '<button class="card fcard" onclick="cnDemoStart()"><div class="fh">' + ic('helmet', 22, 2.2) + '<b>承攬商端示範（給勞檢看）</b></div>' +
+    '<div class="muted">示範廠商登入後看到的畫面：施工案件、施工前必讀、承諾書。帳號密碼是假的、已填好，不會寫入任何資料。</div></button>';
   if (isEhs()) h += '<div class="seg2 cstab"><button class="' + (S.cnTab !== 'v' ? 'on' : '') + '" onclick="S.cnTab=\'c\';render()">案件</button><button class="' + (S.cnTab === 'v' ? 'on' : '') + '" onclick="S.cnTab=\'v\';render()">廠商・承諾書</button></div>';
   h += '<div id="cnList">' + loading('讀取中…') + '</div>';
   $('app').innerHTML = h;
@@ -784,7 +794,8 @@ function cnVHome() {
   }
   var d = P.d, tab = P.tab || 'c';
   cnHero(d.vendor.name, '承攬商專區・統編 ' + d.vendor.tax);
-  var h = '<div class="seg2 cstab" style="grid-template-columns:repeat(3,minmax(0,1fr))">' + [['c', '施工案件'], ['r', '施工前必讀'], ['v', '公司・承諾書']].map(function (x) {
+  var h = (P.demo ? '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><b>示範模式（資料是假的）</b><div class="m">這是廠商登入後看到的畫面。<button class="btn sm" style="margin-top:6px" onclick="S.cpub=null;go(\'cons\',{},true)">結束示範，回員工畫面</button></div></div></div></div>' : '') +
+    '<div class="seg2 cstab" style="grid-template-columns:repeat(3,minmax(0,1fr))">' + [['c', '施工案件'], ['r', '施工前必讀'], ['v', '公司・承諾書']].map(function (x) {
     return '<button class="' + (tab === x[0] ? 'on' : '') + '" onclick="S.cpub.tab=' + jsq(x[0]) + ';render()">' + esc(x[1]) + '</button>'; }).join('') + '</div>';
   if (d.commit.st !== 'ok' && tab !== 'v') h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>承攬商安全衛生承諾書</b><div class="m">' + esc(d.commit.text) +
     '</div><button class="btn sm" style="margin-top:8px" onclick="S.cpub.tab=\'v\';render()">去處理</button></div></div></div>';
@@ -792,7 +803,7 @@ function cnVHome() {
     var on = d.cases.filter(function (x) { return ['已駁回', '已結案'].indexOf(x.status) < 0 && x.end >= d.today; }), off = d.cases.filter(function (x) { return on.indexOf(x) < 0; });
     var row = function (x) {
       var st = x.status === '已核准' ? (x.start > d.today ? '已核准・待進場' : x.end < d.today ? '已完工' : '施工中') : x.status;
-      return '<button class="li cs" onclick="S.cpub={kind:\'case\',vs:S.cpub.vs,cid:' + jsq(x.id) + ',f:{}};render()"><span class="mn"><span class="mt">' + esc(x.id + '・承辦 ' + x.handler) + '</span><span class="nm">' + esc(x.work) + '</span>' +
+      return '<button class="li cs" onclick="S.cpub={kind:\'case\',vs:S.cpub.vs,demo:S.cpub.demo,cid:' + jsq(x.id) + ',f:{}};render()"><span class="mn"><span class="mt">' + esc(x.id + '・承辦 ' + x.handler) + '</span><span class="nm">' + esc(x.work) + '</span>' +
         '<span class="mt">' + esc(x.area + '・' + x.start + (x.end !== x.start ? '～' + x.end.slice(5) : '')) + '</span><span class="mt">' + esc('施工人員 ' + x.wSigned + '/' + x.workers + ' 已簽' + (x.permits ? '・許可 ' + x.permits + ' 張' : '') + (x.docs ? '・文件 ' + x.docs + ' 份' : '')) + '</span></span>' +
         '<span class="csr">' + pill(CN_ST_PILL[x.status] || 'na', '', st) + ic('chev', 18, 2.6) + '</span></button>';
     };
@@ -817,7 +828,7 @@ function cnVHome() {
       '<button class="btn line" id="vcBlank" onclick="cnCommitBlank()">' + ic('down', 18, 2.4) + '下載承諾書（已帶入公司資料）</button>' +
       (d.commit.st !== 'ok' ? '<div class="muted sm" style="margin-top:8px">負責人簽名、蓋公司大章與負責人小章後，拍照或掃描上傳：</div>' + cnFilesBoxK('files', 'vcUp', 2) +
         (P.f.files && P.f.files.length ? '<button class="btn" id="vcUpBtn" onclick="cnCommitUp(\'vcUpBtn\')">' + ic('up', 18, 2.6) + '上傳承諾書</button>' : '') : '') + '</div>' +
-      '<button class="btn ghost" onclick="cnVLogout()">' + ic('logout', 18, 2.4) + '登出這支手機</button>';
+      (P.demo ? '' : '<button class="btn ghost" onclick="cnVLogout()">' + ic('logout', 18, 2.4) + '登出這支手機</button>');
   }
   $('app').innerHTML = h + '<div id="vErr"></div>';
   bar('');
@@ -849,4 +860,11 @@ function cnRiskList(idx) {
         '<div class="sec" style="margin:6px 0 2px">一定要做</div><ol style="margin:0 0 6px 18px">' + d[2].map(function (x) { return '<li><b>' + esc(x) + '</b></li>'; }).join('') + '</ol>' +
         '<div class="muted sm">法規依據：' + esc(d[3]) + '</div></div>' : '') + '</div>';
   }).join('') + '</div>';
+}
+
+/** 承攬商端示範：跟後端拿示範資料（要員工登入），開承攬商登入畫面、帳密預先填好。 */
+function cnDemoStart() {
+  toast('準備示範資料…', '', 1500);
+  api('consDemo', {}).then(function (d) { S.cpub = { kind: 'login', demoLogin: { tax: d.tax, code: d.code, data: d }, f: {} }; window.scrollTo(0, 0); render(); })
+    .catch(function (e) { toast(esc(e.message), 'err', 4000); });
 }
