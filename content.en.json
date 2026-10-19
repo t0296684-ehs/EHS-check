@@ -1,5 +1,5 @@
 {
- "version": "0.18.2",
+ "version": "0.18.3",
  "chapters": [
   {
    "no": 1,
@@ -725,7 +725,8 @@
       "Main menu <b>Construction</b> → <b>Application link</b> → <b>Send to contractor</b> (LINE) or <b>Copy link</b>. The link is valid for <b>30 days</b>; cases sent through it are assigned to you (you are the handler).",
       "The contractor enters their <b>tax ID</b>. New contractors register first; the system emails the <b>safety commitment</b> and a <b>login code</b>. After the owner signs and stamps it, they <b>photograph or scan it and upload it in the app</b> (or mail the original).",
       "The contractor fills in the work and period, adds workers one per row with <b>＋ Add a worker</b> (name + last 4 ID digits), may attach files such as the work plan, and the <b>site supervisor signs</b> to submit.",
-      "If <b>hot work, lifting, confined space or work at height</b> is ticked, the screen asks them to <b>fill in the permit in the same application</b> (dates, times, every precaution confirmed) — no separate form. Ask contractors to apply <b>3 days before</b> work starts."
+      "If <b>hot work, lifting, confined space or work at height</b> is ticked, the screen asks them to <b>fill in the permit in the same application</b> (dates, times, every precaution confirmed) — no separate form. Ask contractors to apply <b>3 days before</b> work starts.",
+      "Need to stop halfway? Tap <b>Save draft</b>: it is kept on this phone and restored when the same link is opened within 7 days (attachments and signature must be redone). Tick <b>I have confirmed the above is correct</b> before the submit button works."
      ],
      "tip": "After submitting, the contractor receives <b>two QR codes</b> by email (① workers, ② handler) and the case link; under each QR they can <b>share the QR image</b> to a LINE group. If the commitment is not yet confirmed, they must tick that it was submitted or upload it.",
      "warn": false
@@ -751,8 +752,8 @@
      "steps": [
       "<b>Workers</b> scan QR ① with <b>their own phones</b>, pick their name, enter the last 4 ID digits, read the <b>hazard notice</b> and sign. Extra workers not on the list tap <b>I'm not on the list</b>. With poor signal the signature is kept on the phone and sent automatically later.",
       "<b>You (handler)</b> can sign two ways: ① scan QR ② from the contractor — <b>no app needed</b> — pick your name and sign; ② in the app, open the case under <b>Construction</b> and tap <b>Sign and submit</b> (uses your saved signature). You are notified (app + email) when all workers have signed.",
-      "<b>Submit for review</b>: the handler can submit while signing, or the site supervisor taps <b>Submit for review</b> on the case page. You may submit before every worker has signed; they can still sign later and EHS sees who is missing.",
-      "<b>Returned for correction</b>: the contractor edits and adds files via the case link and resubmits. If the period, area or special work changes, you must <b>sign again</b>."
+      "<b>Returned for correction</b>: the contractor edits and adds files via the case link and resubmits. If the period, area or special work changes, you must <b>sign again</b>.",
+      "The handler page has one button, <b>Sign and submit for review</b>, after ticking <b>I have confirmed the above is correct</b>. If the site supervisor has not signed or a required permit is missing, the signature is saved and the page explains what is missing; then tap <b>Submit for review</b>."
      ],
      "tip": "If the handler is not the person registered on the application, choose <b>I am the handler</b> when scanning and type your own name exactly as in the staff list.",
      "warn": false
@@ -790,6 +791,10 @@
        "Review a case"
       ],
       [
+       "c16b_環安衛修改內容",
+       "Edit contractor application"
+      ],
+      [
        "c18_承攬商查詢",
        "Contractor login"
       ]
@@ -797,7 +802,8 @@
      "steps": [
       "<b>Cases</b> tab: open cases marked <b>Awaiting your review</b>. <b>Check before review</b> lists unsigned workers, missing permits and the commitment status; check attachments, same-phone warnings and history, then <b>Approve</b>, <b>Return</b> or <b>Reject</b> (separate items with “；” and they are listed one by one in the contractor's email).",
       "<b>Contractors & commitments</b> tab: open the uploaded commitment, check the owner signature and company stamps, then tap <b>Confirm commitment received</b>; held cases resume and the contractor is notified. If not actually received, tap <b>Not actually received?</b>. Use <b>Resend login code</b> if a contractor forgot it.",
-      "<b>Contractor login</b>: at the bottom of the app login page tap <b>Contractor login</b> — account = <b>tax ID</b>, login code = the <b>6 digits</b> emailed at registration; the phone remembers it. If forgotten, enter the tax ID and a new code is sent to the registered email."
+      "<b>Contractor login</b>: at the bottom of the app login page tap <b>Contractor login</b> — account = <b>tax ID</b>, login code = the <b>6 digits</b> emailed at registration; the phone remembers it. If forgotten, enter the tax ID and a new code is sent to the registered email.",
+      "<b>Wrong or missing special work</b>: on the case page tap <b>Edit contractor application</b>, change special work, conditions, hazards or area, <b>enter a reason</b> and save. It is logged and the contractor is emailed at once. Removed work cancels its unapproved permits; adding hot work, lifting, confined space or work at height <b>returns the case</b> so the contractor applies for the permit."
      ],
      "tip": "Approved documents and permits are saved to the NAS by the PC schedule every morning.",
      "warn": false
