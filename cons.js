@@ -212,6 +212,7 @@ function cnCase() {
   var d = P.d;
   cnHero(d.vendor, d.id + '・' + d.work);
   if (P.fix) return cnFixForm();
+  if (P.pm) return cnPmForm();
   var h = '<div class="card"><div class="kv"><span>狀態</span><b>' + pill(CN_ST_PILL[d.status] || 'na', '', d.status) + '</b></div>' +
     (d.comment && (d.status === '補件退回' || d.status === '已駁回') ? '<div class="box bad"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>環安衛意見</b><div class="m">' + esc(d.comment) + '</div></div></div></div>' : '') +
     '<div class="kv"><span>工程</span><b>' + esc(d.work) + '</b></div><div class="kv"><span>區域</span><b>' + esc(d.area) + '</b></div>' +
@@ -224,6 +225,10 @@ function cnCase() {
     : '<button class="btn" onclick="S.cpub.qr=true;S.cpub.reload=true;render()">' + ic('grid', 20, 2.4) + '出施工人員簽名 QR</button>';
   if (d.canFix) h += '<button class="btn ' + (d.status === '補件退回' ? '' : 'line') + '" onclick="cnFixStart()">' + ic('pen', 18, 2.4) + (d.status === '補件退回' ? '補件後重新送出' : '修改申請內容、增減施工人員') + '</button>';
   if (d.status === '已核准') h += '<div class="box ok"><div class="r">' + ic('check', 22) + '<div class="bt"><div class="m">已核准，施工期間可進場。進場當天請先參加工具箱會議；特殊作業前另外申請許可。</div></div></div></div>';
+  if (d.pmTypes.length) {
+    h += '<div class="sec">特殊作業許可<small>' + esc(d.pmTypes.join('、')) + '：作業前申請，核准才能做</small></div>' + cnPmList(d.permits, false);
+    if (d.canPermit) h += '<button class="btn" onclick="cnPmStart()">' + ic('plus', 18, 2.6) + '申請特殊作業許可</button>';
+  }
   $('app').innerHTML = h + '<button class="btn ghost" onclick="S.cpub.reload=true;render()">' + ic('refresh', 18, 2.4) + '重新整理</button>';
 }
 function cnFixStart() {
@@ -368,6 +373,7 @@ function cnCaseStaff(d) {
     d.workers.map(function (w) { return '<div class="cnwk"><span>' + esc(w.name) + '</span>' + (w.signed ? pill('ok', 'check', '已簽 ' + w.at) : pill('warn', '', '未簽')) + '</div>'; }).join('') + '</div>';
   if (d.sameDevice && d.sameDevice.length) h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>同一支手機簽了好幾位</b><div class="m">' +
     d.sameDevice.map(function (a) { return esc(a.join('、')); }).join('<br>') + '<br>請確認是本人親簽（不是別人代簽）。</div></div></div></div>';
+  if (d.pmTypes && d.pmTypes.length) h += '<div class="sec">特殊作業許可<small>' + esc(d.pmTypes.join('、')) + '</small></div>' + cnPmList(d.permits, d.canPmReview);
   h += '<div class="sec">歷程</div><div class="card">' + d.history.map(function (x) { return '<div class="cnwk"><span><b>' + esc(x.act) + '</b>' + (x.note ? '・' + esc(x.note) : '') + '<br><small class="muted">' + esc(x.who) + '</small></span><small class="muted">' + esc(x.at.slice(5)) + '</small></div>'; }).join('') + '</div>';
   if (d.comment) h += '<div class="box info"><div class="r">' + ic('info', 20) + '<div class="bt"><b>審核意見</b><div class="m">' + esc(d.comment) + '</div></div></div></div>';
   $('app').innerHTML = h + '<div id="cnErr"></div>';
@@ -404,4 +410,72 @@ function cnCommit(vid, ok) {
   else if (!confirm('確認已收到負責人簽名、公司大小章的承諾書正本？\n該廠商暫緩中的案件會自動恢復。')) return;
   api('consCommit', { vid: vid, ok: ok, comment: why.trim() }).then(function (r) { toast(ok ? '已登記' + (r.moved.length ? '，恢復 ' + r.moved.join('、') : '') : '已改為未收到' + (r.moved.length ? '，暫緩 ' + r.moved.join('、') : ''), 'ok', 4000); cnVendors(); })
     .catch(function (e) { toast(esc(e.message), 'err', 4000); });
+}
+
+
+// ── 特殊作業許可（廠商申請、環安衛審核）──
+var CN_PM_PILL = { '待審核': 'warn', '已核准': 'ok', '安全警報': 'bad', '不核准': 'bad', '已取消': 'na' };
+function cnPmList(list, staff) {
+  if (!list.length) return '<div class="muted">還沒有申請</div>';
+  return '<div class="card">' + list.map(function (x) {
+    var t = x.start + (x.end !== x.start ? '～' + x.end.slice(5) : '') + ' ' + x.from + '～' + x.to;
+    var act = staff && (x.status === '待審核' || x.status === '安全警報') ? '<div class="btns"><button class="btn ghost sm" onclick="cnPmReview(' + jsq(x.id) + ',\'reject\')">不核准</button>' +
+      (x.status === '待審核' ? '<button class="btn sm" onclick="cnPmReview(' + jsq(x.id) + ',\'approve\')">' + ic('check', 16, 3) + '核准</button>' : '') + '</div>' : '';
+    return '<div class="cnwk" style="display:block"><div style="display:flex;justify-content:space-between;align-items:center"><b>' + esc(x.type + '・' + x.id) + '</b>' + pill(CN_PM_PILL[x.status] || 'na', '', x.status) + '</div>' +
+      '<div class="muted sm">' + esc(t + '・' + x.area + '・' + x.desc + (x.hot ? '（' + x.hot + '）' : '')) + '</div>' +
+      (x.gas ? '<div class="muted sm">測定 O2 ' + esc(x.gas.o2) + '%、LEL ' + esc(x.gas.lel) + '%、H2S ' + esc(x.gas.h2s) + 'ppm、CO ' + esc(x.gas.co) + 'ppm（' + esc(x.gas.who) + '）</div>' : '') +
+      (x.alert ? '<div class="box bad"><div class="r">' + ic('warn', 18) + '<div class="bt"><div class="m">超標：' + esc(x.alert) + '。不得進入，通風後重新測定再申請。</div></div></div></div>' : '') +
+      (x.comment ? '<div class="muted sm">意見：' + esc(x.comment) + '</div>' : '') + act + '</div>';
+  }).join('') + '</div>';
+}
+function cnPmStart() {
+  var d = S.cpub.d;
+  S.cpub.pm = true; S.cpub.f = { types: d.pmTypes.length === 1 ? d.pmTypes.slice() : [], pmSup: d.sup, pmArea: d.area, chk: {} };
+  window.scrollTo(0, 0); render();
+}
+function cnPmTogChk(t, i) { var c = S.cpub.f.chk[t] = S.cpub.f.chk[t] || []; c[i] = !c[i]; cnPmKeep(); var y = window.scrollY; render(); window.scrollTo(0, y); }
+function cnPmKeep() { ['pmStart', 'pmEnd', 'pmFrom', 'pmTo', 'pmArea', 'pmDesc', 'pmO2', 'pmLel', 'pmH2s', 'pmCo', 'pmWho', 'pmLift', 'pmSup'].forEach(function (id) { var el = $(id); if (el) S.cpub.f[id] = el.value; }); }
+function cnPmForm() {
+  var P = S.cpub, d = P.d, f = P.f, types = f.types || [];
+  var same = types.some(function (t) { return d.pmSameDay.indexOf(t) >= 0; });
+  var h = '<div class="muted">施工期間 ' + esc(d.start + '～' + d.end) + '。動火、吊掛許可限當天，隔天要重新申請。注意事項要逐項確認做到才能送出。</div>' +
+    '<label class="nl req">作業類別</label>' + cnChips('types', d.pmTypes, types) +
+    '<div class="r2">' + cnField('pmStart', '作業日期', f.pmStart, { type: 'date', max: 10 }) + (same ? '' : cnField('pmEnd', '結束日期（多日才填）', f.pmEnd, { type: 'date', max: 10, req: false })) + '</div>' +
+    '<div class="r2">' + cnField('pmFrom', '起始時間', f.pmFrom || '08:00', { type: 'time', max: 5 }) + cnField('pmTo', '結束時間', f.pmTo || '17:00', { type: 'time', max: 5 }) + '</div>' +
+    cnField('pmArea', '作業區域', f.pmArea) + cnField('pmDesc', '工程內容概述', f.pmDesc, { max: 100 }) +
+    (types.indexOf('動火作業') >= 0 ? '<label class="nl req">動火方式</label>' + cnChips('hot', d.hotList, f.hot) : '');
+  if (types.indexOf('局限空間作業') >= 0) h += '<div class="sec">作業環境測定<small>O2 ≥ ' + d.pmSafe.O2_MIN + '%、LEL ≤ ' + d.pmSafe.LEL_MAX + '%、H2S ≤ ' + d.pmSafe.H2S_MAX + 'ppm、CO ≤ ' + d.pmSafe.CO_MAX + 'ppm</small></div>' +
+    '<div class="r2">' + cnField('pmO2', 'O2（%）', f.pmO2, { mode: 'decimal', max: 6 }) + cnField('pmLel', 'LEL（%）', f.pmLel, { mode: 'decimal', max: 6 }) + '</div>' +
+    '<div class="r2">' + cnField('pmH2s', 'H2S（ppm）', f.pmH2s, { mode: 'decimal', max: 6 }) + cnField('pmCo', 'CO（ppm）', f.pmCo, { mode: 'decimal', max: 6 }) + '</div>' +
+    cnField('pmWho', '測定人員', f.pmWho, { max: 20 }) + cnField('pmLift', '關聯吊掛許可編號（需要吊掛才填）', f.pmLift, { max: 20, req: false });
+  types.forEach(function (t) {
+    var c = f.chk[t] || [];
+    h += '<div class="sec">' + esc(t) + '注意事項<small>逐項確認</small></div><div class="card">' + d.pmCheck[t].map(function (x, i) {
+      return '<label class="cnagree" style="margin:6px 0"><input type="checkbox"' + (c[i] ? ' checked' : '') + ' onchange="cnPmTogChk(' + jsq(t) + ',' + i + ')"><span>' + (i + 1) + '. ' + esc(x) + '</span></label>';
+    }).join('') + '</div>';
+  });
+  h += cnField('pmSup', '申請人（施工現場監督人員）', f.pmSup, { max: 20 }) + cnSigBox('申請人請簽全名') + '<div id="pmErr"></div>';
+  $('app').innerHTML = h;
+  bar('<button class="btn ghost" onclick="S.cpub.pm=false;render()">取消</button><button class="btn" id="pmBtn" onclick="cnPmGo()">' + ic('check', 22, 3) + '送出申請</button>');
+  sigInit();
+}
+function cnPmGo() {
+  cnPmKeep();
+  var f = S.cpub.f, b = { types: f.types || [], start: f.pmStart, end: f.pmEnd || f.pmStart, from: f.pmFrom, to: f.pmTo, area: f.pmArea, desc: f.pmDesc, hot: f.hot || [],
+    o2: f.pmO2, lel: f.pmLel, h2s: f.pmH2s, co: f.pmCo, gasWho: f.pmWho, lift: f.pmLift, sup: f.pmSup, checks: f.chk };
+  if (!b.types.length) return toast('請勾選作業類別', 'err');
+  if (!SIG.drawn) return toast('請簽名', 'err');
+  b.image = sigExport(); if (!b.image) return toast('簽名太小，請簽大一點', 'err');
+  cnBusy('pmBtn', '送出中…');
+  cnPub('consPubPermit', b).then(function (r) {
+    S.cpub.pm = false; S.cpub.reload = true; window.scrollTo(0, 0); render();
+    toast(r.alerts.length ? '已送出：氣體測定超標，不得進入，請通風後重新測定' : r.permits.every(function (x) { return x.status === '已核准'; }) ? '已核准，可以依許可期間作業' : '已送出，等環安衛核准', r.alerts.length ? 'err' : 'ok', 5000);
+  }).catch(function (e) { $('pmErr').innerHTML = errBox('沒有送出', e.message); cnUnbusy('pmBtn', '再送一次'); });
+}
+function cnPmReview(id, dec) {
+  var c = '';
+  if (dec !== 'approve') { c = prompt('不核准的原因（廠商會看到）', ''); if (c === null) return; if (c.trim().length < 2) return toast('請寫原因', 'err'); }
+  else if (!confirm('核准這張許可單？')) return;
+  api('consPermitReview', { id: id, decision: dec, comment: c.trim() }).then(function () { toast(dec === 'approve' ? '已核准' : '已不核准', 'ok'); rcClear(); render(); })
+    .catch(function (e) { toast(esc(e.message), 'err', 5000); });
 }
