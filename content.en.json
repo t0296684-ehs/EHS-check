@@ -1,5 +1,5 @@
 {
- "version": "0.15.2",
+ "version": "0.15.3",
  "chapters": [
   {
    "no": 1,
@@ -644,6 +644,28 @@
       "Health info only needs reading; tap <b>\"I have read it\"</b> where asked."
      ],
      "tip": "You need internet to view the materials. Just opening a course does not complete it; the reminder on the home page stays until you tap \"I have completed it\". Overdue courses are marked red.",
+     "warn": false
+    },
+    {
+     "no": "6-2",
+     "title": "Library and high-risk work",
+     "lead": "Materials you have read stay in the Library so you can review them any time; High-risk work explains the main hazards and the protection you must use, with safety signs.",
+     "shots": [
+      [
+       "e11_教材庫",
+       "Library: grouped by topic"
+      ],
+      [
+       "e10_高風險作業",
+       "High-risk work: tap for key points"
+      ]
+     ],
+     "steps": [
+      "<b>EHS training</b> has three tabs at the top: <b>Latest</b> (new and to-do), <b>Library</b> and <b>High-risk work</b>.",
+      "<b>Library</b>: courses and notices with materials or attachments, grouped by topic. <b>Items you have read stay here</b> — open them again any time.",
+      "<b>High-risk work</b>: hot work, height, confined space, lifting, electrical, forklifts, organic solvents, dust and hazardous chemicals. Tap a card to see the <b>main hazards</b>, what you <b>must do</b> and the legal basis. In the English or Thai interface the content is shown in that language."
+     ],
+     "tip": "Materials disappear from the Library only when EHS takes them down.",
      "warn": false
     }
    ]
