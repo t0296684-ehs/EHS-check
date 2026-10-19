@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.15.3';
+var APP_VERSION = '0.16.0';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -169,7 +169,7 @@ function api(action, body, opt) {
 // 任何寫入成功後整個清掉；登入、登出、換人也清掉。開發者模式只放記憶體、不存手機。
 var RC_ACT = ['monthView', 'packages', 'tracks', 'eduList', 'eduStats', 'team', 'nextList', 'envMe', 'envMonth', 'consCases', 'chemList', 'patrolInfo', 'bcPeople', 'bcList', 'exportOpts'];
 var RC_KEEP = RC_ACT.concat(['me', 'overview', 'bootstrap', 'ping', 'clientLog', 'photoGet', 'eduFile', 'getPdf', 'exportPdf', 'dayView', 'devLogs',
-  'meetHome', 'meetState', 'meetDeck', 'meetList', 'meetPdf', 'meetChecks', 'meetOpen', 'meetPagesPub', 'consHome', 'consDetail', 'consVendors', 'consPubForm', 'consPubCase', 'consPubWorkerOpen']);   // 只讀的動作不清暫存
+  'meetHome', 'meetState', 'meetDeck', 'meetList', 'meetPdf', 'meetChecks', 'meetOpen', 'meetPagesPub', 'consHome', 'consDetail', 'consVendors', 'consPubForm', 'consPubCase', 'consPubWorkerOpen', 'consPubHandlerOpen', 'consFile']);   // 只讀的動作不清暫存
 var RC = null, RC_FRESH = 20000, RC_MAX = 40, RC_LS = 'chk.rc';
 function rcAll() { if (!RC) { RC = {}; if (!S.dev) try { RC = JSON.parse(localStorage.getItem(RC_LS) || '{}') || {}; } catch (e) { RC = {}; } } return RC; }
 function rcSave() {
@@ -565,7 +565,7 @@ PAGES.login = function () {
   if (sel && sel.needPin) h += step(3, false, '<label for="pin">輸入啟用碼</label>') + '<input id="pin" class="field pin" inputmode="numeric" autocomplete="one-time-code" placeholder="環安衛中心給您的啟用碼">';
   h += '<div id="loginErr"></div>';
   if (!a.spc && !a.dept && !a.mgr && !curG) h += '<button class="card fcard cnlog" onclick="S.cpub={kind:\'login\',f:{}};render()"><div class="fh">' + ic('helmet', 22, 2.2) + '<b>承攬商查詢案件</b></div>' +
-    '<div class="muted">廠商、施工負責人：輸入案件編號與 Email 裡的 6 碼查詢密碼，看簽名、審核與施工狀況（不用選部門）。</div></button>';
+    '<div class="muted">廠商、施工負責人：輸入 Email 裡的 6 碼查詢密碼，看簽名、審核與施工狀況（不用選部門）。</div></button>';
   $('app').innerHTML = h;
   if (sel) bar('<button class="btn" id="bindBtn" onclick="doBind()">確認，我是 ' + esc(sel.name) + '</button>');
 };

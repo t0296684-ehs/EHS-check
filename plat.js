@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.15.3';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.16.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -499,6 +499,11 @@ function eduState(x) {
   if (x.course) return x.done ? ['ok', 'check', '已完成'] : x.due && x.due < today() ? ['ng', '', '已逾期'] : ['warn', '', x.due ? '期限 ' + md(x.due) : '待完成'];
   return x.needAck ? (x.acked ? ['ok', 'check', '已確認'] : ['warn', '', '請看完確認']) : x.opened ? null : ['ng', '', '新'];
 }
+function eduRow(x) {
+  var st = eduState(x), meta = x.cat + (x.course && x.hours ? '・' + x.hours + ' 小時' : '') + '・' + x.time.slice(5, 10).replace('-', '/') + (x.files.length ? '・' + x.files.length + ' 個附件' : '');
+  return '<button class="li' + (x.opened ? '' : ' unread') + '" onclick="go(\'eduItem\',{id:' + jsq(x.id) + '})"><span class="mn"><span class="mt">' + esc(meta) + '</span><span class="nm">' + (x.opened ? '' : '<i class="ndot"></i>') + esc(x.title) + '</span></span>' +
+    (st ? pill(st[0], st[1], st[2]) : '') + '</button>';
+}
 PLAT_PAGES.edu = function () {
   setTitle('環安衛教育訓練');
   var e = S.edu;
@@ -511,23 +516,25 @@ PLAT_PAGES.edu = function () {
   var h = '';
   if (isEhs()) h += '<div class="btns"><button class="btn" onclick="S.ep=null;go(\'eduPost\')">' + ic('plus', 18, 2.4) + '發布新文宣</button><button class="btn ghost" onclick="S.es=null;go(\'eduStats\')">' + ic('review', 18, 2.4) + '閱讀紀錄</button></div>' +
     '<button class="btn line" style="margin-top:10px" onclick="go(\'meetNew\')">' + ic('helmet', 18, 2.4) + '新進人員教育訓練（現場掃碼簽到）</button>';
-  var todo = e.list.filter(function (x) { return x.course && !x.done; }).length;
-  if (todo && !isEhs()) h += '<div class="box info"><div class="r">' + ic('book', 22) + '<div class="bt"><b>有 ' + todo + ' 堂教育訓練要完成</b><div class="m">看完教材、作答，按「我已完成」就會自動簽到。</div></div></div></div>';
-  // 10/19：最新（推送、待完成）／教材庫（固定教材，隨時再看）／高風險作業（官方安全標誌＋主要危害與防護）
-  var view = e.view || 'new';
-  h += '<div class="seg2 cstab" style="grid-template-columns:repeat(3,minmax(0,1fr))">' + [['new', '最新'], ['lib', '教材庫'], ['risk', '高風險作業']].map(function (v) {
-    return '<button class="' + (view === v[0] ? 'on' : '') + '" onclick="S.edu.view=' + jsq(v[0]) + ';render()">' + esc(v[1]) + '</button>'; }).join('') + '</div>';
+  // 10/19 晚 Jason：通知說有未完成的，點進來要一眼看出是哪幾則 → 第一個分頁「待完成」（數字＝還沒做完的），有待完成就先開它
+  var isTodo = function (x) { return x.course ? !x.done : x.needAck ? !x.acked : !x.opened; };
+  var todoL = isEhs() ? [] : e.list.filter(isTodo).sort(function (a, b) { return String(a.due || '9999').localeCompare(String(b.due || '9999')) || (b.course ? 1 : 0) - (a.course ? 1 : 0); });
+  var view = e.view || (todoL.length ? 'todo' : 'all');
+  var tabs = (isEhs() ? [] : [['todo', '待完成', todoL.length]]).concat([['all', '全部'], ['lib', '教材庫'], ['risk', '高風險作業']]);
+  h += '<div class="seg2 cstab" style="grid-template-columns:repeat(' + tabs.length + ',minmax(0,1fr))">' + tabs.map(function (v) {
+    return '<button class="' + (view === v[0] ? 'on' : '') + '" onclick="S.edu.view=' + jsq(v[0]) + ';render()"><span>' + esc(v[1]) + '</span>' + (v[2] ? ' <b data-raw>' + v[2] + '</b>' : '') + '</button>'; }).join('') + '</div>';
   if (view === 'lib') { $('app').innerHTML = h + eduLibHtml(e); return; }
   if (view === 'risk') { $('app').innerHTML = h + riskHtml(); return; }
+  if (view === 'todo') {
+    h += todoL.length ? '<div class="muted upnote" style="margin:4px 2px 8px">期限近的在上面。教育訓練看完教材、按「我已完成」；要確認的文宣按「我已閱讀」；新的文宣打開看過就好。</div>' +
+      '<div class="list">' + todoL.map(eduRow).join('') + '</div>' : '<div class="empty">都完成了，沒有待完成的</div>';
+    $('app').innerHTML = h; return;
+  }
   h += '<div class="seg">' + [''].concat(e.cats).map(function (c) {
     return '<button class="' + (e.cat === c ? 'on' : '') + '" onclick="S.edu.cat=' + jsq(c) + ';render()">' + esc(c || '全部') + '</button>'; }).join('') + '</div>';
   var list = e.list.filter(function (x) { return !e.cat || x.cat === e.cat; });
   if (!list.length) h += '<div class="empty">目前沒有' + esc(e.cat || '文宣') + '</div>';
-  else h += '<div class="list">' + list.map(function (x) {
-    var st = eduState(x), meta = x.cat + (x.course && x.hours ? '・' + x.hours + ' 小時' : '') + '・' + x.time.slice(5, 10).replace('-', '/') + (x.files.length ? '・' + x.files.length + ' 個附件' : '');
-    return '<button class="li' + (x.opened ? '' : ' unread') + '" onclick="go(\'eduItem\',{id:' + jsq(x.id) + '})"><span class="mn"><span class="mt">' + esc(meta) + '</span><span class="nm">' + (x.opened ? '' : '<i class="ndot"></i>') + esc(x.title) + '</span></span>' +
-      (st ? pill(st[0], st[1], st[2]) : '') + '</button>';
-  }).join('') + '</div>';
+  else h += '<div class="list">' + list.map(eduRow).join('') + '</div>';
   h += '<div class="muted upnote">教育訓練看完要按「我已完成」（會自動簽到）；衛教文宣看完就好。</div>';
   $('app').innerHTML = h;
 };

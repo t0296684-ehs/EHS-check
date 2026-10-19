@@ -1,5 +1,5 @@
 {
- "version": "0.15.3",
+ "version": "0.16.0",
  "chapters": [
   {
    "no": 1,
@@ -661,7 +661,7 @@
       ]
      ],
      "steps": [
-      "<b>EHS training</b> has three tabs at the top: <b>Latest</b> (new and to-do), <b>Library</b> and <b>High-risk work</b>.",
+      "<b>EHS training</b> has tabs at the top: <b>To complete</b> (what you still need to finish, with a count; it opens first when you have any), <b>All</b>, <b>Library</b> and <b>High-risk work</b>.",
       "<b>Library</b>: courses and notices with materials or attachments, grouped by topic. <b>Items you have read stay here</b> — open them again any time.",
       "<b>High-risk work</b>: hot work, height, confined space, lifting, electrical, forklifts, organic solvents, dust and hazardous chemicals. Tap a card to see the <b>main hazards</b>, what you <b>must do</b> and the legal basis. In the English or Thai interface the content is shown in that language."
      ],
@@ -709,49 +709,97 @@
     },
     {
      "no": "7-2",
-     "title": "Send links to contractors",
-     "lead": "When a contractor will work here, send them the request links by LINE from this page.",
+     "title": "Send the construction application link to a contractor",
+     "lead": "When a contractor is coming to work on site, send them the application link (e.g. by LINE). First-time contractors are taken to registration first.",
      "shots": [
       [
-       "p06_施工申請",
-       "Contractor work requests"
+       "c11_施工申請連結",
+       "Send the application link"
       ],
       [
-       "p12_帶入承辦人",
-       "Asks before adding your details"
+       "c12_廠商填申請",
+       "Contractor fills in the application"
       ]
      ],
      "steps": [
-      "On the Menu tap <b>\"Contractor work requests\"</b>.",
-      "<b>New contractor</b>: send <b>\"Contractor registration (Form 1)\"</b>. They then get a commitment letter to stamp and return.",
-      "<b>Each job</b>: send <b>\"Work request (Form 2)\"</b>; the contractor fills it <b>3 working days before</b>. Before sending, the app asks whether to <b>add you as the person in charge</b>; then the case appears under My cases.",
-      "Tap <b>\"Send to contractor\"</b> and choose LINE, or <b>\"Copy link\"</b> and paste it."
+      "Main menu <b>Construction</b> → <b>Application link</b> → <b>Send to contractor</b> (LINE) or <b>Copy link</b>. The link is valid for <b>30 days</b>; cases sent through it are assigned to you (you are the handler).",
+      "The contractor enters their <b>tax ID</b>. New contractors register first; the system emails the <b>contractor safety commitment</b>, which the owner signs and stamps and mails back to the EHS center.",
+      "The contractor fills in the work and period, adds workers one per row with <b>＋ Add a worker</b> (name + last 4 ID digits), may attach files such as the work plan, and the <b>site supervisor signs</b> to submit.",
+      "If <b>hot work, lifting, confined space or work at height</b> is ticked, the screen asks them to <b>fill in the permit in the same application</b> (dates, times, every precaution confirmed) — no separate form. Ask contractors to apply <b>3 days before</b> work starts."
      ],
-     "tip": "",
+     "tip": "After submitting, the contractor receives <b>two QR codes</b> by email (① worker signatures, ② handler signature), the case link and a <b>6-digit query code</b>.",
      "warn": false
     },
     {
      "no": "7-3",
-     "title": "Steps: what the contractor and I each do",
-     "lead": "After Form 2, everyone signs and EHS approves before the contractor may enter.",
+     "title": "Signing and submitting: what the contractor and I do",
+     "lead": "Workers sign, you sign, the case is submitted and EHS approves before the contractor may enter.",
      "shots": [
       [
-       "p06_施工申請",
-       "My cases"
+       "c13_申請完成QR",
+       "Two QR codes"
       ],
       [
-       "p13_App內簽名",
-       "Sign in the app"
+       "c14_施工人員簽名",
+       "Workers read the hazard notice and sign"
+      ],
+      [
+       "c15_承辦簽名提交",
+       "Handler signs by QR"
       ]
      ],
      "steps": [
-      "<b>Contractor</b>: after Form 2 they get an email with signing links. The <b>supervisor signs first</b>, then <b>each worker scans and signs</b>.",
-      "<b>You (person in charge)</b>: after the workers sign, <b>\"Sign in the app\"</b> appears under My cases and uses your stored signature after you confirm. When all workers have signed you can <b>\"Submit for review\"</b> right there.",
-      "Once all have signed it is submitted; <b>EHS approves</b>, and the contractor gets an approval email before entering.",
-      "For <b>hot work, lifting, confined space or work at height</b>, the contractor fills a permit on the day (the system emails the link).",
-      "If the contractor <b>did not get the signing email</b>, send the <b>resend link</b> at the bottom; it goes to their registered email."
+      "<b>Workers</b> scan QR ① with <b>their own phones</b>, pick their name, enter the last 4 ID digits, read the <b>hazard notice</b> and sign. Extra workers not on the list tap <b>I'm not on the list</b>. With poor signal the signature is kept on the phone and sent automatically later.",
+      "<b>You (handler)</b> can sign two ways: ① scan QR ② from the contractor — <b>no app needed</b> — pick your name and sign; ② in the app, open the case under <b>Construction</b> and tap <b>Sign and submit</b> (uses your saved signature). You are notified (app + email) when all workers have signed.",
+      "<b>Submit for review</b>: the handler can submit while signing, or the site supervisor taps <b>Submit for review</b> on the case page. You may submit before every worker has signed; they can still sign later and EHS sees who is missing.",
+      "<b>Returned for correction</b>: the contractor edits and adds files via the case link and resubmits. If the period, area or special work changes, you must <b>sign again</b>."
      ],
-     "tip": "Status: waiting for signatures → workers signing → in review → approved. If returned, remind the contractor to complete it.",
+     "tip": "If the handler is not the person registered on the application, choose <b>I am the handler</b> when scanning and type your own name exactly as in the staff list.",
+     "warn": false
+    },
+    {
+     "no": "7-4",
+     "title": "Special work permits (hot work, lifting, confined space, height)",
+     "lead": "Permits are filled in and approved together with the application; confined space needs gas readings on site before entry.",
+     "shots": [
+      [
+       "c17_特殊作業許可",
+       "Permit filled in the application"
+      ],
+      [
+       "c19_案件頁",
+       "Contractor case page"
+      ]
+     ],
+     "steps": [
+      "Hot work and lifting permits are <b>for one day only</b>: tick every working day, one permit per day. Confined space and height cover a period. Every <b>precaution must be confirmed</b>.",
+      "<b>Confined space</b>: on the day, before entry, tap <b>Enter gas readings</b> on the case page (O2, LEL, H2S, CO). Out-of-limit readings are marked <b>Safety alert</b>, EHS and you are notified, and <b>no entry is allowed</b> until re-measured after ventilation.",
+      "When EHS <b>approves the application, the permits are approved too</b>; the permit PDFs with signatures are emailed and saved to the NAS (lifting also includes the mobile crane checklist).",
+      "To add working days later, the supervisor taps <b>Apply for another permit</b> on the case page; it is approved automatically if the case is approved and all conditions are met."
+     ],
+     "tip": "No work before approval. Permits past their date show as Expired.",
+     "warn": true
+    },
+    {
+     "no": "7-5",
+     "title": "EHS: review, commitments, permits; contractor case lookup",
+     "lead": "EHS reviews cases, records commitment originals and handles permits under Construction; contractors check progress with the 6-digit code.",
+     "shots": [
+      [
+       "c16_環安衛審核",
+       "Review a case"
+      ],
+      [
+       "c18_承攬商查詢",
+       "Contractor enters the 6-digit code"
+      ]
+     ],
+     "steps": [
+      "<b>Cases</b> tab: open cases marked <b>Awaiting your review</b>. <b>Check before review</b> lists unsigned workers, missing permits and the commitment status; check attachments, same-phone warnings and history, then <b>Approve</b>, <b>Return</b> or <b>Reject</b> (separate items with “；” and they are listed one by one in the contractor's email).",
+      "<b>Contractors & commitments</b> tab: when the signed and stamped original arrives, tap <b>Commitment original received</b>; held cases resume and the contractor is notified. If it was not actually received, tap <b>Not actually received?</b> and the contractor is asked to resend it.",
+      "<b>Contractor case lookup</b>: at the bottom of the app login page, <b>Contractor case lookup</b> — enter only the <b>6-digit query code</b> from the email to see signatures, review, permits and progress, even after the case ends. Without the email, enter the tax ID and the case links are sent to the registered email."
+     ],
+     "tip": "Approved documents and permits are saved to the NAS by the PC schedule every morning.",
      "warn": false
     }
    ]
