@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.15.1';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.15.2';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -513,6 +513,12 @@ PLAT_PAGES.edu = function () {
     '<button class="btn line" style="margin-top:10px" onclick="go(\'meetNew\')">' + ic('helmet', 18, 2.4) + '新進人員教育訓練（現場掃碼簽到）</button>';
   var todo = e.list.filter(function (x) { return x.course && !x.done; }).length;
   if (todo && !isEhs()) h += '<div class="box info"><div class="r">' + ic('book', 22) + '<div class="bt"><b>有 ' + todo + ' 堂教育訓練要完成</b><div class="m">看完教材、作答，按「我已完成」就會自動簽到。</div></div></div></div>';
+  // 10/19：最新（推送、待完成）／教材庫（固定教材，隨時再看）／高風險作業（官方安全標誌＋主要危害與防護）
+  var view = e.view || 'new';
+  h += '<div class="seg2 cstab" style="grid-template-columns:repeat(3,minmax(0,1fr))">' + [['new', '最新'], ['lib', '教材庫'], ['risk', '高風險作業']].map(function (v) {
+    return '<button class="' + (view === v[0] ? 'on' : '') + '" onclick="S.edu.view=' + jsq(v[0]) + ';render()">' + esc(v[1]) + '</button>'; }).join('') + '</div>';
+  if (view === 'lib') { $('app').innerHTML = h + eduLibHtml(e); return; }
+  if (view === 'risk') { $('app').innerHTML = h + riskHtml(); return; }
   h += '<div class="seg">' + [''].concat(e.cats).map(function (c) {
     return '<button class="' + (e.cat === c ? 'on' : '') + '" onclick="S.edu.cat=' + jsq(c) + ';render()">' + esc(c || '全部') + '</button>'; }).join('') + '</div>';
   var list = e.list.filter(function (x) { return !e.cat || x.cat === e.cat; });
@@ -1569,4 +1575,65 @@ function devCard() {
   if (!isEhs() || S.dev) return '';
   return '<div class="mcards"><button class="mcard" style="--c:#3D4754" onclick="S.dp=null;go(\'devPick\')"><span class="mi">' + ic('sliders', 30, 2.1) + '</span>' +
     '<span class="mx"><b>開發者模式</b><small>用同仁的畫面找出卡在哪一步（只看不送出）</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
+}
+
+// ───────────── 教材庫、高風險作業（10/19 Jason：教育訓練資料要成為固定教材，不是一次性閱讀；高風險作業用圖示說明主要危害與防護）─────────────
+// 教材庫：同一批文宣、課程依主題分類，隨時可以再看（下架的才不見）。高風險作業卡：ISO 7010 官方安全標誌／GHS 圖示（iso-*.svg、ghs-*.svg）。
+var RISK = [
+  { icons: ['iso-W021'], zh: ['動火作業', ['火災、爆炸', '灼傷、眼睛傷害（強光、火花）', '感電（電銲機）'], ['作業前申請動火許可，核准才能做', '清除周圍可燃物，移不走的用防火毯蓋住', '現場備妥滅火器（至少一具）', '乙炔、氧氣鋼瓶直立固定、裝防回火裝置', '作業後確認火種熄滅，留人監看'], '職業安全衛生設施規則（火災爆炸之防止）；動火作業許可證 EF-45-005-A'],
+    en: ['Hot work', ['Fire, explosion', 'Burns, eye injury (glare, sparks)', 'Electric shock (welder)'], ['Get a hot-work permit first; work only after approval', 'Remove nearby combustibles; cover what cannot be moved with a fire blanket', 'Keep at least one extinguisher on site', 'Acetylene/oxygen cylinders upright, secured, with flashback arrestors', 'After work, make sure all sparks are out and keep watch'], 'Occupational Safety and Health Facilities Rules (fire & explosion); Hot-work permit EF-45-005-A'],
+    th: ['งานใช้ความร้อน (เชื่อม/ตัด)', ['ไฟไหม้ ระเบิด', 'แผลไหม้ ตาบาดเจ็บ (แสงจ้า สะเก็ดไฟ)', 'ไฟดูด (ตู้เชื่อม)'], ['ขอใบอนุญาตก่อน ได้รับอนุมัติแล้วจึงทำ', 'เก็บของติดไฟรอบๆ ออก ที่ย้ายไม่ได้ให้คลุมผ้ากันไฟ', 'มีถังดับเพลิงที่หน้างานอย่างน้อย 1 ถัง', 'ถังอะเซทิลีน/ออกซิเจนตั้งตรง ยึดแน่น มีอุปกรณ์กันไฟย้อน', 'เสร็จงานตรวจว่าไม่มีไฟค้าง และมีคนเฝ้าดู'], 'กฎความปลอดภัยฯ (การป้องกันไฟไหม้/ระเบิด); ใบอนุญาต EF-45-005-A'] },
+  { icons: ['iso-W008', 'iso-M018'], zh: ['高架作業', ['墜落', '物體飛落', '施工架、合梯倒塌'], ['2 公尺以上使用全身式安全帶，鉤在穩固處', '施工架、合梯要穩，開口處設護欄', '工具放工具袋，防止掉落', '下方設圍籬或警示，禁止人員通過'], '職業安全衛生設施規則（墜落災害防止）；高架作業許可證 EF-45-008-A'],
+    en: ['Work at height', ['Falls', 'Falling objects', 'Scaffold or ladder collapse'], ['Above 2 m wear a full-body harness hooked to a secure point', 'Scaffolds and ladders stable; guardrails at openings', 'Keep tools in a tool bag so nothing falls', 'Fence or mark the area below; no one walks underneath'], 'OSH Facilities Rules (fall prevention); Height work permit EF-45-008-A'],
+    th: ['งานบนที่สูง', ['ตกจากที่สูง', 'ของตกใส่', 'นั่งร้าน/บันไดล้ม'], ['สูงเกิน 2 เมตร ใส่เข็มขัดนิรภัยเต็มตัว เกี่ยวกับจุดที่แข็งแรง', 'นั่งร้าน บันไดต้องมั่นคง ช่องเปิดมีราวกั้น', 'ใส่เครื่องมือในกระเป๋าเครื่องมือ กันตก', 'ด้านล่างกั้นเขตหรือติดป้าย ห้ามคนเดินผ่าน'], 'กฎความปลอดภัยฯ (การป้องกันการตก); ใบอนุญาต EF-45-008-A'] },
+  { icons: ['iso-W016'], zh: ['局限空間作業', ['缺氧', '中毒（硫化氫、一氧化碳等）', '可燃性氣體火災爆炸'], ['作業前申請許可，關閉相連管路閥門', '進入前測定：O2 ≥ 18%、LEL ≤ 30%、H2S ≤ 10ppm、CO ≤ 35ppm', '持續通風，外面一定要有監視人員', '備妥救援器材；有人倒下不可貿然進去救'], '職業安全衛生設施規則（局限空間）、缺氧症預防規則；局限空間作業許可證 EF-45-007-A'],
+    en: ['Confined space', ['Oxygen deficiency', 'Poisoning (H2S, CO, etc.)', 'Flammable gas fire/explosion'], ['Get a permit; close all connected pipe valves', 'Measure before entry: O2 ≥ 18%, LEL ≤ 30%, H2S ≤ 10 ppm, CO ≤ 35 ppm', 'Keep ventilating; an attendant must stay outside', 'Have rescue gear ready; never rush in to rescue someone'], 'OSH Facilities Rules (confined spaces), Hypoxia Prevention Rules; Permit EF-45-007-A'],
+    th: ['ที่อับอากาศ', ['ขาดออกซิเจน', 'ก๊าซพิษ (H2S, CO ฯลฯ)', 'ก๊าซติดไฟ ไฟไหม้/ระเบิด'], ['ขอใบอนุญาต ปิดวาล์วท่อที่ต่อเข้ามาทั้งหมด', 'วัดก่อนเข้า: O2 ≥ 18%, LEL ≤ 30%, H2S ≤ 10 ppm, CO ≤ 35 ppm', 'ระบายอากาศตลอด ต้องมีคนเฝ้าอยู่ข้างนอก', 'เตรียมอุปกรณ์กู้ภัย ถ้ามีคนล้ม ห้ามรีบเข้าไปช่วย'], 'กฎความปลอดภัยฯ (ที่อับอากาศ) กฎป้องกันภาวะขาดออกซิเจน; ใบอนุญาต EF-45-007-A'] },
+  { icons: ['iso-W015'], zh: ['吊掛作業', ['吊物掉落', '起重機翻覆', '被撞、被夾'], ['起重機、操作人員、吊掛人員證照齊全（一機三證）', '作業前檢查吊具、鋼索、防脫舌片', '設管制區，吊物下方禁止有人', '指派專人指揮'], '起重升降機具安全規則；吊掛作業許可證 EF-45-006-A'],
+    en: ['Lifting', ['Load falling', 'Crane tipping over', 'Struck by / caught between'], ['Crane, operator and rigger all certified', 'Check slings, wire ropes and hook latches before use', 'Set a restricted zone; no one under the load', 'Assign a signal person'], 'Safety Rules for Cranes and Lifts; Lifting permit EF-45-006-A'],
+    th: ['งานยก', ['ของที่ยกตกลงมา', 'เครนล้ม', 'ถูกชน/ถูกหนีบ'], ['เครน ผู้ควบคุม และผู้ผูกยก มีใบรับรองครบ', 'ก่อนทำงานตรวจสลิง ลวด และลิ้นกันหลุดของตะขอ', 'กั้นเขต ห้ามคนอยู่ใต้ของที่ยก', 'มีคนให้สัญญาณโดยเฉพาะ'], 'กฎความปลอดภัยเครื่องจักรยก; ใบอนุญาต EF-45-006-A'] },
+  { icons: ['iso-W012'], zh: ['電氣作業', ['感電', '電弧灼傷', '電氣火災'], ['停電作業要上鎖、掛牌，並驗電確認', '使用絕緣手套與絕緣工具', '臨時用電接漏電斷路器，電線架高、不經過積水', '電線破損立即更換，不私接電源'], '職業安全衛生設施規則（電氣危害之防止）'],
+    en: ['Electrical work', ['Electric shock', 'Arc burns', 'Electrical fire'], ['Lock out, tag out and test before work', 'Use insulated gloves and tools', 'Temporary power through an RCD; cables raised, away from water', 'Replace damaged cables at once; no unauthorized connections'], 'OSH Facilities Rules (electrical hazards)'],
+    th: ['งานไฟฟ้า', ['ไฟดูด', 'แผลไหม้จากอาร์ก', 'ไฟไหม้จากไฟฟ้า'], ['ตัดไฟต้องล็อก แขวนป้าย และวัดไฟก่อน', 'ใช้ถุงมือและเครื่องมือฉนวน', 'ไฟชั่วคราวต้องผ่านเบรกเกอร์กันไฟรั่ว สายยกสูง ไม่ผ่านน้ำขัง', 'สายชำรุดเปลี่ยนทันที ห้ามต่อไฟเอง'], 'กฎความปลอดภัยฯ (อันตรายจากไฟฟ้า)'] },
+  { icons: ['iso-W014'], zh: ['堆高機作業', ['撞到行人', '翻覆', '被夾、物體掉落'], ['有堆高機操作證照才能開', '每天作業前做檢點，異常不使用', '行駛繫安全帶、不超速，貨叉放低', '下車拉手煞車、拔鑰匙，貨叉落地'], '職業安全衛生管理辦法（作業前檢點）、職業安全衛生設施規則（車輛機械）'],
+    en: ['Forklifts', ['Hitting pedestrians', 'Tipping over', 'Caught / falling loads'], ['Drive only with a forklift licence', 'Do the pre-use check every day; do not use if abnormal', 'Seat belt on, no speeding, forks low when moving', 'Leaving the truck: handbrake on, key out, forks on the floor'], 'OSH Management Regulations (pre-use checks), OSH Facilities Rules (vehicles)'],
+    th: ['รถยก (โฟล์คลิฟท์)', ['ชนคนเดินเท้า', 'รถพลิกคว่ำ', 'ถูกหนีบ/ของตก'], ['ขับได้เฉพาะคนที่มีใบอนุญาตขับรถยก', 'ตรวจก่อนใช้ทุกวัน ผิดปกติห้ามใช้', 'คาดเข็มขัด ไม่ขับเร็ว ลดงาให้ต่ำขณะวิ่ง', 'ลงจากรถ ดึงเบรกมือ ถอดกุญแจ วางงาลงพื้น'], 'ระเบียบการจัดการความปลอดภัยฯ (ตรวจก่อนใช้) กฎความปลอดภัยฯ (ยานพาหนะ)'] },
+  { icons: ['ghs-flame', 'ghs-health'], zh: ['有機溶劑作業', ['吸入中毒（頭暈、神經傷害）', '皮膚吸收', '火災'], ['作業前打開局部排氣，氣罩靠近溶劑', '戴有機濾罐口罩與耐溶劑手套', '容器隨時加蓋，沾溶劑抹布放有蓋桶', '周圍禁止火源'], '有機溶劑中毒預防規則'],
+    en: ['Organic solvents', ['Poisoning by inhalation (dizziness, nerve damage)', 'Absorption through skin', 'Fire'], ['Turn on local exhaust first; hood close to the solvent', 'Wear an organic-vapour respirator and solvent-resistant gloves', 'Keep containers closed; solvent rags in a lidded bin', 'No ignition sources nearby'], 'Organic Solvent Poisoning Prevention Rules'],
+    th: ['งานตัวทำละลายอินทรีย์', ['สูดดมเป็นพิษ (เวียนหัว ทำลายประสาท)', 'ซึมผ่านผิวหนัง', 'ไฟไหม้'], ['เปิดระบบดูดอากาศก่อน ให้ฮูดอยู่ใกล้ตัวทำละลาย', 'ใส่หน้ากากไส้กรองไอระเหยอินทรีย์ และถุงมือกันตัวทำละลาย', 'ปิดฝาภาชนะเสมอ ผ้าเปื้อนใส่ถังมีฝา', 'ห้ามมีแหล่งไฟใกล้ๆ'], 'กฎป้องกันพิษจากตัวทำละลายอินทรีย์'] },
+  { icons: ['iso-M016'], zh: ['粉塵作業', ['塵肺症（長期吸入）', '眼睛、皮膚刺激', '粉塵爆炸'], ['先開集塵設備再作業', '戴 N95 以上防塵口罩並貼合臉部', '用吸塵器或濕式清掃，不乾掃、不用壓縮空氣吹', '投料輕放，空袋折好不拍打'], '粉塵危害預防標準'],
+    en: ['Dust work', ['Pneumoconiosis (long-term inhalation)', 'Eye and skin irritation', 'Dust explosion'], ['Turn on dust collection before working', 'Wear an N95 or better mask, fitted to your face', 'Clean with a vacuum or wet method; never dry-sweep or blow with air', 'Pour gently; fold empty bags, do not shake them'], 'Dust Hazard Prevention Standards'],
+    th: ['งานฝุ่น', ['โรคปอดจากฝุ่น (สูดนาน)', 'ระคายเคืองตาและผิว', 'ฝุ่นระเบิด'], ['เปิดเครื่องดูดฝุ่นก่อนทำงาน', 'ใส่หน้ากาก N95 ขึ้นไป แนบหน้าพอดี', 'ทำความสะอาดด้วยเครื่องดูดหรือแบบเปียก ห้ามกวาดแห้งหรือเป่าลม', 'เทวัตถุดิบเบาๆ พับถุงเปล่า ห้ามสะบัด'], 'มาตรฐานป้องกันอันตรายจากฝุ่น'] },
+  { icons: ['iso-W023', 'ghs-corrode'], zh: ['危害性化學品', ['灼傷、中毒', '洩漏、火災'], ['用之前看容器標示與安全資料表（SDS）', '依標示穿戴手套、護目鏡、口罩', '分裝容器一定要貼標示', '洩漏用吸附棉處理並通知主管'], '危害性化學品標示及通識規則'],
+    en: ['Hazardous chemicals', ['Burns, poisoning', 'Spills, fire'], ['Read the container label and SDS before use', 'Wear the gloves, goggles and mask shown on the label', 'Always label smaller containers you fill', 'Clean spills with absorbent pads and tell your supervisor'], 'Hazardous Chemicals Labelling and Communication Rules'],
+    th: ['สารเคมีอันตราย', ['แผลไหม้ เป็นพิษ', 'รั่วไหล ไฟไหม้'], ['อ่านฉลากและเอกสาร SDS ก่อนใช้', 'ใส่ถุงมือ แว่นตา หน้ากาก ตามฉลาก', 'ภาชนะที่แบ่งใส่ต้องติดฉลากเสมอ', 'สารหกใช้แผ่นดูดซับ และแจ้งหัวหน้า'], 'กฎการติดฉลากและสื่อสารสารเคมีอันตราย'] }
+];
+var RISK_T = { zh: ['主要危害', '一定要做', '法規依據'], en: ['Main hazards', 'Must do', 'Legal basis'], th: ['อันตรายหลัก', 'ต้องทำ', 'กฎหมายที่เกี่ยวข้อง'] };
+function riskLang() { var l = window.I18N ? I18N.lang() : 'zh'; return RISK[0][l] ? l : 'zh'; }
+function riskHtml() {
+  var l = riskLang(), T = RISK_T[l], open = S.riskOpen;
+  return '<div class="muted sm" style="margin:4px 0 10px">' + esc(l === 'zh' ? '點開看主要危害與該做的防護' : l === 'th' ? 'แตะเพื่อดูอันตรายหลักและสิ่งที่ต้องทำ' : 'Tap to see the main hazards and what to do') + '</div>' +
+    '<div class="list">' + RISK.map(function (r, i) {
+      var d = r[l], on = open === i;
+      return '<div class="li rk' + (on ? ' on' : '') + '" role="button" tabindex="0" onclick="S.riskOpen=' + (on ? 'null' : i) + ';render()" style="display:block">' +
+        '<div style="display:flex;align-items:center;gap:10px">' + r.icons.map(function (n) { return '<img src="' + n + '.svg" alt="" style="width:44px;height:44px;flex-shrink:0">'; }).join('') +
+        '<b style="font-size:18px;flex:1" data-no-i18n>' + esc(d[0]) + '</b>' + ic('chev', 18, 2.6) + '</div>' +
+        (on ? '<div style="margin-top:10px" data-no-i18n><div class="sec" style="margin:6px 0 2px">' + esc(T[0]) + '</div><ul style="margin:0 0 6px 18px">' + d[1].map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' +
+          '<div class="sec" style="margin:6px 0 2px">' + esc(T[1]) + '</div><ol style="margin:0 0 6px 18px">' + d[2].map(function (x) { return '<li><b>' + esc(x) + '</b></li>'; }).join('') + '</ol>' +
+          '<div class="muted sm">' + esc(T[2]) + '：' + esc(d[3]) + '</div></div>' : '') + '</div>';
+    }).join('') + '</div>';
+}
+/** 教材庫：有教材頁或附件的（課程、文宣）依主題分組；沒主題的依類別。隨時可以再看。 */
+function eduLibHtml(e) {
+  var mats = e.list.filter(function (x) { return Object.keys(x.pages || {}).length || (x.files && x.files.length) || x.course; });
+  if (!mats.length) return '<div class="empty">還沒有教材</div>';
+  var g = {}, order = [];
+  mats.forEach(function (x) { var k = x.topic || x.cat || '其他'; if (!g[k]) { g[k] = []; order.push(k); } g[k].push(x); });
+  return '<div class="muted sm" style="margin:4px 0 10px">依主題分類，隨時可以再看</div>' + order.map(function (k) {
+    return '<div class="sec">' + esc(k) + '<small>' + g[k].length + '</small></div><div class="list">' + g[k].map(function (x) {
+      var st = eduState(x);
+      return '<button class="li" onclick="go(\'eduItem\',{id:' + jsq(x.id) + '})"><span class="mn"><span class="mt">' + esc(x.cat + '・' + x.time.slice(0, 10).replace(/-/g, '/')) + '</span><span class="nm">' + esc(x.title) + '</span></span>' +
+        (st ? pill(st[0], st[1], st[2]) : '') + '</button>';
+    }).join('') + '</div>';
+  }).join('');
 }
