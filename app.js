@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.18.7';
+var APP_VERSION = '0.18.8';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -45,6 +45,31 @@ function wk(s) { return wkNames()[new Date(s + 'T00:00:00').getDay()]; }
 function md(s) { return Number(s.slice(5, 7)) + '/' + Number(s.slice(8)); }
 function ymLabel(p) { return p.slice(0, 4) + ' 年 ' + Number(p.slice(5)) + ' 月'; }
 function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+// ── 防呆（10/20 Jason：「技術員有時候能多笨」）：說明、改善、退回原因寫「無」「OK」「已處理」這種沒內容的，當場告訴他怎麼寫 ──
+var TXT_NIL = /^(無|沒有|正常|無異常|沒異常|沒問題|良好|好|ok|okay|good|fine|可|可以|是|否|none|nil|na|n\/a)$/i;
+var TXT_VAGUE = /^(同上|如上|同前|測試|test|已處理|處理|處理中|處理完成|已改善|改善|改善完成|已完成|完成|已修|已修好|修好了|已通報|通報|待處理|異常|不良|有問題|壞了|壞掉|故障|ng|x|v)$/i;
+/** 回空字串＝可以；否則回一句給使用者看的說明。o.bad：這項選了異常（寫「正常」「沒問題」就是前後矛盾）；o.min：最少字數；o.want：看到的應該寫什麼 */
+function txtWhy(s, o) {
+  o = o || {};
+  var t = String(s == null ? '' : s).replace(/[\s　.,，。、;；:：!！?？~～\-—_()（）\[\]【】「」'"`*#@\/\\|+=<>…·]/g, ''), min = o.min || 4;
+  if (!t) return '還沒寫';
+  if (o.bad && TXT_NIL.test(t)) return '選了異常，說明卻寫沒問題：有異常請寫狀況與處理；沒有異常請改勾正常';
+  if (TXT_NIL.test(t) || TXT_VAGUE.test(t)) return o.want || '寫得太籠統：請寫出是什麼狀況、怎麼處理';
+  if (/^[\d.]+$/.test(t)) return '只寫數字看不懂，請用文字說明';
+  if (t.length < min) return '太短，請寫清楚（至少 ' + min + ' 個字）';
+  var u = {}; for (var i = 0; i < t.length; i++) u[t.charAt(i)] = 1;
+  if (Object.keys(u).length < Math.min(3 + Math.floor(t.length / 8), 8)) return '請寫具體內容，不要用重複的字湊字數';
+  return '';
+}
+/** 姓名防呆：數字、兩個人寫在一格、「測試」→ 回說明；空字串＝可以 */
+function nameWhy(s) {
+  var t = String(s == null ? '' : s).trim().replace(/\s+/g, ' ');
+  if (t.replace(/\s/g, '').length < 2) return '請寫全名';
+  if (/[0-9０-９]/.test(t)) return '姓名不能有數字';
+  if (/[、,，;；\/／&＆+＋]/.test(t) || /[一-鿿]\s+[一-鿿]/.test(t)) return '一次只寫一個人的名字，每個人要各自簽';
+  if (/^(測試|test|無|我|本人)$/i.test(t)) return '請寫您的真實全名';
+  return '';
+}
 function hm(ts) { var d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
 function greet() { var h = new Date().getHours(); return h < 11 ? '早安' : h < 18 ? '午安' : '晚安'; }
 

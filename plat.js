@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.18.7';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.18.8';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -152,11 +152,24 @@ PLAT_PAGES.env = function () {
       '><span class="mi">' + ic(icn[x.sys] || 'clip', 30, 2.1) + '</span><span class="mx"><b>' + esc(x.name) + '</b><small>' + esc(sub) + '</small></span>' + ic(x.url ? 'ext' : 'chev', 20, 2.4) + '</button>';
   }).join('') + '</div><div class="muted upnote">空污目前開啟原本的「員和環保系統」；之後會整合進本系統。</div>';
 };
-function envNum(v) { return v === '' || v == null ? NaN : Number(v); }
+/** 10/20 防呆：全形數字、千分位逗號照樣算；「12..5」「1O0」這種打錯的不是數字 */
+function envNorm(v) { return String(v == null ? '' : v).replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 65248); }).replace(/[．。]/g, '.').replace(/[,，\s]/g, ''); }
+function envNum(v) { var t = envNorm(v); return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : NaN; }
+function envNaN(it, v) { return (it.type === '累計' || it.type === '數值') && envNorm(v) !== '' && !isFinite(envNum(v)); }
+/** 抄表常見錯誤：讀數比上次小（抄錯或換表）、比上次大 10 倍以上（多打一位數）→ 要寫說明 */
+function envOdd(it, E) {
+  if (it.type !== '累計') return '';
+  var l = E.d.last[it.code], v = envNum(E.v[it.code]); if (!l || !isFinite(v)) return '';
+  var lv = Number(l.val);
+  if (v < lv) return '比上次讀數 ' + l.val + ' 小：是抄錯了，還是換了新表？請再看一次表頭';
+  if (lv > 0 && v >= lv * 10) return '比上次讀數 ' + l.val + ' 大 10 倍以上：是不是多打了一位數或少了小數點？';
+  return '';
+}
 function envOver(it, v, use) {
   if (it.type === '勾選') return v === 'x';
   if (it.type === '選項') return it.opts.length && v !== '' && v !== it.opts[0];
   var n = it.type === '累計' ? use : envNum(v);
+  if (it.type === '累計' && S.env && envOdd(it, S.env)) return true;
   return isFinite(n) && ((it.min !== null && n < it.min) || (it.max !== null && n > it.max));
 }
 function envCalc(it, E) {
@@ -189,13 +202,15 @@ PLAT_PAGES.envSys = function () {
     var calc = it.type === '計算' ? envCalc(it, E) : '', over = it.type === '計算' ? envOver(Object.assign({}, it, { type: '數值' }), calc) : envOver(it, v, use);
     var rng = (it.min !== null || it.max !== null) ? '範圍 ' + (it.min !== null ? it.min : '') + '～' + (it.max !== null ? it.max : '') + (it.unit ? ' ' + it.unit : '') : '';
     var inp = '';
-    if (it.type === '累計' || it.type === '數值') inp = '<input class="field num' + (over ? ' bad' : '') + '" inputmode="decimal" value="' + esc(v) + '"' + (lock ? ' disabled' : '') + ' oninput="envSet(' + jsq(it.code) + ',this.value)" placeholder="' + esc(it.unit || '') + '">';
+    var nan = envNaN(it, v), odd = envOdd(it, E);
+    if (it.type === '累計' || it.type === '數值') inp = '<input class="field num' + (over || nan ? ' bad' : '') + '" inputmode="decimal" value="' + esc(v) + '"' + (lock ? ' disabled' : '') + ' oninput="envSet(' + jsq(it.code) + ',this.value)" placeholder="' + esc(it.unit || '') + '">';
     else if (it.type === '勾選') inp = '<div class="seg">' + [['ok', '✓ 正常'], ['x', '✕ 異常']].map(function (o) { return '<button class="' + (v === o[0] ? 'on' + (o[0] === 'x' ? ' ngc' : '') : '') + '"' + (lock ? ' disabled' : '') + ' onclick="envSet(' + jsq(it.code) + ',' + jsq(o[0]) + ',1)">' + o[1] + '</button>'; }).join('') + '</div>';
     else if (it.type === '選項') inp = '<div class="seg">' + it.opts.map(function (o, k) { return '<button class="' + (v === o ? 'on' + (k ? ' ngc' : '') : '') + '"' + (lock ? ' disabled' : '') + ' onclick="envSet(' + jsq(it.code) + ',' + jsq(o) + ',1)">' + esc(o) + '</button>'; }).join('') + '</div>';
     else if (it.type === '文字') inp = '<input class="field" value="' + esc(v) + '"' + (lock ? ' disabled' : '') + ' oninput="envSet(' + jsq(it.code) + ',this.value)">';
     else inp = '<div class="calcv' + (over ? ' bad' : '') + '">' + esc(calc === '' ? '（自動計算）' : calc + (it.unit ? ' ' + it.unit : '')) + '</div>';
     var meta = [rng, it.type === '累計' && d.last[it.code] ? '上次 ' + md(d.last[it.code].date) + '：' + d.last[it.code].val + (isFinite(use) ? '・日用量 ' + use + (it.unit ? ' ' + it.unit : '') : '') : it.type === '累計' ? '第一次抄：只記讀數' : ''].filter(String).join('・');
-    h += '<div class="card envi' + (over ? ' over' : '') + '" id="ev_' + esc(it.code) + '"><div class="eh"><b>' + esc(it.name) + '</b>' + (meta ? '<small>' + esc(meta) + '</small>' : '') + '</div>' + inp +
+    h += '<div class="card envi' + (over || nan ? ' over' : '') + '" id="ev_' + esc(it.code) + '"><div class="eh"><b>' + esc(it.name) + '</b>' + (meta ? '<small>' + esc(meta) + '</small>' : '') + '</div>' + inp +
+      (nan ? '<div class="hint nbad">這不是數字，請重新輸入（小數點用「.」）</div>' : odd ? '<div class="hint nbad">' + esc(odd) + '</div>' : '') +
       (over && it.needNote !== false ? '<textarea class="note" placeholder="超出範圍或異常：寫原因與處置（必填）"' + (lock ? ' disabled' : '') + ' oninput="S.env.n[' + jsq(it.code) + ']=this.value">' + esc(E.n[it.code] || '') + '</textarea>' : '') + '</div>';
   });
   $('app').innerHTML = h;
@@ -208,29 +223,32 @@ function envRefreshCard(code) {     // 打字時只更新那一張卡的紅框�
   var box = $('ev_' + code), inp = box && box.querySelector('input'); if (inp) { inp.focus(); try { inp.setSelectionRange(pos, pos); } catch (e) {} }
 }
 function envMissing() {
-  var E = S.env, miss = [], note = [];
+  var E = S.env, miss = [], note = [], nan = [];
   E.d.items.forEach(function (it) {
     if (it.type === '計算') return;
     var v = E.v[it.code]; if (v == null || String(v).trim() === '') { miss.push(it); return; }
-    if (envOver(it, v, it.type === '累計' ? envUse(it.code, E) : NaN) && !String(E.n[it.code] || '').trim()) note.push(it);
+    if (envNaN(it, v)) { nan.push(it); return; }
+    if (envOver(it, v, it.type === '累計' ? envUse(it.code, E) : NaN) && it.needNote !== false && txtWhy(E.n[it.code], { want: '請寫原因與處置' })) note.push(it);
   });
-  return { miss: miss, note: note };
+  return { miss: miss, note: note, nan: nan };
 }
 function envBar() {
   if (S.page !== 'envSys' || !S.env) return;
-  var m = envMissing(), t = m.miss.length ? '還有 ' + m.miss.length + ' 項沒填・跳到「' + m.miss[0].name + '」' : m.note.length ? '「' + m.note[0].name + '」要寫說明・跳過去' : '送出 ' + md(S.env.date) + ' 的抄表';
-  bar('<button class="btn" onclick="envGo()">' + ic(m.miss.length || m.note.length ? 'down' : 'check', 22, 2.6) + esc(t) + '</button>');
+  var m = envMissing(), t = m.miss.length ? '還有 ' + m.miss.length + ' 項沒填・跳到「' + m.miss[0].name + '」' : m.nan.length ? '「' + m.nan[0].name + '」不是數字・跳過去' : m.note.length ? '「' + m.note[0].name + '」要寫說明・跳過去' : '送出 ' + md(S.env.date) + ' 的抄表';
+  bar('<button class="btn" id="envBtn" onclick="envGo()">' + ic(m.miss.length || m.nan.length || m.note.length ? 'down' : 'check', 22, 2.6) + esc(t) + '</button>');
 }
 function envGo() {
-  var E = S.env, m = envMissing(), first = m.miss[0] || m.note[0];
+  var E = S.env, m = envMissing(), first = m.miss[0] || m.nan[0] || m.note[0];
   if (first) { var el = $('ev_' + first.code); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
   if (S.dev) return devBlock(E.sys + '抄表');
-  var body = { sys: E.sys, date: E.date, values: E.v, notes: E.n };
+  if (E.sending) return; E.sending = true;                              // 10/20：連按兩下不會送兩筆
+  var vals = {}; Object.keys(E.v).forEach(function (k) { var it = E.d.items.filter(function (x) { return x.code === k; })[0]; vals[k] = it && (it.type === '累計' || it.type === '數值') ? envNorm(E.v[k]) : E.v[k]; });
+  var body = { sys: E.sys, date: E.date, values: vals, notes: E.n };
   var job = { id: newId(), action: 'envSubmit', token: lsGet(LS.TOKEN, ''), who: S.me.person.name, key: 'env|' + E.sys + '|' + E.date, body: body, created: Date.now(), status: 'pending', label: E.sys + '抄表 ' + md(E.date) };
   obPut(job).then(function () {
     toast((navigator.onLine ? '已送出 ' : '已存在手機，有網路自動上傳：') + E.sys + '抄表 ' + md(E.date), 'ok', 3000);
     S.env = null; S.envM = null; flush(); back();
-  }).catch(function (e) { toast('手機存檔失敗：' + esc(e.message), 'err', 5000); });
+  }).catch(function (e) { E.sending = false; toast('手機存檔失敗：' + esc(e.message), 'err', 5000); });
 }
 PLAT_PAGES.envMonth = function () {
   var sys = S.arg.sys, per = S.arg.period || today().slice(0, 7);
@@ -1314,7 +1332,7 @@ PLAT_PAGES.meetSign = function () {
 };
 function meetSignGo() {
   var name = ($('msN').value || '').trim(), unit = ($('msU').value || '').trim();
-  if (name.length < 2) return toast('請寫姓名', 'err');
+  var nw = nameWhy(name); if (nw) { $('msN').classList.add('bad'); $('msN').focus(); return toast(esc(nw), 'err', 4000); }
   if (!unit) return toast('請寫公司或單位', 'err');
   if (!SIG.drawn) return toast('請先簽名', 'err');
   var img = sigExport(); if (!img) return toast('簽名太小，請簽大一點', 'err');
@@ -1481,7 +1499,7 @@ PLAT_PAGES.meetJoin = function () {
 };
 function meetJoinSign() {
   var name = ($('mjN').value || '').trim(), unit = ($('mjU').value || '').trim();
-  if (name.length < 2) { $('mjN').classList.add('bad'); $('mjN').focus(); return toast('請寫您的姓名', 'err'); }
+  var nw = nameWhy(name); if (nw) { $('mjN').classList.add('bad'); $('mjN').focus(); return toast(esc(nw), 'err', 4000); }
   if (!unit) { $('mjU').classList.add('bad'); return toast('請寫公司或單位', 'err'); }
   if (!SIG.drawn) return toast('請先簽名', 'err');
   var img = sigExport(); if (!img) return toast('簽名太小，請簽大一點', 'err');

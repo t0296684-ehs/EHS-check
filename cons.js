@@ -551,7 +551,7 @@ function cnSign() {
 }
 function cnSignGo() {
   var P = S.cpub, id4 = cnV('csId4'), name = P.other ? cnV('csName') : '';
-  if (P.other && name.length < 2) return toast('請填您的姓名', 'err');
+  if (P.other && nameWhy(name)) return toast(esc(nameWhy(name)), 'err', 4000);
   if (!($('csRead') && $('csRead').checked)) return toast('請先看完危害告知並勾選', 'err');
   if (!/^\d{4}$/.test(id4)) return toast('請填末 4 碼', 'err');
   if (!SIG.drawn) return toast('請先簽名', 'err');
