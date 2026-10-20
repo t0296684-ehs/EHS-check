@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.18.6';
+var APP_VERSION = '0.18.7';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -542,7 +542,9 @@ PAGES.login = function () {
   };
   // v0.13.12（10/14 Jason）：環安衛中心、示範區不放在同仁選部門的上面，改由右上角「環安衛登入」進入
   var mains = top.filter(function (t) { return a.spc ? t.spc : !t.spc; });
-  var h = step(1, !!(a.dept || a.mgr), '您的部門') + '<div class="depts">' + mains.map(btn).join('') + '</div>';
+  // 10/20 Jason：承攬商登入原本放在部門清單最下面、要往下滑才看得到 → 移到最上面一條（員工選了部門就收起來）
+  var h = (!a.spc && !a.dept && !a.mgr && !curG ? '<button class="cnlog" onclick="S.cpub={kind:\'login\',f:{}};render()">' + ic('helmet', 20, 2.4) + '<span><b>承攬商登入</b><small>施工廠商按這裡（統編＋登入碼）</small></span>' + ic('chev', 18, 2.6) + '</button>' : '') +
+    step(1, !!(a.dept || a.mgr), '您的部門（員和同仁）') + '<div class="depts">' + mains.map(btn).join('') + '</div>';
   if (curG) {
     var pre = function (d) { return d.indexOf(curG + '-') === 0 ? 0 : 1; };    // 名稱是「群組-」開頭的排前面（BU生產-A／B／C 區，再來倉儲部）
     var mem = b.depts.filter(function (d) { return gOf(d) === curG; }).map(function (d, i) { return [d, i]; })
@@ -569,8 +571,6 @@ PAGES.login = function () {
   var sel = a.i != null ? ps[a.i] : null;
   if (sel && sel.needPin) h += step(3, false, '<label for="pin">輸入啟用碼</label>') + '<input id="pin" class="field pin" inputmode="numeric" autocomplete="one-time-code" placeholder="環安衛中心給您的啟用碼">';
   h += '<div id="loginErr"></div>';
-  if (!a.spc && !a.dept && !a.mgr && !curG) h += '<button class="card fcard cnlog" onclick="S.cpub={kind:\'login\',f:{}};render()"><div class="fh">' + ic('helmet', 22, 2.2) + '<b>承攬商登入</b></div>' +
-    '<div class="muted">施工廠商：帳號＝統一編號、登入碼＝建檔時寄到 Email 的 6 碼。看貴公司全部施工案件與施工前必讀（不用選部門）。</div></button>';
   $('app').innerHTML = h;
   if (sel) bar('<button class="btn" id="bindBtn" onclick="doBind()">確認，我是 ' + esc(sel.name) + '</button>');
 };

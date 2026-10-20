@@ -637,7 +637,11 @@ PLAT_PAGES.cons = function () {
     '<div class="card fcard"><div class="fh"><b>施工申請連結</b></div><div class="muted">廠商填統編 → 施工內容（有特殊作業就一起填許可）→ 施工人員（按「＋」逐人新增）→ 施工負責人簽名。沒建檔的會先導去建檔。' +
     '送出後廠商的 Email 會收到兩組 QR：施工人員各自掃碼簽名、您（承辦人員）掃碼簽名。</div>' +
     '<div class="btns r3"><button class="btn" onclick="cnInvite(\'apply\',\'share\')">' + ic('share', 18, 2.4) + '傳給廠商</button>' +
-    '<button class="btn ghost" onclick="cnInvite(\'apply\',\'copy\')">' + ic('copy', 18, 2.2) + '複製連結</button><button class="btn ghost" onclick="cnInvite(\'apply\',\'open\')">' + ic('ext', 18, 2.2) + '打開看看</button></div></div>';
+    '<button class="btn ghost" onclick="cnInvite(\'apply\',\'copy\')">' + ic('copy', 18, 2.2) + '複製連結</button><button class="btn ghost" onclick="cnInvite(\'apply\',\'open\')">' + ic('ext', 18, 2.2) + '打開看看</button></div></div>' +
+    // 10/20 Jason：已建檔的廠商從 App 直接登入（不靠案件連結）；這張卡給員工轉傳入口
+    '<div class="card fcard"><div class="fh"><b>承攬商登入</b></div><div class="muted">已建檔的廠商看自己公司全部案件、核准文件、施工前必讀：打開員和環安衛系統，登入頁最上面按「承攬商登入」，帳號＝統一編號、登入碼＝建檔時寄到 Email 的 6 碼（忘記可在登入頁重寄）。這個連結不會過期。</div>' +
+    '<div class="btns r3"><button class="btn" onclick="shareLink(\'員和工業承攬商登入（帳號＝統一編號）\',cnVLoginUrl())">' + ic('share', 18, 2.4) + '傳給廠商</button>' +
+    '<button class="btn ghost" onclick="copyText(cnVLoginUrl(),\'連結已複製\')">' + ic('copy', 18, 2.2) + '複製連結</button><button class="btn ghost" onclick="openUrl(cnVLoginUrl())">' + ic('ext', 18, 2.2) + '打開看看</button></div></div>';
   if (isEhs() || (S.me && (S.me.depts || []).some(function (d) { return /^示範/.test(d.id || d); }))) h += '<button class="card fcard" onclick="cnDemoStart()"><div class="fh">' + ic('helmet', 22, 2.2) + '<b>承攬商端示範（給勞檢看）</b></div>' +
     '<div class="muted">示範廠商登入後看到的畫面：施工案件、施工前必讀、承諾書。帳號密碼是假的、已填好，不會寫入任何資料。</div></button>';
   if (isEhs()) h += '<div class="seg2 cstab"><button class="' + (S.cnTab !== 'v' ? 'on' : '') + '" onclick="S.cnTab=\'c\';render()">案件</button><button class="' + (S.cnTab === 'v' ? 'on' : '') + '" onclick="S.cnTab=\'v\';render()">廠商・承諾書</button></div>';
@@ -647,6 +651,7 @@ PLAT_PAGES.cons = function () {
   apiR('consHome', {}).then(function (d) { S.cnHome = d; var el = $('cnList'); if (el && S.page === 'cons') el.innerHTML = cnListHtml(d); })
     .catch(function (e) { var el = $('cnList'); if (el) el.innerHTML = errBox('讀不到案件', e.message); });
 };
+function cnVLoginUrl() { return location.origin + location.pathname + '#cons=vlogin'; }
 var CN_MSG = { apply: '員和工業入廠施工申請（請在施工前 3 天填寫；第一次合作會先請您建檔）', reg: '員和工業承攬商建檔' };
 function cnInvite(kind, how) {
   toast('產生連結中…', '', 1500);
