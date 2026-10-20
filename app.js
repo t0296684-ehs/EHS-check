@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.18.8';
+var APP_VERSION = '0.18.9';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -535,8 +535,10 @@ function saveUrl() {
 // ───────────── 第一次登入：選部門 → 選自己 → 啟用碼 ─────────────
 PAGES.login = function () {
   setTitle('選擇您的身分');
-  S.hero = '<div class="hero-in"><div class="brand"><span class="logo">' + '<img src="icon-192.png" alt="" style="width:100%;height:100%;border-radius:inherit;display:block">' + '</span>員和環安衛系統' +
-    '<button class="spcbtn" onclick="S.arg=' + (S.arg && S.arg.spc ? '{}' : '{spc:true}') + ';render()">' + (S.arg && S.arg.spc ? '回同仁登入' : '環安衛登入') + '</button></div>' +
+  // 10/20 Jason：承攬商登入跟環安衛登入放一起、同樣樣式
+  S.hero = '<div class="hero-in"><div class="brand lg"><span class="logo">' + '<img src="icon-192.png" alt="" style="width:100%;height:100%;border-radius:inherit;display:block">' + '</span>員和環安衛系統' +
+    '<span class="lgbtns"><button class="spcbtn" onclick="S.arg=' + (S.arg && S.arg.spc ? '{}' : '{spc:true}') + ';render()">' + (S.arg && S.arg.spc ? '回同仁登入' : '環安衛登入') + '</button>' +
+    '<button class="spcbtn vlog" onclick="S.cpub={kind:\'login\',f:{}};render()">承攬商登入</button></span></div>' +
     '<div class="hn"><div class="h1">' + (S.arg && S.arg.spc ? '環安衛中心・示範區' : '第一次使用，請選您是誰') + '</div><div class="hsub">只要選一次，之後打開就直接用</div>' + (window.I18N ? I18N.picker() : '') + '</div></div>';
   var b = S.boot;
   if (!b) {
@@ -567,9 +569,7 @@ PAGES.login = function () {
   };
   // v0.13.12（10/14 Jason）：環安衛中心、示範區不放在同仁選部門的上面，改由右上角「環安衛登入」進入
   var mains = top.filter(function (t) { return a.spc ? t.spc : !t.spc; });
-  // 10/20 Jason：承攬商登入原本放在部門清單最下面、要往下滑才看得到 → 移到最上面一條（員工選了部門就收起來）
-  var h = (!a.spc && !a.dept && !a.mgr && !curG ? '<button class="cnlog" onclick="S.cpub={kind:\'login\',f:{}};render()">' + ic('helmet', 20, 2.4) + '<span><b>承攬商登入</b><small>施工廠商按這裡（統編＋登入碼）</small></span>' + ic('chev', 18, 2.6) + '</button>' : '') +
-    step(1, !!(a.dept || a.mgr), '您的部門（員和同仁）') + '<div class="depts">' + mains.map(btn).join('') + '</div>';
+  var h = step(1, !!(a.dept || a.mgr), '您的部門') + '<div class="depts">' + mains.map(btn).join('') + '</div>';
   if (curG) {
     var pre = function (d) { return d.indexOf(curG + '-') === 0 ? 0 : 1; };    // 名稱是「群組-」開頭的排前面（BU生產-A／B／C 區，再來倉儲部）
     var mem = b.depts.filter(function (d) { return gOf(d) === curG; }).map(function (d, i) { return [d, i]; })
@@ -1188,8 +1188,8 @@ function splashDone() {
   var s = document.getElementById('splash');
   if (!s || s.getAttribute('data-done')) return;
   s.setAttribute('data-done', '1');
-  var wait = Math.max(0, 1300 - (Date.now() - (window.SPLASH_T0 || 0)));
-  setTimeout(function () { s.className = 'out'; setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 450); }, wait);
+  var wait = Math.max(0, 2200 - (Date.now() - (window.SPLASH_T0 || 0)));          // 10/20 Jason：1.3 秒像閃一下 → 2.2 秒、淡出 0.7 秒
+  setTimeout(function () { s.className = 'out'; setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, 750); }, wait);
 }
 /** 註冊 Service Worker；回到 App 時順便檢查有沒有新版，換新版後在首頁自動重新載入（填寫中不打斷）。 */
 var SW_RELOAD = false;

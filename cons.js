@@ -639,7 +639,7 @@ PLAT_PAGES.cons = function () {
     '<div class="btns r3"><button class="btn" onclick="cnInvite(\'apply\',\'share\')">' + ic('share', 18, 2.4) + '傳給廠商</button>' +
     '<button class="btn ghost" onclick="cnInvite(\'apply\',\'copy\')">' + ic('copy', 18, 2.2) + '複製連結</button><button class="btn ghost" onclick="cnInvite(\'apply\',\'open\')">' + ic('ext', 18, 2.2) + '打開看看</button></div></div>' +
     // 10/20 Jason：已建檔的廠商從 App 直接登入（不靠案件連結）；這張卡給員工轉傳入口
-    '<div class="card fcard"><div class="fh"><b>承攬商登入</b></div><div class="muted">已建檔的廠商看自己公司全部案件、核准文件、施工前必讀：打開員和環安衛系統，登入頁最上面按「承攬商登入」，帳號＝統一編號、登入碼＝建檔時寄到 Email 的 6 碼（忘記可在登入頁重寄）。這個連結不會過期。</div>' +
+    '<div class="card fcard"><div class="fh"><b>承攬商登入</b></div><div class="muted">已建檔的廠商看自己公司全部案件、核准文件、施工前必讀：打開員和環安衛系統，登入頁右上角按「承攬商登入」，帳號＝統一編號、登入碼＝建檔時寄到 Email 的 6 碼（忘記可在登入頁重寄）。這個連結不會過期。</div>' +
     '<div class="btns r3"><button class="btn" onclick="shareLink(\'員和工業承攬商登入（帳號＝統一編號）\',cnVLoginUrl())">' + ic('share', 18, 2.4) + '傳給廠商</button>' +
     '<button class="btn ghost" onclick="copyText(cnVLoginUrl(),\'連結已複製\')">' + ic('copy', 18, 2.2) + '複製連結</button><button class="btn ghost" onclick="openUrl(cnVLoginUrl())">' + ic('ext', 18, 2.2) + '打開看看</button></div></div>';
   if (isEhs() || (S.me && (S.me.depts || []).some(function (d) { return /^示範/.test(d.id || d); }))) h += '<button class="card fcard" onclick="cnDemoStart()"><div class="fh">' + ic('helmet', 22, 2.2) + '<b>承攬商端示範（給勞檢看）</b></div>' +
