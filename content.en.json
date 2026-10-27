@@ -1,5 +1,5 @@
 {
- "version": "0.18.9",
+ "version": "0.19.0",
  "chapters": [
   {
    "no": 1,
@@ -607,6 +607,20 @@
       "After the EHS Center turns it on, <b>close and reopen the app</b>."
      ],
      "tip": "Everyone has EHS training; no request needed.",
+     "warn": false
+    },
+    {
+     "no": "5-3",
+     "title": "Report a problem (ask EHS directly)",
+     "lead": "If you are not sure how to do something, the screen is stuck, data looks wrong, or you have a suggestion, ask EHS directly under \"Report a problem\" on the main menu. You can attach screenshots.",
+     "shots": [],
+     "steps": [
+      "On the main menu tap <b>\"Report a problem\"</b>, then <b>\"Ask a question\"</b>.",
+      "Choose the <b>problem type</b> and describe <b>what you were doing and what happened</b>.",
+      "Tap <b>\"+\"</b> to attach screenshots (up to 3), tick the confirmation and tap <b>\"Send question\"</b>.",
+      "You get a notification when EHS replies; open the question to read the reply and <b>write back</b>."
+     ],
+     "tip": "Screenshot: most phones press Power + Volume down; iPhone press Side button + Volume up. EHS handles questions on workday afternoons.",
      "warn": false
     }
    ]

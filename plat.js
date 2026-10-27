@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.18.9';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.19.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -86,6 +86,7 @@ PLAT_PAGES.menu = function () {
       '<span class="mi">' + ic(x.icon, 30, 2.1) + '</span><span class="mx"><b>' + esc(x.name) + '</b><small>' + esc(on ? subs[x.key] : '沒有權限・點這裡申請') + '</small></span>' +
       (on ? (badge[x.key] ? '<span class="mb">' + badge[x.key] + '</span>' : '') + ic('chev', 20, 2.6) : ic('lock', 20, 2.4)) + '</button>';
   }).join('') + '</div>';
+  h += supportCard();
   h += devCard();
   h += '<div class="ver">v' + APP_VERSION + '</div>';
   $('app').innerHTML = h;
@@ -1546,7 +1547,8 @@ function devEnd() {
 var PAGE_NAME = { home: '日常檢點首頁', menu: '主選單', fill: '填寫檢點表', month: '月份紀錄', smConfirm: '月結送審確認', sign: '簽名', login: '登入', mine: '我的表單',
   claim: '領取表單', track: '異常追蹤', trackFix: '填寫改善', notice: '通知', guide: '使用教學', settings: '設定', shareMake: '請人代填', packages: '審核紀錄',
   team: '部門管理', edu: '教育訓練', eduItem: '教育訓練內容', eduPost: '發布教育訓練', cons: '施工申請', env: '環保抄表', months: '月結紀錄', pick: '其他檢查表',
-  remind: '提醒設定', bc: '廣播', proxy: '代填', psign: '代填簽名', nextOwners: '下月負責人', teamEdit: '部門管理', teamPerson: '部門管理', devPick: '開發者模式', devPerson: '開發者模式' };
+  remind: '提醒設定', bc: '廣播', proxy: '代填', psign: '代填簽名', nextOwners: '下月負責人', teamEdit: '部門管理', teamPerson: '部門管理', devPick: '開發者模式', devPerson: '開發者模式',
+  support: '問題回報', supportNew: '問題回報・新問題', supportItem: '問題回報・對話' };
 // 同仁手機的操作經過（最近 15 個畫面）：遇到錯誤時一起回報，開發者看得到他是從哪裡一路點到卡住的
 var TRAIL = [];
 function trailPush(p) {
@@ -1619,6 +1621,148 @@ function devCard() {
   if (!isEhs() || S.dev) return '';
   return '<div class="mcards"><button class="mcard" style="--c:#3D4754" onclick="S.dp=null;go(\'devPick\')"><span class="mi">' + ic('sliders', 30, 2.1) + '</span>' +
     '<span class="mx"><b>開發者模式</b><small>用同仁的畫面找出卡在哪一步（只看不送出）</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
+}
+
+// ───────────── 問題回報（10/27 Jason：讓同仁跟環安衛直接溝通的地方；不會用、畫面卡住、資料不對都在這裡問，可附截圖）─────────────
+// 一則問題＝一串對話：同仁開問題（類型＋說明＋截圖）→ 環安衛回覆（App 通知）→ 同仁可以接著回。截圖壓成長邊 1600 的 JPEG，字還看得清楚。
+var SUP_CATS = ['不會操作', '畫面錯誤或卡住', '資料不對', '建議'];
+var SUP_ST = { '新回報': ['warn', 'clock', '等待回覆'], '處理中': ['warn', 'clock', '處理中'], '已回覆': ['ok', 'chat', '已回覆'], '結案': ['na', 'check', '已結案'] };
+var SUP_WANT = '請寫在做什麼、發生什麼事（例：按送出後一直轉圈）';
+function supportCard() {
+  if (S.dev || S.share || !S.me) return '';
+  return '<div class="mcards"><button class="mcard" style="--c:#0F766E" onclick="go(\'support\')"><span class="mi">' + ic('chat', 30, 2.1) + '</span>' +
+    '<span class="mx"><b>問題回報</b><small>不會用、畫面卡住、資料不對，直接問環安衛（可附截圖）</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
+}
+/** 進問題回報前的操作經過（扣掉問題回報自己的畫面），讓處理的人知道他是在哪裡遇到問題 */
+function supTrail() { return TRAIL.map(function (x) { return x.s; }).filter(function (s) { return !/^問題回報/.test(s); }); }
+function supFrom() { var t = supTrail(), x = t.length ? t[t.length - 1].replace(/ \d\d:\d\d$/, '') : ''; return x === '主選單' ? '' : x; }
+PLAT_PAGES.support = function () {
+  setTitle('問題回報');
+  if (!S.sup) {
+    $('app').innerHTML = loading('讀取問題回報…'); bar('');
+    apiR('supportMine', {}).then(function (r) { S.sup = r; if (S.page === 'support' || S.page === 'supportItem') render(); })
+      .catch(function (e) { $('app').innerHTML = errBox('讀不到問題回報', e.message); });
+    return;
+  }
+  var h = '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">操作上有問題、畫面跑出錯誤、資料不對，或想給建議，都可以在這裡問。<b>附上畫面截圖</b>處理得最快。回覆會出現在這裡，也會發通知給您。</div></div></div></div>';
+  var L = S.sup.list || [];
+  h += L.length ? '<div class="sec">我問過的問題</div><div class="list">' + L.map(function (x) {
+    var st = SUP_ST[x.status] || SUP_ST['新回報'], last = x.msgs[x.msgs.length - 1];
+    return '<button class="li" onclick="go(\'supportItem\',{id:' + jsq(x.id) + '})"><span class="mn"><span class="mt">' + esc(x.cat + '・' + x.time.slice(5).replace('-', '/')) + '</span>' +
+      '<span class="nm" data-no-i18n>' + esc(x.title) + '</span>' + (last && last.staff ? '<span class="mt">環安衛回覆了</span>' : '') + '</span>' + pill(st[0], st[1], st[2]) + '</button>';
+  }).join('') + '</div>' : '<div class="empty">還沒有問過問題</div>';
+  $('app').innerHTML = h;
+  bar('<button class="btn" onclick="S.sn=null;go(\'supportNew\')">' + ic('plus', 22, 2.8) + '我要問問題</button>');
+};
+PLAT_PAGES.supportNew = function () {
+  setTitle('問題回報');
+  if (!S.sn) S.sn = { cat: '', text: '', pics: [], from: supFrom(), rid: newId(), ok: false };
+  var sn = S.sn;
+  var h = '<div class="card ev"><span class="nl req">1. 是哪一種問題？</span><div class="chips wrap">' + SUP_CATS.map(function (c) {
+    return '<button class="chip' + (sn.cat === c ? ' on' : '') + '" onclick="S.sn.cat=' + jsq(c) + ';keepY(render)">' + esc(c) + '</button>';
+  }).join('') + '</div>' +
+    '<label class="nl req" for="snTxt">2. 發生什麼事？</label>' +
+    '<textarea id="snTxt" class="note plain" placeholder="例：填堆高機檢點表按送出後一直轉圈，等了一分鐘還是沒送出" oninput="S.sn.text=this.value;snBar()">' + esc(sn.text) + '</textarea>' +
+    '<div class="hint">寫清楚在做什麼、按了哪裡、出現什麼。</div>' + (sn.from ? '<div class="hint">系統會一起附上您剛剛在「' + esc(sn.from) + '」畫面。</div>' : '') +
+    '<div class="hint nbad" id="snWhy" hidden></div>' +
+    '<span class="nl">3. 畫面截圖（選填，最多 3 張）</span>' + supPicsHtml(sn.pics, 'snPick(this)', 'S.sn.pics') +
+    '<div class="hint">截圖方法：一般手機同時按「電源鍵＋音量下」；iPhone 按「側邊鍵＋音量上」。截好後回到這裡按「＋」選照片。</div></div>' +
+    '<label class="ck" id="snOkL"><input type="checkbox" id="snOk"' + (sn.ok ? ' checked' : '') + ' onchange="S.sn.ok=this.checked;snBar()"><span>我已確認上面的內容，送出給環安衛</span></label>';
+  $('app').innerHTML = h;
+  snBar();
+};
+function supPicsHtml(pics, pick, path) {
+  return '<div class="pics">' + pics.map(function (p, i) {
+    return '<div class="pic"><img src="' + esc(p.t) + '" alt="截圖 ' + (i + 1) + '"><button class="px" aria-label="移除這張" onclick="' + path + '.splice(' + i + ',1);keepY(render)">' + ic('x', 16, 3) + '</button></div>';
+  }).join('') + (pics.length < 3 ? '<label class="pic add">' + ic('plus', 26, 2.6) + '<span>加截圖</span><input type="file" accept="image/*" hidden onchange="' + pick + '"></label>' : '') + '</div>';
+}
+/** 截圖壓縮：長邊 1600、JPEG 0.8（字還看得清楚，約 0.2～0.5 MB）；另做 240 縮圖放畫面上。跟著送出一起送。 */
+function supShrink(inp, done) {
+  var file = inp.files && inp.files[0]; inp.value = '';
+  if (!file) return;
+  if (!/^image\//.test(file.type || 'image/')) return toast('請選照片或截圖', 'err');
+  var url = URL.createObjectURL(file), img = new Image();
+  img.onerror = function () { URL.revokeObjectURL(url); toast('這張圖打不開，請換一張', 'err', 3500); };
+  img.onload = function () {
+    URL.revokeObjectURL(url);
+    var sc = function (max, q) { var s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s); var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', q); };
+    done({ u: sc(1600, 0.8), t: sc(240, 0.6) });
+  };
+  img.src = url;
+}
+function supAddPic(o, p) {
+  if (o.pics.some(function (x) { return x.t === p.t; })) return toast('這張已經附過了', 'err');
+  o.pics.push(p); keepY(render);
+}
+function snPick(inp) { var sn = S.sn; supShrink(inp, function (p) { if (S.sn === sn) supAddPic(sn, p); }); }
+function srPick(inp) { var sr = S.sr; supShrink(inp, function (p) { if (S.sr === sr) supAddPic(sr, p); }); }
+function snWhy() {
+  var sn = S.sn; if (!sn) return 'x';
+  if (!sn.cat) return '先選問題類型';
+  if (String(sn.text || '').replace(/\s/g, '').length < 6) return '寫清楚發生什麼事（至少 6 個字）';
+  if (txtWhy(sn.text, { min: 6, want: SUP_WANT })) return '問題要寫清楚才能送出';
+  if (!sn.ok) return '勾選確認後就能送出';
+  return '';
+}
+function snBar() {
+  if (S.page !== 'supportNew') return;
+  var w = snWhy(), n = String(S.sn.text || '').replace(/\s/g, '').length, tw = n ? txtWhy(S.sn.text, { min: 6, want: SUP_WANT }) : '';
+  var el = $('snWhy'); if (el) { el.textContent = tw; el.hidden = !tw; }
+  bar('<button class="btn' + (w ? ' dim' : '') + '" onclick="snSend()">' + ic('up', 22, 2.8) + esc(w || '送出問題') + '</button>');
+}
+function snSend() {
+  var sn = S.sn, w = snWhy();
+  if (w) { toast(esc(w), 'err'); var t = w.indexOf('勾選') >= 0 ? $('snOkL') : w.indexOf('類型') >= 0 ? document.querySelector('.chips') : $('snTxt'); if (t) t.scrollIntoView({ block: 'center' }); return; }
+  if (!navigator.onLine) return toast('沒有網路，要連上網路才能送出', 'err', 3500);
+  busyOn('送出中…');
+  api('supportAdd', { cat: sn.cat, text: sn.text, pics: sn.pics.map(function (p) { return p.u; }), rid: sn.rid, page: sn.from, trail: supTrail(), appVer: APP_VERSION,
+    ua: navigator.userAgent.slice(0, 120), lang: window.I18N ? I18N.lang() : 'zh' }).then(function () {
+    busyOff(); S.sn = null; S.sup = null; toast('已送出，環安衛回覆後會通知您', 'ok', 3500); back();
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
+}
+PLAT_PAGES.supportItem = function () {
+  setTitle('問題回報');
+  if (!S.sup) return PLAT_PAGES.support();
+  var x = (S.sup.list || []).filter(function (y) { return y.id === S.arg.id; })[0];
+  if (!x) return back();
+  if (!S.sr || S.sr.id !== x.id) S.sr = { id: x.id, text: '', pics: [], rid: newId() };
+  var sr = S.sr, st = SUP_ST[x.status] || SUP_ST['新回報'];
+  var h = '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="mt">' + esc(x.cat + '・' + x.time.replace(/-/g, '/')) + '</span>' + pill(st[0], st[1], st[2]) + '</div>' +
+    '<div class="chat">' + x.msgs.map(function (m) {
+      return '<div class="cm' + (m.staff ? ' st' : '') + '"><div class="cw">' + esc(m.staff ? '環安衛' : '我') + '・' + esc(m.time.slice(5).replace('-', '/')) + '</div>' +
+        '<div class="cb" data-no-i18n>' + esc(m.text).replace(/\n/g, '<br>') + '</div>' +
+        (m.pics.length ? '<div class="cp">' + m.pics.map(function (fid, i) { return '<button class="chip" onclick="supPicView(' + jsq(fid) + ')">' + ic('img', 16, 2.4) + '截圖 ' + (i + 1) + '</button>'; }).join('') + '</div>' : '') + '</div>';
+    }).join('') + '</div>' + (x.status === '新回報' || x.status === '處理中' ? '<div class="hint">環安衛會在上班日下午處理，回覆後會通知您。</div>' : '') + '</div>';
+  h += '<div class="card ev"><label class="nl" for="srTxt">' + (x.status === '結案' ? '問題又出現了？可以接著說' : '還有要補充、或要回覆環安衛的？') + '</label>' +
+    '<textarea id="srTxt" class="note plain" placeholder="例：照您說的重開 App 後可以了 ／ 還是一樣，截圖如下" oninput="S.sr.text=this.value;srBar()">' + esc(sr.text) + '</textarea>' +
+    supPicsHtml(sr.pics, 'srPick(this)', 'S.sr.pics') + '</div>';
+  $('app').innerHTML = h;
+  srBar();
+};
+function srBar() {
+  if (S.page !== 'supportItem') return;
+  var n = String(S.sr.text || '').replace(/\s/g, '').length;
+  bar('<button class="btn' + (n >= 2 ? '' : ' dim') + '" onclick="srSend()">' + ic('up', 22, 2.8) + (n >= 2 ? '送出' : '寫好要說的話就能送出') + '</button>');
+}
+function srSend() {
+  var sr = S.sr;
+  if (String(sr.text || '').replace(/\s/g, '').length < 2) { toast('請先寫要說的話', 'err'); var t = $('srTxt'); if (t) t.focus(); return; }
+  if (!navigator.onLine) return toast('沒有網路，要連上網路才能送出', 'err', 3500);
+  busyOn('送出中…');
+  api('supportMsg', { id: sr.id, text: sr.text, pics: sr.pics.map(function (p) { return p.u; }), rid: sr.rid }).then(function () {
+    return api('supportMine', {}).then(function (r) { busyOff(); S.sup = r; S.sr = null; toast('已送出', 'ok'); render(); });
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
+}
+function supPicView(fid) {
+  busyOn('讀取截圖…');
+  api('supportPic', { fid: fid }).then(function (r) {
+    busyOff();
+    var d = document.createElement('div'); d.className = 'pview'; d.onclick = function () { d.remove(); };
+    d.innerHTML = '<img src="' + esc(r.image) + '" alt="截圖"><span class="muted">點一下關閉</span>';
+    document.body.appendChild(d);
+  }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4000); });
 }
 
 // ───────────── 教材庫、高風險作業（10/19 Jason：教育訓練資料要成為固定教材，不是一次性閱讀；高風險作業用圖示說明主要危害與防護）─────────────
