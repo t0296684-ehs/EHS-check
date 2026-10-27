@@ -363,14 +363,14 @@ PAGES.guide = function () {
   var id = S.arg.sec;
   if (id === 'faq') return guideFaq();
   if (id) return guideSec(id);
-  var h = '<div class="gintro">依您的身分（' + esc(guideRole() === 'ehs' ? '環安衛' : guideRole() === 'mgr' ? '單位負責人' : '檢點人員') + '）列出要看的章節，點一節就能看，每節都有實際畫面。</div>';
+  var h = '<button class="btn gfaqtop" onclick="gOpen(\'faq\')">' + ic('info', 20, 2.4) + '常見問題（先看這裡）</button>';
+  h += '<div class="gintro">依您的身分（' + esc(guideRole() === 'ehs' ? '環安衛' : guideRole() === 'mgr' ? '單位負責人' : '檢點人員') + '）列出要看的章節，點一節就能看，每節都有實際畫面。</div>';
   h += guideChaps().map(function (c) {
     return '<div class="gch" style="--c:' + esc(c.color) + '"><div class="gct"><span class="gcn">' + c.no + '</span><span><b>' + esc(c.title) + '</b><small>' + esc(c.who) + '</small></span></div>' +
       '<div class="list">' + gSecsOf(c).map(function (x) {
         return '<button class="li" onclick="gOpen(' + jsq(x.no) + ')"><span class="gno">' + esc(x.no) + '</span><span class="mn"><span class="nm">' + esc(x.title) + '</span></span>' + ic('chev', 18, 2.6) + '</button>';
       }).join('') + '</div></div>';
   }).join('');
-  h += '<button class="btn ghost" onclick="gOpen(\'faq\')">' + ic('info', 20, 2.4) + '常見問題</button>';
   $('app').innerHTML = h;
 };
 function guideSec(id) {

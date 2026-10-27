@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.20.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.21.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -1633,7 +1633,7 @@ var SUP_WANT = '請寫在做什麼、發生什麼事（例：按送出後一直�
 function supportCard() {
   if (S.dev || S.share || !S.me) return '';
   return '<div class="mcards"><button class="mcard" style="--c:#0F766E" onclick="go(\'support\')"><span class="mi">' + ic('chat', 30, 2.1) + '</span>' +
-    '<span class="mx"><b>問題回報</b><small>不會用、畫面卡住、資料不對，直接問環安衛（可附截圖）</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
+    '<span class="mx"><b>問題回報</b><small>問環安衛（可附截圖），看回覆</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
 }
 /** 進問題回報前的操作經過（扣掉問題回報自己的畫面），讓處理的人知道他是在哪裡遇到問題 */
 function supTrail() { return TRAIL.map(function (x) { return x.s; }).filter(function (s) { return !/^問題回報/.test(s); }); }
@@ -1642,7 +1642,7 @@ PLAT_PAGES.support = function () {
   setTitle('問題回報');
   if (!S.sup) {
     $('app').innerHTML = loading('讀取問題回報…'); bar('');
-    apiR('supportMine', {}).then(function (r) { S.sup = r; if (S.page === 'support' || S.page === 'supportItem') render(); })
+    api('supportMine', {}).then(function (r) { S.sup = r; if (S.page === 'support' || S.page === 'supportItem') render(); })
       .catch(function (e) { $('app').innerHTML = errBox('讀不到問題回報', e.message); });
     return;
   }
@@ -1650,12 +1650,8 @@ PLAT_PAGES.support = function () {
   var h = '';
   if (isEhs() && !S.dev) h += '<div class="mcards"><button class="mcard" style="--c:#B45309" onclick="S.supA=null;go(\'supAdmin\')"><span class="mi">' + ic('review', 30, 2.1) + '</span>' +
     '<span class="mx"><b>環安衛：全部問題回報</b><small>' + (S.sup.open ? '等待處理 ' + S.sup.open + ' 則' : '沒有等待處理的') + '・大家問小恩的紀錄</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
-  h += '<div class="card"><label class="nl" for="supQ">' + ic('search', 18, 2.6) + ' 先查使用教學</label>' +
-    '<input id="supQ" class="field" type="search" placeholder="打關鍵字，例：月結、代填、簽名、照片" value="' + esc(S.supQ || '') + '" oninput="S.supQ=this.value;supQRun()">' +
-    '<div id="supQR"></div></div>';
-  if (S.sup.xe) h += '<div class="mcards"><button class="mcard" style="--c:#7C3AED" onclick="go(\'xiaoen\')"><span class="mi">' + ic('spark', 30, 2.1) + '</span>' +
-    '<span class="mx"><b>法規問題問小恩</b><small>環保、職安、消防法規，AI 小幫手直接回答</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
-  h += '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">教學裡找不到答案、畫面跑出錯誤、資料不對，或想給建議，按下方「我要問問題」直接問環安衛。<b>附上畫面截圖</b>處理得最快。</div></div></div></div>';
+  h += '<button class="xeask" onclick="xeOpen()"><span class="xeav">恩</span><span><b>先問小恩</b><small>App 怎麼用、環安衛法規，常見問題點一下就有答案</small></span>' + ic('chev', 20, 2.6) + '</button>';
+  h += '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">畫面跑出錯誤、資料不對，或小恩答不了的，按下方「我要問問題」直接問環安衛。<b>附上畫面截圖</b>處理得最快。</div></div></div></div>';
   var L = S.sup.list || [];
   h += L.length ? '<div class="sec">我問過的問題</div><div class="list">' + L.map(function (x) {
     var st = SUP_ST[x.status] || SUP_ST['新回報'], last = x.msgs[x.msgs.length - 1];
@@ -1799,7 +1795,7 @@ function guideLoad() {
   var one = function (u) { return fetch(u + '?v=' + APP_VERSION, { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }); };
   var gget = function (f) { return one(f).catch(function () { return one('guide/' + f); }); };
   (gl ? gget('content.' + gl + '.json').catch(function () { return gget('content.json'); }) : gget('content.json'))
-    .then(function (j) { S.guide = j; S.gIdx = null; S.gLoading = false; supQRun(); snHint(); if (S.page === 'supAdminItem') render(); })
+    .then(function (j) { S.guide = j; S.gIdx = null; S.gLoading = false; supQRun(); snHint(); if (window.xeDraw) xeDraw(); if (S.page === 'supAdminItem') render(); })
     .catch(function () { S.gLoading = false; });
 }
 function gIndex() {
@@ -1856,7 +1852,7 @@ PLAT_PAGES.supAdmin = function () {
   var tab = S.supTab || 'open';
   if (!S.supA || S.supA.tab !== tab) {
     $('app').innerHTML = supATabs(tab) + loading('讀取中…'); bar('');
-    (tab === 'xe' ? apiR('xeAll', {}) : apiR('supportAll', { st: tab })).then(function (r) { S.supA = { tab: tab, list: r.list }; if (S.page === 'supAdmin' || S.page === 'supAdminItem') render(); })
+    (tab === 'xe' ? api('xeAll', {}) : api('supportAll', { st: tab })).then(function (r) { S.supA = { tab: tab, list: r.list }; if (S.page === 'supAdmin' || S.page === 'supAdminItem') render(); })
       .catch(function (e) { $('app').innerHTML = supATabs(tab) + errBox('讀不到', e.message); });
     return;
   }
@@ -1913,8 +1909,8 @@ function sarCite(no, title, lead) {
 function sarBar() {
   if (S.page !== 'supAdminItem') return;
   var n = String(S.sar.text || '').replace(/\s/g, '').length;
-  bar('<div class="btns r12"><button class="btn ghost" onclick="sarSend(\'結案\')">' + (n >= 2 ? '回覆並結案' : '直接結案') + '</button>' +
-    '<button class="btn' + (n >= 2 ? '' : ' dim') + '" onclick="sarSend(\'\')">' + ic('up', 22, 2.8) + '送出回覆</button></div>');
+  bar('<div class="btns r12"><button class="btn ghost" onclick="sarSend(\'\')">只回覆（等他回）</button>' +
+    '<button class="btn" onclick="sarSend(\'結案\')">' + ic('up', 22, 2.8) + (n >= 2 ? '回覆並結案' : '直接結案') + '</button></div>');
 }
 function sarSend(st) {
   var s = S.sar, n = String(s.text || '').replace(/\s/g, '').length;
@@ -1925,72 +1921,151 @@ function sarSend(st) {
   }).catch(function (e) { busyOff(); toast(esc(e.message), 'err', 4500); });
 }
 
-// ───────────── 問小恩（10/27 Jason：LINE 的小恩照舊，App 多一個入口）─────────────
-// 先跟後端拿通行證（10 分鐘有效）→ 直接問小恩（Render）→ 回答記一筆到後端「小恩問答」。手機上沒有小恩的金鑰。
-PLAT_PAGES.xiaoen = function () {
-  setTitle('問小恩');
-  if (!S.xe) {
-    $('app').innerHTML = loading('讀取中…'); bar('');
-    apiR('xeMine', {}).then(function (r) { S.xe = { list: r.list, on: r.on, text: '' }; if (S.page === 'xiaoen') render(); })
-      .catch(function (e) { $('app').innerHTML = errBox('讀不到', e.message); });
-    return;
+// ───────────── 小恩：右下角小視窗（10/27 Jason：App 操作、法規問題都在同一個地方問，像網頁上的 AI 助理；問不到再轉給環安衛）─────────────
+// 順序：常見問題、這個畫面相關的教學點了馬上有答案（不經 AI）→ 打字問小恩（App 帶使用教學節錄，小恩依教學或法規回答）→ 還是不行「轉給環安衛」（帶問題進問題回報，可附截圖）。
+// 小恩在 Render：先跟後端拿通行證（10 分鐘）再直接問，手機上沒有金鑰；問答記到後台「小恩問答」。對話留在這支手機（最近 40 句）。
+var XE_LS = 'chk.xe';
+function xeL(t) { return window.I18N && I18N.tr ? I18N.tr(t) : t; }     // 對話泡泡不經自動翻譯（data-no-i18n），固定字自己翻
+function xeOk() { return !!(S.me && S.me.signature && S.me.signature.imageV) && !S.share && !S.cpub && !S.meet && ['login', 'sign', 'url'].indexOf(S.cur) < 0; }
+function xeFab() {
+  var f = $('xefab');
+  if (!f) {
+    f = document.createElement('button'); f.id = 'xefab'; f.className = 'xefab'; f.setAttribute('aria-label', '問小恩');
+    f.innerHTML = '<span class="xeav">' + ic('spark', 24, 2.2) + '</span><b>問小恩</b>'; f.onclick = function () { xeOpen(); };
+    document.body.appendChild(f);
   }
-  if (!S.xe.on) { $('app').innerHTML = '<div class="empty">問小恩暫停中，請直接用「問題回報」問環安衛</div>'; bar(''); return; }
-  xeWarm();
-  var h = '<div class="box info"><div class="r">' + ic('spark', 22) + '<div class="bt"><div class="m">小恩是 AI 法規小幫手，回答環保、職安、消防、勞基法規問題（平日 6:00～18:00，每人每天 5 題）。<b>回答僅供參考</b>，要正式判斷或公司內部規定請問環安衛。</div></div></div></div>';
-  h += '<div class="chat xechat">' + S.xe.list.map(function (x) {
-    return '<div class="cm"><div class="cw">我・' + esc(x.time.slice(5).replace('-', '/')) + '</div><div class="cb" data-no-i18n>' + esc(x.q) + '</div></div>' +
-      '<div class="cm st"><div class="cw">小恩</div><div class="cb" data-no-i18n>' + esc(x.a).replace(/\n/g, '<br>') + '</div></div>';
-  }).join('') + (S.xe.wait ? '<div class="cm st"><div class="cw">小恩</div><div class="cb"><span class="spin"></span> 小恩查法規中…（第一次可能要等半分鐘）</div></div>' : '') + '</div>';
-  if (!S.xe.list.length && !S.xe.wait) h += '<div class="hint">例：堆高機每天作業前要檢查哪些項目？／有機溶劑作業場所要多久做一次環境監測？</div>';
-  h += '<div class="card ev"><label class="nl" for="xeTxt">想問什麼法規問題？</label><textarea id="xeTxt" class="note plain" maxlength="500" placeholder="寫清楚是什麼作業、什麼情況" oninput="S.xe.text=this.value;xeBar()"' + (S.xe.wait ? ' disabled' : '') + '>' + esc(S.xe.text) + '</textarea></div>';
-  $('app').innerHTML = h;
-  xeBar();
-  if (S.xe.wait || S.xe.list.length) { var c = document.querySelector('.xechat'); if (c && c.lastElementChild) c.lastElementChild.scrollIntoView({ block: 'end' }); }
-};
-function xeBar() {
-  if (S.page !== 'xiaoen') return;
-  var n = String(S.xe.text || '').replace(/\s/g, '').length;
-  bar('<button class="btn' + (n >= 4 && !S.xe.wait ? '' : ' dim') + '" onclick="xeSend()">' + ic('up', 22, 2.8) + (S.xe.wait ? '小恩回答中…' : n >= 4 ? '問小恩' : '寫好問題就能問') + '</button>');
+  f.hidden = !xeOk() || !!$('xepanel');
 }
-/** 通行證（8 分鐘內重用；後端給 10 分鐘） */
-function xeTicket() {
-  if (S.xeT && S.xeT.until > Date.now()) return Promise.resolve(S.xeT);
-  return api('xeTicket', {}).then(function (r) { S.xeT = { url: r.url, t: r.t, until: Date.now() + 8 * 60000 }; return S.xeT; });
+function xeSt() {
+  var me = (S.me && S.me.person && S.me.person.name) || '';
+  if (!S.xc || S.xc.me !== me) {
+    var m = []; try { m = (JSON.parse(localStorage.getItem(XE_LS) || '{}')[me] || []); } catch (e) { m = []; }
+    S.xc = { me: me, msgs: m, busy: false };
+  }
+  return S.xc;
 }
-/** 打開頁面就先叫醒小恩（Render 閒置會睡著，第一次要等），同仁打字的時間剛好用來等它醒 */
-function xeWarm() {
-  if (S.xeWarm || S.dev || !navigator.onLine) return;
-  S.xeWarm = true;
-  xeTicket().then(function (k) { fetch(k.url.replace(/\/app\/ask$/, '/'), { mode: 'no-cors' }).catch(function () {}); }).catch(function () { S.xeWarm = false; });
+function xeSave() { var x = S.xc; if (!x || S.dev) return; try { var o = {}; o[x.me] = x.msgs.slice(-40); localStorage.setItem(XE_LS, JSON.stringify(o)); } catch (e) {} }
+function xePage() { return PAGE_NAME[S.cur] || '主選單'; }
+function xeOpen(q) {
+  if (!$('xepanel')) {
+    guideLoad();
+    var d = document.createElement('div'); d.id = 'xepanel'; d.className = 'xepanel'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', '小恩');
+    d.innerHTML = '<div class="xehd"><span class="xeav">恩</span><div class="xet"><b>小恩・環安衛助理</b><small>App 怎麼用、環安衛法規都可以問</small></div>' +
+      '<button class="xex" aria-label="關閉" onclick="xeClose()">' + ic('x', 22, 2.6) + '</button></div>' +
+      '<div class="xebody" id="xebody"></div><div class="xesug" id="xesug"></div>' +
+      '<div class="xein"><textarea id="xeq" rows="1" maxlength="500" placeholder="打字問小恩，例：月結怎麼送？" oninput="xeType()" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey&&!event.isComposing){event.preventDefault();xeAsk();}"></textarea>' +
+      '<button class="xesend" aria-label="送出" onclick="xeAsk()">' + ic('up', 22, 2.8) + '</button></div>';
+    document.body.appendChild(d); document.body.classList.add('xeopen');
+    xeSt().page = xePage();
+    xeWarm();
+  }
+  xeFab(); xeDraw();
+  if (q) { $('xeq').value = q; xeType(); }
 }
-function xeSend() {
-  var xe = S.xe, q = String(xe.text || '').trim();
-  if (xe.wait) return;
-  if (q.replace(/\s/g, '').length < 4) { toast('請先寫問題', 'err'); var t = $('xeTxt'); if (t) t.focus(); return; }
-  if (!navigator.onLine) return toast('沒有網路，要連上網路才能問', 'err', 3500);
-  xe.wait = true; render();
+function xeClose() { var d = $('xepanel'); if (d) d.remove(); document.body.classList.remove('xeopen'); xeFab(); }
+function xeTxt(t) { return supLinkify(String(t || '')); }
+/** 一節教學變成小恩的回答：開頭一句＋步驟＋提醒（不經 AI，馬上有） */
+function xeSecText(d) {
+  var x = null; guideSecs().forEach(function (y) { if (y.x.no === d.no) x = y.x; });
+  if (!x) return d.lead;
+  var hs = (gHide().steps || {})[x.no] || [];
+  return [x.lead].concat(x.steps.filter(function (s, k) { return hs.indexOf(k) < 0; }).map(function (s, k) { return (k + 1) + '. ' + s.replace(/<[^>]+>/g, ''); }))
+    .concat(x.tip ? [xeL('提醒：') + x.tip] : []).join('\n');
+}
+function xeFaqs() {
+  if (!S.guide) return [];
+  var hf = gHide().faq || [];
+  return (S.guide.faq || []).map(function (q, k) { return { k: k, q: q[0], a: q[1] }; }).filter(function (o) { return hf.indexOf(o.k) < 0 && (isEhs() || !/^（環安衛）/.test(o.q)); });
+}
+function xeHello() {
+  var x = xeSt(), p = plat() || {}, here = S.guide && x.page !== '主選單' ? gMatch(x.page, 2).filter(function (d) { return d.no !== 'faq'; }) : [];
+  var h = '<div class="cm st"><div class="cw">小恩</div><div class="cb">您好，我是小恩 👋 App 怎麼用、環安衛法規都可以問我。先看看大家常問的，點一下就有答案：</div>';
+  h += '<div class="xechips">' + here.map(function (d) { return '<button class="chip" onclick="xePick(' + jsq(d.no) + ')">' + ic('book', 15, 2.4) + esc(d.title.replace(/（.*$/, '')) + '怎麼用</button>'; }).join('') +
+    xeFaqs().slice(0, 6).map(function (o) { return '<button class="chip" onclick="xeFaq(' + o.k + ')">' + esc(o.q) + '</button>'; }).join('') +
+    (S.guide ? '<button class="chip" onclick="xeClose();go(\'guide\',{sec:\'faq\'})">更多常見問題</button>' : '<span class="hint">讀取常見問題中…</span>') + '</div>';
+  h += '<div class="xelinks"><button class="chip" onclick="xeClose();S.sup=null;go(\'support\')">' + ic('chat', 15, 2.4) + '我問過環安衛的問題</button>' +
+    (p.xeLine ? '<a class="chip" href="' + esc(p.xeLine) + '" target="_blank" rel="noopener">' + ic('ext', 15, 2.4) + '加小恩 LINE 好友</a>' : '') + '</div></div>';
+  return h;
+}
+function xeDraw() {
+  var b = $('xebody'); if (!b) return;
+  var x = xeSt();
+  b.innerHTML = xeHello() + x.msgs.map(function (m, i) {
+    if (m.me) return '<div class="cm"><div class="cw">我</div><div class="cb" data-no-i18n>' + esc(m.t).replace(/\n/g, '<br>') + '</div></div>';
+    return '<div class="cm st"><div class="cw">小恩</div><div class="cb" data-no-i18n>' + xeTxt(m.t) + '</div>' +
+      ((m.hits || []).length ? '<div class="xechips">' + m.hits.map(function (h) { return '<button class="chip" onclick="xeClose();go(\'guide\',{sec:' + jsq(h.no) + '})">' + ic('book', 15, 2.4) + '看教學 ' + esc(h.no) + '（有畫面）</button>'; }).join('') + '</div>' : '') +
+      (m.q ? '<div class="xechips"><button class="chip" onclick="xeHand(' + i + ')">' + ic('chat', 15, 2.4) + '還是不行，轉給環安衛</button></div>' : '') + '</div>';
+  }).join('') + (x.busy ? '<div class="cm st"><div class="cw">小恩</div><div class="cb"><span class="dots"><i></i><i></i><i></i></span></div></div>' : '');
+  b.scrollTop = b.scrollHeight;
+  var q = $('xeq'); if (q) q.disabled = x.busy;
+}
+/** 打字時：教學裡相關的節先列出來，點了馬上有答案 */
+function xeType() {
+  var q = $('xeq'), el = $('xesug'); if (!q || !el) return;
+  q.style.height = 'auto'; q.style.height = Math.min(q.scrollHeight, 120) + 'px';
+  clearTimeout(S.xeT2);
+  S.xeT2 = setTimeout(function () {
+    var t = q.value.trim(), hit = t.replace(/\s/g, '').length >= 2 ? gMatch(t) : [];
+    el.innerHTML = hit.length ? '<span class="hint">教學裡可能有：</span>' + hit.map(function (d) {
+      return '<button class="chip" onclick="' + (d.no === 'faq' ? 'xeFaqT(' + jsq(d.title) + ')' : 'xePick(' + jsq(d.no) + ')') + '">' + ic('book', 15, 2.4) + esc(d.title) + '</button>';
+    }).join('') : '';
+  }, 250);
+}
+function xePush(m) { var x = xeSt(); x.msgs.push(m); xeSave(); xeDraw(); }
+function xeClearIn() { var q = $('xeq'); if (q) { q.value = ''; q.style.height = 'auto'; } var el = $('xesug'); if (el) el.innerHTML = ''; }
+function xeFaq(k) { var o = xeFaqs().filter(function (f) { return f.k === k; })[0]; if (!o) return; xePush({ me: 1, t: o.q }); xePush({ t: o.a, q: o.q }); }
+function xeFaqT(title) { var o = xeFaqs().filter(function (f) { return f.q === title; })[0]; if (o) { xeClearIn(); xeFaq(o.k); } }
+function xePick(no) {
+  var d = null; guideSecs().forEach(function (y) { if (y.x.no === no) d = { no: no, title: y.x.title, lead: y.x.lead }; });
+  if (!d) return;
+  xeClearIn();
+  xePush({ me: 1, t: d.title + xeL('怎麼做？') });
+  xePush({ t: xeSecText(d), hits: [d], q: d.title });
+}
+/** 打字問：小恩（帶教學節錄）→ 回答；小恩沒開或連不上，就給教學裡找得到的 */
+function xeAsk() {
+  var x = xeSt(), qel = $('xeq'), q = qel ? qel.value.trim() : '';
+  if (x.busy) return;
+  if (q.replace(/\s/g, '').length < 2) { if (qel) qel.focus(); return; }
+  xeClearIn();
+  x.msgs.push({ me: 1, t: q }); x.busy = true; xeSave(); xeDraw();
+  var hits = gMatch(q), secs = hits.filter(function (d) { return d.no !== 'faq'; });
+  var local = function (why) {
+    x.busy = false;
+    why = why ? xeL(why) + '\n' : '';
+    xePush(secs.length ? { t: why + xeL('使用教學裡這幾節可能有答案：'), hits: secs, q: q } : { t: why + xeL('可以按下方「轉給環安衛」，附上畫面截圖，環安衛會回覆您。'), q: q });
+  };
+  if (!((plat() || {}).xe) || S.dev) return local('');
+  if (!navigator.onLine) return local('現在沒有網路，小恩連不上。');
+  var guide = hits.map(function (d) { return d.no === 'faq' ? { no: '常見問題', title: d.title, text: d.lead } : { no: d.no, title: d.title, text: xeSecText(d) }; });
   var ask = function (k) {
-    var ctl = window.AbortController ? new AbortController() : null, tm = ctl && setTimeout(function () { ctl.abort(); }, 90000);
-    return fetch(k.url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ t: k.t, text: q }), signal: ctl ? ctl.signal : undefined })
+    var ctl = window.AbortController ? new AbortController() : null, tm = ctl && setTimeout(function () { ctl.abort(); }, 60000);
+    return fetch(k.url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ t: k.t, text: q, page: x.page || xePage(), guide: guide }), signal: ctl ? ctl.signal : undefined })
       .then(function (r) { if (tm) clearTimeout(tm); return r.json().then(function (j) { j.status = r.status; return j; }); });
   };
-  xeTicket().then(ask).then(function (j) {
-    if (j.status === 401 && j.expired) { S.xeT = null; return xeTicket().then(ask); }
-    return j;
-  }).then(function (j) {
-    xe.wait = false;
-    if (!j.reply) throw new Error('小恩暫時沒有回應，請過幾分鐘再試');
-    var a = String(j.reply);
-    xe.list.push({ time: today() + ' ' + new Date().toTimeString().slice(0, 5), q: q, a: a, ok: !!j.ok });
-    if (j.ok) xe.text = '';
-    api('xeLog', { q: q, a: a, ok: !!j.ok }, { quiet: true }).catch(function () {});
-    if (S.page === 'xiaoen') render();
-  }).catch(function (e) {
-    xe.wait = false;
-    if (S.page === 'xiaoen') render();
-    toast(e.name === 'AbortError' ? '小恩太久沒回應，請過幾分鐘再試' : /fetch|network|json/i.test(e.message) ? '連不上小恩，請過幾分鐘再試' : esc(e.message), 'err', 4500);
-  });
+  xeTicket().then(ask).then(function (j) { if (j.status === 401 && j.expired) { S.xeT = null; return xeTicket().then(ask); } return j; }).then(function (j) {
+    if (!j.reply) throw new Error('x');
+    x.busy = false;
+    xePush({ t: String(j.reply), hits: secs.filter(function (d) { return String(j.reply).indexOf(d.no) < 0; }).slice(0, 2), q: q });
+    api('xeLog', { q: q, a: String(j.reply), ok: !!j.ok }, { quiet: true, noRetry: true }).catch(function () {});
+  }).catch(function () { local('小恩現在連不上。'); });
+}
+/** 轉給環安衛：帶著問題進問題回報（可附截圖） */
+function xeHand(i) {
+  var m = xeSt().msgs[i], q = m && m.q ? m.q : '';
+  xeClose();
+  S.sn = { cat: '不會操作', text: q, pics: [], from: xeSt().page === '主選單' ? '' : xeSt().page, rid: newId(), ok: false };
+  go('supportNew');
+}
+function xeTicket() {
+  if (S.xeT && S.xeT.until > Date.now()) return Promise.resolve(S.xeT);
+  return api('xeTicket', {}, { quiet: true }).then(function (r) { S.xeT = { url: r.url, t: r.t, until: Date.now() + 8 * 60000 }; return S.xeT; });
+}
+/** 打開小視窗就先叫醒小恩（Render 閒置會睡著），同仁看常見問題、打字的時間剛好用來等它醒 */
+function xeWarm() {
+  if (S.xeWarm || S.dev || !navigator.onLine || !((plat() || {}).xe)) return;
+  S.xeWarm = true;
+  xeTicket().then(function (k) { fetch(k.url.replace(/\/app\/ask$/, '/'), { mode: 'no-cors' }).catch(function () {}); }).catch(function () { S.xeWarm = false; });
 }
 
 // ───────────── 教材庫、高風險作業（10/19 Jason：教育訓練資料要成為固定教材，不是一次性閱讀；高風險作業用圖示說明主要危害與防護）─────────────

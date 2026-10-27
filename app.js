@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.20.0';
+var APP_VERSION = '0.21.0';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -483,6 +483,7 @@ function render() {
   $('bar').innerHTML = ''; padBar();
   fn();
   drawTop();
+  if (window.xeFab) xeFab();
   if (window.coachAfter) coachAfter();
 }
 function netTag() { var on = navigator.onLine; return '<span class="net' + (on ? '' : ' off') + '" id="net"><i></i>' + (on ? '已連線' : '離線') + '</span>'; }
@@ -1358,7 +1359,7 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 // Android 的系統返回手勢／返回鍵也一樣回上一頁（用一筆瀏覽紀錄墊著，按到首頁時才真的離開）。
 (function () {
   var sx = 0, sy = 0, on = false, dx = 0, app = null;
-  var backBtn = function () { var b = document.getElementById('back'); return b && b.offsetParent !== null ? b : null; };
+  var backBtn = function () { var xp = document.querySelector('#xepanel .xex'); if (xp) return xp; var b = document.getElementById('back'); return b && b.offsetParent !== null ? b : null; };
   document.addEventListener('touchstart', function (e) {
     var t = e.touches[0]; on = false;
     if (e.touches.length !== 1 || t.clientX > 24 || !backBtn()) return;
