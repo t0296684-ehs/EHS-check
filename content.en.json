@@ -1,5 +1,5 @@
 {
- "version": "0.19.0",
+ "version": "0.20.0",
  "chapters": [
   {
    "no": 1,
@@ -554,6 +554,20 @@
      ],
      "tip": "General safety training for new workers is at least 3 hours; enter the real start and end times.",
      "warn": false
+    },
+    {
+     "no": "4-7",
+     "title": "Problem reports: see questions and reply",
+     "lead": "EHS sees \"EHS: all problem reports\" at the top of \"Report a problem\", with every question, screenshot and the screen it came from, plus the Xiao-En question log.",
+     "shots": [],
+     "steps": [
+      "Main menu <b>\"Report a problem\"</b> → <b>\"EHS: all problem reports\"</b>; tabs: <b>Waiting, Replied, Closed, Xiao-En log</b>.",
+      "Open a report to see the conversation, screenshots, the screen, the steps before it, the phone and App version.",
+      "Related <b>user guide sections</b> are listed below; tap <b>\"Quote in reply\"</b> to add that section to your reply so the colleague can open it with one tap.",
+      "Tap <b>\"Send reply\"</b> (the colleague is notified) or <b>\"Reply and close\"</b>. Replies are signed \"EHS Center\"; the back-office log records who replied."
+     ],
+     "tip": "New reports are handled every workday afternoon; replied ones move to \"Replied\", and go back to \"Waiting\" when the colleague writes again.",
+     "warn": false
     }
    ]
   },
@@ -612,16 +626,29 @@
     {
      "no": "5-3",
      "title": "Report a problem (ask EHS directly)",
-     "lead": "If you are not sure how to do something, the screen is stuck, data looks wrong, or you have a suggestion, ask EHS directly under \"Report a problem\" on the main menu. You can attach screenshots.",
+     "lead": "If you are not sure how to do something, the screen is stuck, data looks wrong, or you have a suggestion, ask EHS directly under \"Report a problem\" on the main menu. You can attach screenshots. Search the user guide first: many answers are already there.",
      "shots": [],
      "steps": [
-      "On the main menu tap <b>\"Report a problem\"</b>, then <b>\"Ask a question\"</b>.",
-      "Choose the <b>problem type</b> and describe <b>what you were doing and what happened</b>.",
+      "On the main menu tap <b>\"Report a problem\"</b> and type a keyword in <b>\"Search the user guide first\"</b> (e.g. monthly, proxy, signature). Matching guide sections are listed; tap <b>\"Open this section\"</b> to see them with screenshots.",
+      "If the guide does not help, tap <b>\"Ask a question\"</b>, choose the <b>problem type</b> and describe <b>what you were doing and what happened</b>. While you type, guide sections that may already answer it are shown; have a look first.",
       "Tap <b>\"+\"</b> to attach screenshots (up to 3), tick the confirmation and tap <b>\"Send question\"</b>.",
-      "You get a notification when EHS replies; open the question to read the reply and <b>write back</b>."
+      "You get a notification when EHS replies; open the question to read the reply and <b>write back</b>. Tap <b>\"User guide x-x\"</b> in a reply to open that section."
      ],
      "tip": "Screenshot: most phones press Power + Volume down; iPhone press Side button + Volume up. EHS handles questions on workday afternoons.",
      "warn": false
+    },
+    {
+     "no": "5-4",
+     "title": "Ask Xiao-En (regulations)",
+     "lead": "For environment, safety, fire or labour law questions, tap \"Ask Xiao-En about regulations\" under \"Report a problem\". The AI helper Xiao-En answers directly; it is the same Xiao-En as on LINE.",
+     "shots": [],
+     "steps": [
+      "On the main menu tap <b>\"Report a problem\"</b>, then <b>\"Ask Xiao-En about regulations\"</b>.",
+      "Say <b>what work it is and what the situation is</b>, then tap <b>\"Ask Xiao-En\"</b>. The first answer may take half a minute.",
+      "You can ask follow-up questions; Xiao-En remembers what you asked before."
+     ],
+     "tip": "Xiao-En's answers are for reference only; for an official decision or company rules, ask EHS. Available weekdays 6:00–18:00, 5 questions per person per day.",
+     "warn": true
     }
    ]
   },
