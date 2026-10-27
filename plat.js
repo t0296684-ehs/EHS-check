@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.21.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.21.1';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -1840,8 +1840,9 @@ function snHint() {
 }
 /** 環安衛回覆裡寫「使用教學 2-7」→ 變成按鈕，一點就打開那一節 */
 function supLinkify(t) {
-  return esc(t).replace(/\n/g, '<br>').replace(/(使用教學|教學)\s?(\d-\d{1,2})/g, function (m, a, no) {
-    return '<button class="chip glink" onclick="go(\'guide\',{sec:' + jsq(no) + '})">' + ic('book', 15, 2.4) + esc(a + ' ' + no) + '</button>';
+  var title = function (no) { var x = ''; if (S.guide) (S.guide.chapters || []).forEach(function (c) { c.sections.forEach(function (y) { if (y.no === no) x = y.title.replace(/（.*$/, ''); }); }); return x; };
+  return esc(t).replace(/\n/g, '<br>').replace(/(詳見)?(使用教學|教學)\s?(\d-\d{1,2})(「[^」]*」)?/g, function (m, a, b, no) {     // 10/27 Jason：要直接給教學連結；小恩視窗裡點了先關視窗再打開那一節
+    return '<button class="chip glink" onclick="if(window.xeClose)xeClose();go(\'guide\',{sec:' + jsq(no) + '})">' + ic('book', 15, 2.4) + esc((window.I18N && I18N.tr ? I18N.tr('打開教學') : '打開教學') + ' ' + no + (title(no) ? ' ' + title(no) : '')) + '</button>';
   });
 }
 
