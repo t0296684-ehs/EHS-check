@@ -227,7 +227,7 @@ function cnApply() {
   $('app').innerHTML = '<div class="steps"><div class="done"><i></i><span>' + ic('check', 14, 3.2) + esc(P.vendor.name) + '</span></div><div class="cur"><i></i><span>2 施工內容・人員・簽名</span></div></div>' +
     (P.drAt ? '<div class="box info"><div class="r">' + ic('info', 20) + '<div class="bt"><b>已帶回上次暫存的內容（' + esc(new Date(P.drAt).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })) + '）</b>' +
       '<div class="m">附件和簽名沒有暫存，送出前請重新上傳、簽名。<button class="btn ghost sm" onclick="cnDraftClear()">清除，重新填</button></div></div></div></div>' : '') +
-    (P.vendor.commit ? '' : '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>環安衛還沒確認貴公司的承攬商安全衛生承諾書</b><div class="m">可以先申請、施工人員可以先簽名；承諾書確認後才會進入審核。</div></div></div></div>' +
+    (P.vendor.commit ? '' : '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>環安衛還沒確認貴公司的承攬商安全衛生承諾書</b><div class="m">可以照常申請、簽名、提交；環安衛核准前會確認承諾書。</div></div></div></div>' +
       '<label class="cnagree"><input type="checkbox" id="caCommitDecl"' + (f.commitDeclared ? ' checked' : '') + ' onchange="S.cpub.f.commitDeclared=this.checked"><span>本公司建檔時已提交承諾書（或已寄出用印正本）</span></label>' +
       '<div class="muted sm">還沒交的話，請把負責人簽名、蓋公司大小章的承諾書拍照或掃描，在這裡上傳：</div>' + cnFilesBoxK('commitFiles', 'caCommit', 2)) +
     cnCaseForm(P.form, f) + cnFilesBox('caFiles', P.form) + cnAgree() + cnSigBox('施工負責人請簽全名') +
@@ -671,6 +671,8 @@ PLAT_PAGES.cons = function () {
     '<button class="btn ghost" onclick="copyText(cnVLoginUrl(),\'連結已複製\')">' + ic('copy', 18, 2.2) + '複製連結</button><button class="btn ghost" onclick="openUrl(cnVLoginUrl())">' + ic('ext', 18, 2.2) + '打開看看</button></div></div>';
   if (isEhs() || (S.me && (S.me.depts || []).some(function (d) { return /^示範/.test(d.id || d); }))) h += '<button class="card fcard" onclick="cnDemoStart()"><div class="fh">' + ic('helmet', 22, 2.2) + '<b>承攬商端示範（給勞檢看）</b></div>' +
     '<div class="muted">示範廠商登入後看到的畫面：施工案件、施工前必讀、承諾書。帳號密碼是假的、已填好，不會寫入任何資料。</div></button>';
+  if (isEhs() && S.cnTab !== 'v') h += '<button class="card fcard" onclick="S.cnTab=\'v\';render()"><div class="fh">' + ic('helmet', 22, 2.2) + '<b>廠商管理（環安衛）</b></div>' +
+    '<div class="muted">所有建檔過的廠商：聯絡資料、承諾書打勾確認、登入碼、上傳的承諾書。也可以在後台試算表「廠商」頁的「承諾書已收到」欄直接打勾。</div></button>';
   if (isEhs()) h += '<div class="seg2 cstab"><button class="' + (S.cnTab !== 'v' ? 'on' : '') + '" onclick="S.cnTab=\'c\';render()">案件</button><button class="' + (S.cnTab === 'v' ? 'on' : '') + '" onclick="S.cnTab=\'v\';render()">廠商・承諾書</button></div>';
   h += '<div id="cnList">' + loading('讀取中…') + '</div>';
   $('app').innerHTML = h;
@@ -752,7 +754,8 @@ function cnRvSteps(d) {
   var s1 = !pm.length ? '本案沒有特殊作業許可' : wait.length ? '還有 ' + wait.length + ' 張待審核（可以在下面逐張核准；或直接按最下面「核准」，條件符合的會一起核准）' : '已核准 ' + ok.length + ' 張';
   var s2 = d.status === '已核准' ? '已核准，廠商可以依期間進場' : d.canReview ? '還沒核准：檢查完按畫面最下面的「核准」，案件才算核准、廠商才會收到通知' : '等承辦提交審核';
   return '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><b>環安衛審核步驟</b><div class="m">' +
-    '① 特殊作業許可：' + esc(s1) + '<br>② 施工案件：' + esc(s2) + '</div></div></div></div>';
+    (d.vendorInfo && !d.vendorInfo.commit ? '① 承諾書：還沒確認（核准前要先在「聯絡」那一欄按「確認已收到承諾書」）<br>' : '') +
+    (d.vendorInfo && !d.vendorInfo.commit ? '② ' : '① ') + '特殊作業許可：' + esc(s1) + '<br>' + (d.vendorInfo && !d.vendorInfo.commit ? '③ ' : '② ') + '施工案件：' + esc(s2) + '</div></div></div></div>';
 }
 function cnFileGet(fid) { toast('下載中…', '', 1500); api('consFile', { id: S.cnD.id, fid: fid }).then(cnB64Save).catch(function (e) { toast(esc(e.message), 'err', 4000); }); }
 function cnAfter(msg) { return function () { toast(msg, 'ok', 3500); rcClear(); render(); }; }
@@ -804,6 +807,7 @@ function cnEhsEditGo() {
 var CN_RV_WHY = ['施工人員還沒全部簽名', '請補施工計畫書', '請補特殊作業許可', '承諾書要負責人簽名並蓋公司大小章', '施工期間或區域不正確', '施工人員資料不完整'];
 function cnReview(dec) {
   var d = S.cnD;
+  if (dec === 'approve' && d.vendorInfo && !d.vendorInfo.commit) { toast('承諾書還沒確認：請先在「聯絡」那一欄按「確認已收到承諾書」', 'err', 5000); var cb = document.querySelector('.box.warn .btn.sm'); if (cb) cb.scrollIntoView({ block: 'center' }); return; }
   if (dec === 'approve' && d.gaps && d.gaps.length && !confirm('還有：\n' + d.gaps.join('\n') + '\n\n仍要核准？（會記進歷程）')) return;
   S.cnRv = { id: d.id, dec: dec, txt: '' }; cnCaseStaff(d); window.scrollTo(0, 0);
 }
