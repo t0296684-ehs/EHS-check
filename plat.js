@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.21.1';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.21.2';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -1650,7 +1650,7 @@ PLAT_PAGES.support = function () {
   var h = '';
   if (isEhs() && !S.dev) h += '<div class="mcards"><button class="mcard" style="--c:#B45309" onclick="S.supA=null;go(\'supAdmin\')"><span class="mi">' + ic('review', 30, 2.1) + '</span>' +
     '<span class="mx"><b>環安衛：全部問題回報</b><small>' + (S.sup.open ? '等待處理 ' + S.sup.open + ' 則' : '沒有等待處理的') + '・大家問小恩的紀錄</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
-  h += '<button class="xeask" onclick="xeOpen()"><span class="xeav">' + ic('spark', 24, 2.2) + '</span><span><b>先問小恩</b><small>App 怎麼用、環安衛法規，常見問題點一下就有答案</small></span>' + ic('chev', 20, 2.6) + '</button>';
+  h += '<button class="xeask" onclick="xeOpen()">' + xeAv() + '<span><b>先問小恩</b><small>App 怎麼用、環安衛法規，常見問題點一下就有答案</small></span>' + ic('chev', 20, 2.6) + '</button>';
   h += '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">畫面跑出錯誤、資料不對，或小恩答不了的，按下方「我要問問題」直接問環安衛。<b>附上畫面截圖</b>處理得最快。</div></div></div></div>';
   var L = S.sup.list || [];
   h += L.length ? '<div class="sec">我問過的問題</div><div class="list">' + L.map(function (x) {
@@ -1926,13 +1926,14 @@ function sarSend(st) {
 // 順序：常見問題、這個畫面相關的教學點了馬上有答案（不經 AI）→ 打字問小恩（App 帶使用教學節錄，小恩依教學或法規回答）→ 還是不行「轉給環安衛」（帶問題進問題回報，可附截圖）。
 // 小恩在 Render：先跟後端拿通行證（10 分鐘）再直接問，手機上沒有金鑰；問答記到後台「小恩問答」。對話留在這支手機（最近 40 句）。
 var XE_LS = 'chk.xe';
+function xeAv(c) { return '<span class="xeav' + (c ? ' ' + c : '') + '"><img src="xiaoen.jpg?v=' + APP_VERSION + '" alt=""></span>'; }   // 小恩大頭照（跟 LINE 同一張）
 function xeL(t) { return window.I18N && I18N.tr ? I18N.tr(t) : t; }     // 對話泡泡不經自動翻譯（data-no-i18n），固定字自己翻
 function xeOk() { return !!(S.me && S.me.signature && S.me.signature.imageV) && !S.share && !S.cpub && !S.meet && ['login', 'sign', 'url'].indexOf(S.cur) < 0; }
 function xeFab() {
   var f = $('xefab');
   if (!f) {
     f = document.createElement('button'); f.id = 'xefab'; f.className = 'xefab'; f.setAttribute('aria-label', '問小恩');
-    f.innerHTML = '<span class="xeav">' + ic('spark', 24, 2.2) + '</span><b>問小恩</b>'; f.onclick = function () { xeOpen(); };
+    f.innerHTML = '' + xeAv() + '<b>問小恩</b>'; f.onclick = function () { xeOpen(); };
     document.body.appendChild(f);
   }
   f.hidden = !xeOk() || !!$('xepanel');
@@ -1951,7 +1952,7 @@ function xeOpen(q) {
   if (!$('xepanel')) {
     guideLoad();
     var d = document.createElement('div'); d.id = 'xepanel'; d.className = 'xepanel'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', '小恩');
-    d.innerHTML = '<div class="xehd"><span class="xeav">' + ic('spark', 24, 2.2) + '</span><div class="xet"><b>小恩・環安衛助理</b><small>App 怎麼用、環安衛法規都可以問</small></div>' +
+    d.innerHTML = '<div class="xehd">' + xeAv() + '<div class="xet"><b>小恩・環安衛助理</b><small>App 怎麼用、環安衛法規都可以問</small></div>' +
       '<button class="xex" aria-label="關閉" onclick="xeClose()">' + ic('x', 22, 2.6) + '</button></div>' +
       '<div class="xebody" id="xebody"></div><div class="xesug" id="xesug"></div>' +
       '<div class="xein"><textarea id="xeq" rows="1" maxlength="500" placeholder="打字問小恩，例：月結怎麼送？" oninput="xeType()" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey&&!event.isComposing){event.preventDefault();xeAsk();}"></textarea>' +
@@ -1980,7 +1981,7 @@ function xeFaqs() {
 }
 function xeHello() {
   var x = xeSt(), p = plat() || {}, here = S.guide && x.page !== '主選單' ? gMatch(x.page, 2).filter(function (d) { return d.no !== 'faq'; }) : [];
-  var h = '<div class="cm st"><div class="cw">小恩</div><div class="cb">您好，我是小恩 👋 App 怎麼用、環安衛法規都可以問我。先看看大家常問的，點一下就有答案：</div>';
+  var h = '<div class="cm st"><div class="cw">' + xeAv('mini') + '小恩</div><div class="cb">您好，我是小恩 👋 App 怎麼用、環安衛法規都可以問我。先看看大家常問的，點一下就有答案：</div>';
   h += '<div class="xechips">' + here.map(function (d) { return '<button class="chip" onclick="xePick(' + jsq(d.no) + ')">' + ic('book', 15, 2.4) + esc(d.title.replace(/（.*$/, '')) + '怎麼用</button>'; }).join('') +
     xeFaqs().slice(0, 6).map(function (o) { return '<button class="chip" onclick="xeFaq(' + o.k + ')">' + esc(o.q) + '</button>'; }).join('') +
     (S.guide ? '<button class="chip" onclick="xeClose();go(\'guide\',{sec:\'faq\'})">更多常見問題</button>' : '<span class="hint">讀取常見問題中…</span>') + '</div>';
@@ -1993,10 +1994,10 @@ function xeDraw() {
   var x = xeSt();
   b.innerHTML = xeHello() + x.msgs.map(function (m, i) {
     if (m.me) return '<div class="cm"><div class="cw">我</div><div class="cb" data-no-i18n>' + esc(m.t).replace(/\n/g, '<br>') + '</div></div>';
-    return '<div class="cm st"><div class="cw">小恩</div><div class="cb" data-no-i18n>' + xeTxt(m.t) + '</div>' +
-      ((m.hits || []).length ? '<div class="xechips">' + m.hits.map(function (h) { return '<button class="chip" onclick="xeClose();go(\'guide\',{sec:' + jsq(h.no) + '})">' + ic('book', 15, 2.4) + '看教學 ' + esc(h.no) + '（有畫面）</button>'; }).join('') + '</div>' : '') +
+    return '<div class="cm st"><div class="cw">' + xeAv('mini') + '小恩</div><div class="cb" data-no-i18n>' + xeTxt(m.t) + '</div>' +
+      ((m.hits || []).length ? '<div class="xechips">' + m.hits.map(function (h) { return '<button class="chip" data-no-i18n onclick="xeClose();go(\'guide\',{sec:' + jsq(h.no) + '})">' + ic('book', 15, 2.4) + esc(xeL('打開教學') + ' ' + h.no + ' ' + String(h.title || '').replace(/（.*$/, '')) + '</button>'; }).join('') + '</div>' : '') +
       (m.q ? '<div class="xechips"><button class="chip" onclick="xeHand(' + i + ')">' + ic('chat', 15, 2.4) + '還是不行，轉給環安衛</button></div>' : '') + '</div>';
-  }).join('') + (x.busy ? '<div class="cm st"><div class="cw">小恩</div><div class="cb"><span class="dots"><i></i><i></i><i></i></span></div></div>' : '');
+  }).join('') + (x.busy ? '<div class="cm st"><div class="cw">' + xeAv('mini') + '小恩</div><div class="cb"><span class="dots"><i></i><i></i><i></i></span></div></div>' : '');
   b.scrollTop = b.scrollHeight;
   var q = $('xeq'); if (q) q.disabled = x.busy;
 }

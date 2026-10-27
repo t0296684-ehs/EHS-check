@@ -1,6 +1,6 @@
 // 作業檢點 PWA：程式檔「有網路先抓新的、沒網路用手機裡的」（v0.7.1 起，改版後打開 App 就是新版）；Google 後端一律不快取
-var CACHE = 'chk-v0.21.1';
-var FILES = ['./', './index.html', './qrcode.js', './plat.js', './cons.js', './app.js', './check.js', './manifest.json', './icon-192.png', './icon-512.png'];
+var CACHE = 'chk-v0.21.2';
+var FILES = ['./', './index.html', './qrcode.js', './plat.js', './cons.js', './app.js', './check.js', './manifest.json', './icon-192.png', './xiaoen.jpg', './icon-512.png'];
 // 畫面翻譯檔：抓不到也不影響安裝（App 會退回中文）
 var OPTIONAL = ['./i18n.js', './i18n_dict.js'].concat(['explode', 'flame', 'oxid', 'gas', 'corrode', 'skull', 'health', 'warn', 'env'].map(function (k) { return './ghs-' + k + '.svg'; })).concat(['W021', 'W008', 'M018', 'W016', 'W015', 'W012', 'W014', 'M016', 'W023'].map(function (k) { return './iso-' + k + '.svg'; }));   // 10/19：高風險作業卡的 ISO 7010 安全標誌   // 10/15：GHS 圖也先存進手機，沒網路照樣顯示
 self.addEventListener('install', function (e) {
