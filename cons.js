@@ -178,11 +178,12 @@ function cnReg() {
         '<div class="muted sm">以後在員和環安衛系統登入頁按「承攬商登入」，就能看貴公司全部施工案件與施工前必讀。這支手機已經登入，不用再輸入。登入碼也寄到 Email 了。</div></div>' : '') +
       (dn.vs ? '<div class="sec">上傳用印後的承諾書<small>拍照或掃描都可以</small></div><div class="card">' + cnFilesBox('crCommit', { fileMax: 2 }) +
         (S.cpub.f.files && S.cpub.f.files.length ? '<button class="btn" id="crUp" onclick="cnCommitUp(\'crUp\')">' + ic('up', 18, 2.6) + '上傳承諾書</button>' : '') + '</div>' : '') +
-      '<button class="btn" onclick="location.hash=' + jsq(dn.applyUrl.split('#')[1]) + ';location.reload()">' + ic('arrow', 20, 2.6) + '接著填施工申請</button>' +
+      '<button class="btn" onclick="cnBackToApply(' + jsq(dn.tax) + ')">' + ic('arrow', 20, 2.6) + '接著填施工申請（統編已帶入）</button>' +
       (dn.vs ? '<button class="btn ghost" onclick="S.cpub={kind:\'vhome\',vs:' + jsq(dn.vs) + ',f:{}};render()">' + ic('helmet', 18, 2.4) + '進入承攬商專區</button>' : '');
     bar(''); return;
   }
-  $('app').innerHTML = '<div class="muted">第一次到員和施工的廠商填一次；資料有變更可以再填一次（同一統編會更新原資料）。</div>' +
+  $('app').innerHTML = (P.fromApply ? cnStCard('info', '貴公司第一次到員和施工，先建檔', '約 2 分鐘。送出後會自動回到施工申請，統一編號不用再打。') :
+    '<div class="muted">第一次到員和施工的廠商填一次；資料有變更可以再填一次（同一統編會更新原資料）。</div>') +
     cnField('crTax', '統一編號', f.crTax, { mode: 'numeric', max: 8, ph: '8 位數字' }) + cnField('crName', '公司名稱（全名）', f.crName) +
     cnField('crOwner', '負責人', f.crOwner, { max: 20 }) + cnField('crContact', '主要聯絡人', f.crContact, { max: 20 }) +
     cnField('crPhone', '聯絡電話', f.crPhone, { type: 'tel', max: 30 }) + cnField('crEmail', 'Email（承諾書、通知寄到這裡，請再確認一次）', f.crEmail, { type: 'email', max: 80 }) +
@@ -218,6 +219,7 @@ function cnApply() {
     $('app').innerHTML = '<div class="steps"><div class="cur"><i></i><span>1 統一編號</span></div><div><i></i><span>2 施工內容・人員・簽名</span></div></div>' +
       cnField('caTax', '貴公司統一編號', f.caTax, { mode: 'numeric', max: 8, ph: '8 位數字' }) + '<div id="caErr"></div>';
     bar('<button class="btn" id="caBtn" onclick="cnApplyPeek()">' + ic('arrow', 22, 2.6) + '下一步</button>');
+    if (P.auto) { P.auto = false; cnApplyPeek(); }                 // 剛建檔完回來：統編已帶入，直接查
     return;
   }
   if (!P.drTried) { P.drTried = true; var dr = cnDraftGet(); if (dr && !f.caWork) { Object.assign(f, dr.f); P.drAt = dr.t; } }
@@ -241,10 +243,22 @@ function cnApplyPeek() {
   cnPub('consPubApply', { peek: true, tax: tax }).then(function (d) {
     if (d.ok) { S.cpub.vendor = { tax: tax, name: d.name, commit: d.commit }; window.scrollTo(0, 0); return render(); }
     cnUnbusy('caBtn', '下一步');
-    $('caErr').innerHTML = d.why === 'taxInvalid' ? errBox('統一編號不正確', '請再確認一次（8 位數字）') :
-      cnStCard('warn', '貴公司還沒建檔', '第一次到員和施工，請先完成廠商建檔（約 2 分鐘），再回來填施工申請。') +
-      '<button class="btn" onclick="location.hash=' + jsq(S.cpub.form.regUrl.split('#')[1]) + ';location.reload()">' + ic('arrow', 20, 2.6) + '先去建檔</button>';
+    if (d.why === 'taxInvalid') { $('caErr').innerHTML = errBox('統一編號不正確', '請再確認一次（8 位數字）'); return; }
+    cnToReg(tax);
   }).catch(function (e) { cnUnbusy('caBtn', '下一步'); $('caErr').innerHTML = errBox('查不到', e.message); });
+}
+/** 10/27 Jason：只有一個施工申請連結——有建檔的直接填申請；沒建檔的自動跳到建檔（統編帶入），建檔完自動回到申請（統編不用再打）。
+ *  用 replaceState 換網址（hashchange 會整頁重載），重新整理也停在對的那一步。 */
+function cnHash(kind) { try { history.replaceState(null, '', '#cons=' + kind + '&i=' + S.cpub.i); } catch (e) {} }
+function cnToReg(tax) {
+  var P = S.cpub;
+  S.cpub = { kind: 'reg', i: P.i, form: P.form, f: { crTax: tax }, fromApply: true, step: 0 };
+  cnHash('reg'); window.scrollTo(0, 0); render();
+}
+function cnBackToApply(tax) {
+  var P = S.cpub;
+  S.cpub = { kind: 'apply', i: P.i, form: P.form, f: { caTax: tax }, step: 0, auto: true };
+  cnHash('apply'); window.scrollTo(0, 0); render();
 }
 /** 施工內容表單（申請與補件共用）。f：S.cpub.f，o：選項 */
 function cnCaseForm(o, f, fix) {
