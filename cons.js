@@ -612,6 +612,12 @@ function cnHSign() {
     bar(''); return;
   }
   var nm = P.f.hsOther ? '' : d.handler;
+  // 10/27 Jason：承辦有員和環安衛系統帳號的，不用再手寫一次——這支手機登入過 App 就直接用 App 裡存好的簽名（後端確認是本案承辦）
+  var tok = '';
+  try { tok = window.LS ? lsGet(LS.TOKEN, '') : ''; } catch (e) { tok = ''; }
+  h += tok ? '<div class="sec">用 App 帳號簽名<small>這支手機已登入員和環安衛系統</small></div><div class="card"><div class="muted">直接帶入您在 App 存好的簽名，不用再簽一次（要是本案的承辦人）。</div>' +
+      '<button class="btn" id="hsApp" onclick="cnHSignApp()">' + ic('check', 20, 3) + '用 App 裡的簽名簽名並提交</button><div id="hsAppErr"></div></div><div class="muted sm">不是用這支手機的 App？在下面手寫簽名。</div>' :
+    cnStCard('info', '有員和環安衛系統帳號嗎？', '打開 App →「施工申請」→ 點這個案件 →「簽名並提交審核」，會直接用 App 裡存好的簽名，不用再簽。沒有帳號的在下面手寫簽名。');
   h += '<div class="sec">簽名</div><div class="list">' +
     '<button class="li' + (!P.f.hsOther ? ' sel' : '') + '" onclick="S.cpub.f.hsOther=false;cnRedraw()"><span class="radio"></span><span class="mn"><span class="nm">' + esc(d.handler) + '</span><span class="mt">施工申請登記的承辦人</span></span></button>' +
     '<button class="li' + (P.f.hsOther ? ' sel' : '') + '" onclick="S.cpub.f.hsOther=true;cnRedraw()"><span class="radio"></span><span class="mn"><span class="nm">我才是承辦人</span><span class="mt">輸入自己的名字（跟公司員工名單一樣）</span></span></button></div>' +
@@ -621,6 +627,13 @@ function cnHSign() {
   $('app').innerHTML = h;
   bar('<button class="btn off" id="hsBtn" onclick="cnHSignGo()">' + ic('check', 22, 3) + '簽名並提交審核</button>');
   sigInit();
+}
+function cnHSignApp() {
+  var P = S.cpub;
+  cnBusy('hsApp', '簽名中…');
+  api('consHandlerSign', { id: P.d.id, submit: true }).then(function (r) {
+    toast(r.status === '待審核' ? '已用 App 的簽名簽名並提交審核' : '已簽名。' + (r.held ? '還不能提交：' + r.held : ''), r.held ? 'err' : 'ok', r.held ? 7000 : 4000); P.reload = true; render();
+  }).catch(function (e) { $('hsAppErr').innerHTML = errBox('沒有簽成', e.message + '（不是本案承辦人的話，請在下面手寫簽名）'); cnUnbusy('hsApp', '用 App 裡的簽名簽名並提交'); });
 }
 function cnHSignGo() {
   var P = S.cpub, name = P.f.hsOther ? cnV('hsName') : P.d.handler;
@@ -703,12 +716,13 @@ function cnCaseStaff(d) {
     row('工程', d.work) + row('區域', d.area) + row('期間', d.start + ' ～ ' + d.end) + row('特殊作業', d.spec + (d.hot ? '（' + d.hot + '）' : '')) +
     row('可能狀況', d.situ) + row('環境危害', d.env) + row('承辦', d.handler) + row('提交', d.submitted ? d.submitted.slice(5) + '　' + d.submittedBy : '') + row('備註', d.note) +
     (d.late ? cnStCard('warn', '', esc(d.late)) : '') + '</div>';
+  if (d.canReview || (d.canPmReview && (d.permits || []).some(function (x) { return x.status === '待審核'; }))) h += cnRvSteps(d);
   if (d.gaps && d.gaps.length && ['待審核', '施工人員簽名中', '暫緩－文件不齊'].indexOf(d.status) >= 0) h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>' + (d.status === '待審核' ? '審核前請注意' : '還缺') + '</b><div class="m">' +
     d.gaps.map(esc).join('<br>') + '</div></div></div></div>';
   h += '<div class="sec">聯絡</div><div class="card">' + row('施工負責人', d.sup + (d.supSigned ? '（已簽）' : '')) +
     (stel ? '<a class="btn ghost" href="tel:' + esc(stel) + '">' + ic('chat', 18, 2.4) + '打給施工負責人 ' + esc(d.supPhone) + '</a>' : '') +
     row('廠商聯絡人', v.contact) + (tel ? '<a class="btn ghost" href="tel:' + esc(tel) + '">' + ic('chat', 18, 2.4) + '打給廠商 ' + esc(v.phone) + '</a>' : '') +
-    row('承諾書', v.commit ? '已收到用印正本' : '尚未收到正本') + '</div>' +
+    row('承諾書', v.commit ? '已收到用印正本' : '尚未收到正本') + (!v.commit && d.canPmReview ? cnCommitBox(d) : '') + '</div>' +
     '<div class="sec">施工人員簽名 ' + d.wSigned + '/' + d.workers.length + '</div><div class="card">' +
     d.workers.map(function (w) { return '<div class="cnwk"><span>' + esc(w.name) + (w.extra ? ' <small class="muted">現場補充</small>' : '') + '</span>' + (w.signed ? pill('ok', 'check', '已簽 ' + w.at) : pill('warn', '', '未簽')) + '</div>'; }).join('') + '</div>';
   if (d.sameDevice && d.sameDevice.length) h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>同一支手機簽了好幾位</b><div class="m">' +
@@ -731,6 +745,14 @@ function cnCaseStaff(d) {
   else if (d.canSubmit) bar('<button class="btn off" id="cnBtn" onclick="cnSubmit()">' + ic('up', 20, 2.6) + '提交審核</button>');
   else if (d.canReview) bar('<button class="btn ghost" onclick="cnReview(\'return\')">退回補件</button><button class="btn ghost" onclick="cnReview(\'reject\')">駁回</button><button class="btn" id="cnBtn" onclick="cnReview(\'approve\')">' + ic('check', 20, 3) + '核准</button>');
   else bar('');
+}
+/** 10/27 Jason：特殊作業按了核准、進施工頁又已經是核准，不知道還要不要按 → 審核頁最上面講清楚兩個核准各是什麼、現在做到哪 */
+function cnRvSteps(d) {
+  var pm = d.permits || [], wait = pm.filter(function (x) { return x.status === '待審核'; }), ok = pm.filter(function (x) { return x.status === '已核准'; });
+  var s1 = !pm.length ? '本案沒有特殊作業許可' : wait.length ? '還有 ' + wait.length + ' 張待審核（可以在下面逐張核准；或直接按最下面「核准」，條件符合的會一起核准）' : '已核准 ' + ok.length + ' 張';
+  var s2 = d.status === '已核准' ? '已核准，廠商可以依期間進場' : d.canReview ? '還沒核准：檢查完按畫面最下面的「核准」，案件才算核准、廠商才會收到通知' : '等承辦提交審核';
+  return '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><b>環安衛審核步驟</b><div class="m">' +
+    '① 特殊作業許可：' + esc(s1) + '<br>② 施工案件：' + esc(s2) + '</div></div></div></div>';
 }
 function cnFileGet(fid) { toast('下載中…', '', 1500); api('consFile', { id: S.cnD.id, fid: fid }).then(cnB64Save).catch(function (e) { toast(esc(e.message), 'err', 4000); }); }
 function cnAfter(msg) { return function () { toast(msg, 'ok', 3500); rcClear(); render(); }; }
@@ -835,11 +857,20 @@ function cnVCode(vid) {
   if (!confirm('寄一組新的登入碼到這家廠商建檔的 Email？舊的會作廢。')) return;
   api('consVendorCode', { vid: vid }).then(function (r) { toast('已寄到 ' + r.to, 'ok', 4000); cnVendors(); }).catch(function (e) { toast(esc(e.message), 'err', 4000); });
 }
-function cnCommit(vid, ok) {
+/** 10/27 Jason：備註寫「廠商表示已提交承諾書（環安衛尚未確認）」，案件頁要能直接確認：有上傳檔就先開來看，沒有就核對紙本正本後按確認 */
+function cnCommitBox(d) {
+  var v = d.vendorInfo, ups = v.ups || [];
+  return '<div class="box warn" style="margin-top:8px"><div class="r">' + ic('warn', 20) + '<div class="bt"><b>承諾書還沒確認</b><div class="m">' +
+    (ups.length ? '廠商有上傳，先打開看負責人簽名、公司大小章：' + ups.map(function (f) { return '<button class="btn ghost sm" onclick="cnCommitView(' + jsq(v.id) + ',' + jsq(f.id) + ')">' + ic('down', 14, 2.4) + esc(f.name) + '</button>'; }).join(' ') :
+      '廠商沒有上傳檔案，請核對環安衛收到的紙本正本（或建檔時的承諾書）。') +
+    '<div class="btns" style="margin-top:6px"><button class="btn sm" onclick="cnCommit(' + jsq(v.id) + ',true,true)">' + ic('check', 16, 3) + '確認已收到承諾書</button>' +
+    '<button class="btn ghost sm" onclick="cnCommit(' + jsq(v.id) + ',false,true)">沒收到，請廠商補</button></div></div></div></div></div>';
+}
+function cnCommit(vid, ok, fromCase) {
   var why = '';
   if (!ok) { why = prompt('為什麼實際沒收到？（例：只有簽名沒有蓋章。該廠商進行中的案件會改為暫緩，並寄信請廠商補）', ''); if (why === null) return; if (why.trim().length < 2) return toast('請寫原因', 'err'); }
   else if (!confirm('確認已收到負責人簽名、公司大小章的承諾書正本？\n該廠商暫緩中的案件會自動恢復並通知廠商。')) return;
-  api('consCommit', { vid: vid, ok: ok, comment: why.trim() }).then(function (r) { toast(ok ? '已登記' + (r.moved.length ? '，恢復 ' + r.moved.join('、') : '') : '已改為未收到' + (r.moved.length ? '，暫緩 ' + r.moved.join('、') : ''), 'ok', 4000); cnVendors(); })
+  api('consCommit', { vid: vid, ok: ok, comment: why.trim() }).then(function (r) { toast(ok ? '已登記' + (r.moved.length ? '，恢復 ' + r.moved.join('、') : '') : '已改為未收到' + (r.moved.length ? '，暫緩 ' + r.moved.join('、') : ''), 'ok', 4000); if (fromCase) { rcClear(); render(); } else cnVendors(); })
     .catch(function (e) { toast(esc(e.message), 'err', 4000); });
 }
 
@@ -858,6 +889,7 @@ function cnPmList(list, staff) {
       (x.gas ? '<div class="muted sm">測定 O2 ' + esc(x.gas.o2) + '%、LEL ' + esc(x.gas.lel) + '%、H2S ' + esc(x.gas.h2s) + 'ppm、CO ' + esc(x.gas.co) + 'ppm（' + esc(x.gas.who) + '）</div>' : '') +
       (x.alert ? '<div class="box bad"><div class="r">' + ic('warn', 18) + '<div class="bt"><div class="m">超標：' + esc(x.alert) + '。不得進入，通風後重新測定再填一次。</div></div></div></div>' : '') +
       (!staff && x.status === '安全警報' ? '<button class="btn sm line" onclick="cnGasStart(' + jsq(x.id) + ')">重新測定後再填</button>' : '') +
+      (x.rvBy && x.status !== '待審核' ? '<div class="muted sm">' + esc((x.status === '已核准' ? '核准：' : '審核：') + x.rvBy + (x.rvAt ? '　' + x.rvAt : '')) + '</div>' : '') +
       (x.comment ? '<div class="muted sm">意見：' + esc(x.comment) + '</div>' : '') + gas + act + '</div>';
   }).join('') + '</div>';
 }
