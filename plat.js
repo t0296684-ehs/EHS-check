@@ -1650,7 +1650,7 @@ PLAT_PAGES.support = function () {
   var h = '';
   if (isEhs() && !S.dev) h += '<div class="mcards"><button class="mcard" style="--c:#B45309" onclick="S.supA=null;go(\'supAdmin\')"><span class="mi">' + ic('review', 30, 2.1) + '</span>' +
     '<span class="mx"><b>環安衛：全部問題回報</b><small>' + (S.sup.open ? '等待處理 ' + S.sup.open + ' 則' : '沒有等待處理的') + '・大家問小恩的紀錄</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
-  h += '<button class="xeask" onclick="xeOpen()"><span class="xeav">恩</span><span><b>先問小恩</b><small>App 怎麼用、環安衛法規，常見問題點一下就有答案</small></span>' + ic('chev', 20, 2.6) + '</button>';
+  h += '<button class="xeask" onclick="xeOpen()"><span class="xeav">' + ic('spark', 24, 2.2) + '</span><span><b>先問小恩</b><small>App 怎麼用、環安衛法規，常見問題點一下就有答案</small></span>' + ic('chev', 20, 2.6) + '</button>';
   h += '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">畫面跑出錯誤、資料不對，或小恩答不了的，按下方「我要問問題」直接問環安衛。<b>附上畫面截圖</b>處理得最快。</div></div></div></div>';
   var L = S.sup.list || [];
   h += L.length ? '<div class="sec">我問過的問題</div><div class="list">' + L.map(function (x) {
@@ -1950,7 +1950,7 @@ function xeOpen(q) {
   if (!$('xepanel')) {
     guideLoad();
     var d = document.createElement('div'); d.id = 'xepanel'; d.className = 'xepanel'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', '小恩');
-    d.innerHTML = '<div class="xehd"><span class="xeav">恩</span><div class="xet"><b>小恩・環安衛助理</b><small>App 怎麼用、環安衛法規都可以問</small></div>' +
+    d.innerHTML = '<div class="xehd"><span class="xeav">' + ic('spark', 24, 2.2) + '</span><div class="xet"><b>小恩・環安衛助理</b><small>App 怎麼用、環安衛法規都可以問</small></div>' +
       '<button class="xex" aria-label="關閉" onclick="xeClose()">' + ic('x', 22, 2.6) + '</button></div>' +
       '<div class="xebody" id="xebody"></div><div class="xesug" id="xesug"></div>' +
       '<div class="xein"><textarea id="xeq" rows="1" maxlength="500" placeholder="打字問小恩，例：月結怎麼送？" oninput="xeType()" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey&&!event.isComposing){event.preventDefault();xeAsk();}"></textarea>' +
