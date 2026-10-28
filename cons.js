@@ -13,6 +13,7 @@ var CN_ST_PILL = { '暫緩－文件不齊': 'warn', '施工人員簽名中': 'in
     '.cnw{display:grid;grid-template-columns:1fr 92px 44px;gap:6px;align-items:center;margin-bottom:6px}.cnw .field{margin:0}' +
     '.cnwh{margin-bottom:2px}.cnwh span{font-size:13px;font-weight:800;color:var(--sub);padding-left:4px}.cnw .rm{min-height:44px;border:0;background:#F1F4F8;border-radius:10px;font-size:20px}.cnqr{display:flex;justify-content:center;margin:10px 0}.cnqr svg{width:220px;height:220px}' +
     '.cnno{background:#FFF8EC;border-left:4px solid #E58A00;border-radius:0 10px 10px 0;padding:10px 14px;margin:8px 0}.cnno b{display:block;margin-bottom:4px}.cnno li{margin:3px 0}' +
+    '.cnpriv{background:#F3F5F8;border-left-color:#8A96A8;font-size:13px}.cnpriv summary{cursor:pointer;list-style:revert}.cnpriv summary b{display:inline}.cnpriv ul{margin:6px 0 0;padding-left:18px}.cnprivn{margin:4px 2px 8px}' +
     '.cnwk{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #EEF1F5}.cnagree{display:flex;gap:10px;align-items:flex-start;margin:12px 0;font-size:15px}' +
     '.cnagree input{width:24px;height:24px;flex-shrink:0;margin-top:2px}.cnok{border:2px solid #E58A00;border-radius:12px;padding:12px;background:#FFF8EC}.cnok small{display:block;color:#5A6472;font-size:13px;margin-top:2px}.btn.off{background:#DDE2E9;color:#4A5564;box-shadow:none}.shake{animation:cnsh .5s}@keyframes cnsh{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}.cnpm{border:1.5px solid #E58A00;border-radius:12px;padding:10px 12px;margin:10px 0;background:#FFFCF5}' +
     '.cnpm h4{margin:0 0 6px;font-size:16px;color:#92400E}.cntd{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #EEF1F5}.cntd i{flex-shrink:0;width:22px;height:22px;border-radius:50%;' +
@@ -103,6 +104,22 @@ function cnKeep() {
 }
 function cnRedraw() { cnKeep(); var y = window.scrollY; render(); window.scrollTo(0, y); }
 /** 送出前的「我已確認上述資料無誤」（10/19 Jason：避免送了又改來改去）。沒勾，送出鍵不能按；畫面重畫（改了內容）就要重勾。 */
+// 10/28 Jason：個資告知（個資法第 8 條）：蒐集目的、項目、簽名用在哪裡、保存、權利。建檔、施工申請、施工人員簽名三頁，送出鈕旁再提醒一次
+var CN_PRIV = {
+  reg: { items: '公司名稱、統一編號、負責人與聯絡人姓名、電話、Email、地址', use: '用於承攬商建檔、寄送承諾書與施工申請的各項通知。' },
+  apply: { items: '施工負責人姓名、手機、Email、電子簽名；施工人員姓名與身分證（居留證）末 4 碼', use: '施工負責人的簽名會套印在「入廠施工許可證」與特殊作業許可證的「施工現場監督人員」欄。施工人員資料用於入廠時確認本人與危害告知簽名。<b>填寫施工人員資料前，請先取得他們本人同意。</b>' },
+  sign: { items: '姓名、身分證（居留證）末 4 碼、電子簽名、簽名時間、手機識別碼（加密保存）', use: '您的簽名會套印在「入廠施工許可證」「危害因素告知單」「施工人員守則」與核准的特殊作業許可證（動火、吊掛、局限空間、高架），作為您已接受危害告知的紀錄。末 4 碼只用來確認本人，文件上只顯示「****」加末 4 碼。' }
+};
+function cnPrivacy(k) {
+  var x = CN_PRIV[k];
+  return '<details class="cnno cnpriv"><summary><b>個人資料告知</b>（點開看）</summary><ul>' +
+    '<li>員和工業股份有限公司依個人資料保護法第 8 條告知：蒐集目的為承攬商入廠管理、職業安全衛生管理（含職業安全衛生法第 26 條危害告知）與事故調查。</li>' +
+    '<li>蒐集項目：' + x.items + '。</li><li>' + x.use + '</li>' +
+    '<li>相關文件寄給貴公司與員和承辦單位並存檔備查；主管機關檢查時依法提供；不做其他用途。</li>' +
+    '<li>保存期間依員和工業 ISO 紀錄管制規定，期滿銷毀。</li>' +
+    '<li>您可以向員和環安衛中心（ehs@ucicpu.com.tw）查詢、閱覽、更正，或請求停止使用（依法須保存的紀錄除外）。不提供資料將無法完成入廠程序。</li></ul></details>';
+}
+function cnPrivNote(btn) { return '<div class="muted sm cnprivn">按「' + btn + '」即表示您已看過上方「個人資料告知」，同意員和工業依告知內容使用您的資料' + (btn === '簽名送出' ? '與簽名' : '') + '。</div>'; }
 function cnOk(btn, note) {
   return '<label class="cnagree cnok"><input type="checkbox" id="cnOk" onchange="cnOkTog(' + jsq(btn) + ')"><span><b>我已確認上述資料無誤</b>' + (note ? '<small>' + esc(note) + '</small>' : '') + '</span></label>';
 }
@@ -191,7 +208,7 @@ function cnReg() {
     cnField('crTax', '統一編號', f.crTax, { mode: 'numeric', max: 8, ph: '8 位數字' }) + cnField('crName', '公司名稱（全名）', f.crName) +
     cnField('crOwner', '負責人', f.crOwner, { max: 20 }) + cnField('crContact', '主要聯絡人', f.crContact, { max: 20 }) +
     cnField('crPhone', '聯絡電話', f.crPhone, { type: 'tel', max: 30 }) + cnField('crEmail', 'Email（承諾書、通知寄到這裡，請再確認一次）', f.crEmail, { type: 'email', max: 80 }) +
-    cnField('crAddr', '公司地址', f.crAddr, { max: 100 }) + '<label class="nl">承攬類別（可複選）</label>' + cnChips('types', P.form.types, f.types) + '<div id="crErr"></div>';
+    cnField('crAddr', '公司地址', f.crAddr, { max: 100 }) + '<label class="nl">承攬類別（可複選）</label>' + cnChips('types', P.form.types, f.types) + cnPrivacy('reg') + cnPrivNote('送出建檔') + '<div id="crErr"></div>';
   bar('<button class="btn" id="crBtn" onclick="cnRegGo()">' + ic('check', 22, 3) + '送出建檔</button>');
 }
 /** Email 常見打錯（跟後端 csMailTypo_ 同一張表）：送出前問一次要不要改，不硬擋。 */
@@ -235,7 +252,7 @@ function cnApply() {
       '<label class="cnagree"><input type="checkbox" id="caCommitDecl"' + (f.commitDeclared ? ' checked' : '') + ' onchange="S.cpub.f.commitDeclared=this.checked"><span>本公司建檔時已提交承諾書（或已寄出用印正本）</span></label>' +
       '<div class="muted sm">還沒交的話，請把負責人簽名、蓋公司大小章的承諾書拍照或掃描，在這裡上傳：</div>' + cnFilesBoxK('commitFiles', 'caCommit', 2)) +
     cnCaseForm(P.form, f) + cnFilesBox('caFiles', P.form) + cnAgree() + cnSigBox('施工負責人請簽全名') +
-    cnOk('caBtn', '提交審核前還可以用案件連結修改；提交審核後，要等環安衛退回才能改') + '<div id="caErr"></div>';
+    cnPrivacy('apply') + cnOk('caBtn', '提交審核前還可以用案件連結修改；提交審核後，要等環安衛退回才能改') + cnPrivNote('送出申請') + '<div id="caErr"></div>';
   bar('<button class="btn ghost" onclick="cnDraftPut(true)">' + ic('down', 18, 2.4) + '暫存</button><button class="btn off" id="caBtn" onclick="cnApplyGo()">' + ic('check', 22, 3) + '送出申請</button>');
   sigInit();
   if (!$('app').dataset.dr) { $('app').dataset.dr = '1'; $('app').addEventListener('input', function () { if (S.cpub && S.cpub.kind === 'apply') cnDraftAuto(); }); }
@@ -564,7 +581,7 @@ function cnSign() {
     '<label class="cnagree"><input type="checkbox" id="csRead"' + (P.f.read ? ' checked' : '') + ' onchange="S.cpub.f.read=this.checked"><span>我已了解上述危害與規定，會遵守</span></label>' +
     cnField('csId4', '身分證（居留證）末 4 碼', P.f.csId4, { mode: 'numeric', max: 4, hint: '確認是您本人；不會顯示在任何畫面' }) +
     (P.supOk && !P.other ? cnSupPick(P) : '') +
-    (P.supOk && !P.other && P.f.useSup ? '' : cnSigBox((P.other ? '' : P.nm + '，') + '請用手指簽全名')) + '<div id="csErr"></div>';
+    (P.supOk && !P.other && P.f.useSup ? '' : cnSigBox((P.other ? '' : P.nm + '，') + '請用手指簽全名')) + cnPrivacy('sign') + cnPrivNote('簽名送出') + '<div id="csErr"></div>';
   bar('<button class="btn ghost" onclick="S.cpub.seq=0;S.cpub.other=false;S.cpub.supOk=false;S.cpub.f.useSup=null;render()">不是我</button><button class="btn" id="csBtn" onclick="cnSignGo()">' + ic('check', 22, 3) + '簽名送出</button>');
   sigInit();
 }
