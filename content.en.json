@@ -1,5 +1,5 @@
 {
- "version": "0.23.3",
+ "version": "0.23.4",
  "chapters": [
   {
    "no": 1,
@@ -805,7 +805,7 @@
       ]
      ],
      "steps": [
-      "<b>Workers</b> scan QR ① with <b>their own phones</b>, pick their name, enter the last 4 ID digits, read the <b>hazard notice</b> and sign. Extra workers not on the list tap <b>I'm not on the list</b>. With poor signal the signature is kept on the phone and sent automatically later.",
+      "Workers: scan QR ① with <b>their own phone</b>, choose their name, enter the last 4 digits of their ID, read the <b>hazard notice</b> and sign. Temporary workers not on the list tap <b>\"I am not on the list\"</b>. Poor signal is fine: the signature is saved on the phone and sent automatically. If the <b>site supervisor</b> is also on the list, they are asked whether to <b>use their application signature</b> instead of signing twice (the last 4 digits are still required). If the system is busy, the signature is also kept on the phone and resent automatically.",
       "<b>You (handler)</b> can sign two ways: ① scan QR ② from the contractor — <b>no app needed</b> — pick your name and sign; ② in the app, open the case under <b>Construction</b> and tap <b>Sign and submit</b> (uses your saved signature). You are notified (app + email) when all workers have signed.",
       "<b>Returned for correction</b>: the contractor edits and adds files via the case link and resubmits. If the period, area or special work changes, you must <b>sign again</b>.",
       "The handler page has one button, <b>Sign and submit for review</b>, after ticking <b>I have confirmed the above is correct</b>. If the site supervisor has not signed or a required permit is missing, the signature is saved and the page explains what is missing; then tap <b>Submit for review</b>."
@@ -830,7 +830,7 @@
      "steps": [
       "Hot work and lifting permits are <b>for one day only</b>: tick every working day, one permit per day. Confined space and height cover a period. Every <b>precaution must be confirmed</b>.",
       "<b>Confined space</b>: on the day, before entry, tap <b>Enter gas readings</b> on the case page (O2, LEL, H2S, CO). Out-of-limit readings are marked <b>Safety alert</b>, EHS and you are notified, and <b>no entry is allowed</b> until re-measured after ventilation.",
-      "When EHS <b>approves the application, the permits are approved too</b>; the permit PDFs with signatures are emailed and saved to the NAS (lifting also includes the mobile crane checklist).",
+      "When EHS <b>approves the work application, the permits are approved with it</b>. A permit is issued only once <b>the job is approved and the EHS, handler, site supervisor and worker signatures are all in</b>; it is then sent to the contractor and filed on the NAS, so no permit goes out with missing signatures. Lifting permits also include the mobile crane checklist.",
       "To add working days later, the supervisor taps <b>Apply for another permit</b> on the case page; it is approved automatically if the case is approved and all conditions are met."
      ],
      "tip": "No work before approval. Permits past their date show as Expired.",
@@ -860,7 +860,7 @@
       "<b>Contractor login</b>: at the bottom of the app login page tap <b>Contractor login</b> — account = <b>tax ID</b>, login code = the <b>6 digits</b> emailed at registration; the phone remembers it. If forgotten, enter the tax ID and a new code is sent to the registered email.",
       "<b>Wrong or missing special work</b>: on the case page tap <b>Edit contractor application</b>, change special work, conditions, hazards or area, <b>enter a reason</b> and save. It is logged and the contractor is emailed at once. Removed work cancels its unapproved permits; adding hot work, lifting, confined space or work at height <b>returns the case</b> so the contractor applies for the permit."
      ],
-     "tip": "Approved documents and permits are saved to the NAS by the PC schedule every morning.",
+     "tip": "Save your own signature in the App before approving (it goes into the EHS box on the documents). Approval documents and permits are filed on the NAS every day at 12:15, under OSH 06 contractor management / contractor forms / records / year / month / one folder per job.",
      "warn": false
     },
     {
