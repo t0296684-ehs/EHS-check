@@ -447,3 +447,73 @@ function xeWarm() {
   xeTicket().then(function (k) { fetch(k.url.replace(/\/app\/ask$/, '/'), { mode: 'no-cors' }).catch(function () {}); }).catch(function () { S.xeWarm = false; });
 }
 
+
+// ───────────── 小恩助理團隊・交辦（10/28 Jason：離開公司也能交辦、看 Claude 做到哪；只開給他本人，後端也擋）─────────────
+// 交辦存到後台 → 公司電腦每 45 秒來拿、在電腦上做 → 進度與結果寫回來。寄信、部署這類對外動作停在「等確認」，按確認電腦才做。
+var AGT_ST = { '排隊': ['warn', 'clock', '排隊中'], '進行中': ['warn', 'clock', '做事中'], '等確認': ['warn', 'bell', '等您確認'], '完成': ['ok', 'check', '做完了'], '沒做成': ['ng', 'warn', '沒做成'], '已取消': ['na', '', '已取消'] };
+function agentOwner() { return isEhs() && !S.dev && !S.share && S.me && S.me.person && S.me.person.name === '楊坤庭'; }
+function agentCard() {
+  if (!agentOwner()) return '';
+  return '<div class="mcards"><button class="mcard" style="--c:#E58A00" onclick="S.agt=null;go(\'agent\')"><span class="mi">' + xeAv() + '</span>' +
+    '<span class="mx"><b>小恩助理團隊</b><small>交辦給 Claude、看做到哪（只有您看得到）</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
+}
+function agtLoad() {
+  return api('agentHome', {}).then(function (r) { S.agt = r; if (S.page === 'agent') render(); })
+    .catch(function (e) { if (S.page === 'agent') $('app').innerHTML = errBox('讀不到交辦', e.message); });
+}
+/** 公司電腦多久沒來拿：超過 3 分鐘就提醒（可能關機、登出或沒網路），交辦會先排著。 */
+function agtPc(r) {
+  if (!r.beat) return '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">公司電腦還沒連上過。電腦要開著、登入，桌面的小恩助理在跑才會接到交辦。</div></div></div></div>';
+  var gap = Math.round((new Date(r.now.replace(' ', 'T')) - new Date(r.beat.replace(' ', 'T'))) / 60000);
+  if (gap > 3) return '<div class="box warn"><div class="r">' + ic('wifioff', 22) + '<div class="bt"><div class="m">公司電腦 ' + gap + ' 分鐘沒連線（最後 ' + esc(r.beat.slice(5, 16)) + '）。交辦會先排著，電腦開機後才做。</div></div></div></div>';
+  return '<div class="mt agpc">公司電腦在線（' + esc(r.beat.slice(11, 16)) + ' 連線）・每 45 秒接一次</div>';
+}
+function agtFmt(t) {
+  return esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '$1').replace(/^#+\s*/gm, '').replace(/\n/g, '<br>');
+}
+function agtJob(x) {
+  var st = AGT_ST[x.status] || AGT_ST['排隊'], h = '<div class="agj"><div class="agh"><span class="mt">' + esc(x.time.slice(5).replace('-', '/')) + (x.src === 'App' ? '' : '・電腦') + '</span>' + pill(st[0], st[1], st[2]) + '</div>';
+  h += '<div class="agq" data-no-i18n>' + esc(x.ask) + '</div>';
+  if (x.status === '進行中' && x.steps.length) h += '<ul class="ags">' + x.steps.slice(-5).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('') + '</ul>';
+  if (x.result) {
+    var r = x.result, i = r.indexOf('【需要您確認】'), need = '';
+    if (i < 0) i = r.indexOf('【需要您決定】');
+    if (i >= 0) { need = r.slice(i); r = r.slice(0, i); }
+    h += '<div class="agr" data-no-i18n>' + agtFmt(r.trim()) + '</div>' + (need ? '<div class="agn" data-no-i18n>' + agtFmt(need) + '</div>' : '');
+  }
+  if (x.status === '等確認' && !x.confirm) h += '<div class="agb"><button class="btn" onclick="agtConfirm(' + jsq(x.id) + ',true)">確認執行</button><button class="btn ghost" onclick="agtConfirm(' + jsq(x.id) + ',false)">先不要</button></div>';
+  if (x.status === '等確認' && x.confirm === '確認') h += '<div class="mt">已確認，等公司電腦接手…</div>';
+  if (['完成', '沒做成', '等確認'].indexOf(x.status) >= 0) h += '<button class="lnk" onclick="agtFollow(' + jsq(x.id) + ')">補充或追問這件</button>';
+  return h + '</div>';
+}
+PLAT_PAGES.agent = function () {
+  setTitle('小恩助理團隊');
+  if (!agentOwner()) { $('app').innerHTML = errBox('這個功能只開給環安衛主管本人', ''); bar(''); return; }
+  if (!S.agt) { $('app').innerHTML = loading('讀取交辦…'); bar(''); agtLoad(); return; }
+  var r = S.agt, L = r.list || [], f = S.agtF ? L.filter(function (x) { return x.id === S.agtF; })[0] : null;
+  var h = agtPc(r);
+  h += '<div class="agin">' + (f ? '<div class="mt">追問：' + esc(f.ask.slice(0, 40)) + ' <button class="lnk" onclick="S.agtF=null;render()">取消</button></div>' : '') +
+    '<textarea id="agtT" rows="3" placeholder="' + (f ? '要補充或追問什麼' : '交辦什麼事？例：看我今天的 Outlook 有沒有要處理的、把 ENV-13 原料資料整理好') + '">' + esc(S.agtD || '') + '</textarea>' +
+    '<div class="mt">對外的事（寄信、部署、送件）會先停下來等您按確認。</div></div>';
+  h += L.length ? '<div class="sec">交辦紀錄</div>' + L.map(agtJob).join('') : '<div class="mt agpc">還沒有交辦過。</div>';
+  $('app').innerHTML = h;
+  var t = $('agtT'); if (t) t.oninput = function () { S.agtD = t.value; };
+  bar('<button class="btn" onclick="agtAsk()">' + ic('chat', 22, 2.4) + '交辦</button><button class="btn ghost" onclick="S.agt=null;render()">' + ic('refresh', 22, 2.4) + '重新整理</button>');
+  clearTimeout(S.agtTm);                                   // 停在這頁時每 15 秒更新一次進度（正在打字就不重畫）
+  S.agtTm = setTimeout(function () { if (S.page === 'agent' && !(document.activeElement && document.activeElement.id === 'agtT')) agtLoad(); }, 15000);
+};
+function agtFollow(id) { S.agtF = id; render(); var t = $('agtT'); if (t) t.focus(); }
+function agtAsk() {
+  var t = (($('agtT') || {}).value || '').trim();
+  if (t.length < 2) return toast('請寫要交辦的事', 'warn');
+  if (S.agtBusy) return;
+  S.agtBusy = true; S.agtRid = S.agtRid || ('A' + Date.now().toString(36));
+  api('agentAsk', { text: t, parent: S.agtF || '', rid: S.agtRid }).then(function () {
+    S.agtBusy = false; S.agtRid = null; S.agtD = ''; S.agtF = null; toast('交辦了，公司電腦接到就開始做', 'ok'); agtLoad();
+  }).catch(function (e) { S.agtBusy = false; toast(e.message, 'warn'); });
+}
+function agtConfirm(id, yes) {
+  if (yes && !confirm('確定讓 Claude 執行這一項對外動作？')) return;
+  api('agentConfirm', { id: id, yes: !!yes }).then(function () { toast(yes ? '已確認，電腦接手後執行' : '好，這件不做了', 'ok'); agtLoad(); })
+    .catch(function (e) { toast(e.message, 'warn'); agtLoad(); });
+}

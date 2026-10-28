@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.21.8';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.22.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -88,6 +88,7 @@ PLAT_PAGES.menu = function () {
       '<span class="mi">' + ic(x.icon, 30, 2.1) + '</span><span class="mx"><b>' + esc(x.name) + '</b><small>' + esc(on ? subs[x.key] : '沒有權限・點這裡申請') + '</small></span>' +
       (on ? (badge[x.key] ? '<span class="mb">' + badge[x.key] + '</span>' : '') + ic('chev', 20, 2.6) : ic('lock', 20, 2.4)) + '</button>';
   }).join('') + '</div>';
+  h += agentCard();
   h += supportCard();
   h += devCard();
   h += '<div class="ver">v' + APP_VERSION + '</div>';
@@ -1550,7 +1551,7 @@ var PAGE_NAME = { home: '日常檢點首頁', menu: '主選單', fill: '填寫�
   claim: '領取表單', track: '異常追蹤', trackFix: '填寫改善', notice: '通知', guide: '使用教學', settings: '設定', shareMake: '請人代填', packages: '審核紀錄',
   team: '部門管理', edu: '教育訓練', eduItem: '教育訓練內容', eduPost: '發布教育訓練', cons: '施工申請', env: '環保抄表', months: '月結紀錄', pick: '其他檢查表',
   remind: '提醒設定', bc: '廣播', proxy: '代填', psign: '代填簽名', nextOwners: '下月負責人', teamEdit: '部門管理', teamPerson: '部門管理', devPick: '開發者模式', devPerson: '開發者模式',
-  support: '問題回報', supportNew: '問題回報・新問題', supAdmin: '全部問題回報', supAdminItem: '問題回報（環安衛）', xiaoen: '問小恩', supportItem: '問題回報・對話' };
+  support: '問題回報', supportNew: '問題回報・新問題', supAdmin: '全部問題回報', supAdminItem: '問題回報（環安衛）', xiaoen: '問小恩', supportItem: '問題回報・對話', agent: '小恩助理團隊' };
 // 同仁手機的操作經過（最近 15 個畫面）：遇到錯誤時一起回報，開發者看得到他是從哪裡一路點到卡住的
 var TRAIL = [];
 function trailPush(p) {
