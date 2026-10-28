@@ -934,6 +934,7 @@ function cnPmList(list, staff) {
       (x.alert ? '<div class="box bad"><div class="r">' + ic('warn', 18) + '<div class="bt"><div class="m">超標：' + esc(x.alert) + '。不得進入，通風後重新測定再填一次。</div></div></div></div>' : '') +
       (!staff && x.status === '安全警報' ? '<button class="btn sm line" onclick="cnGasStart(' + jsq(x.id) + ')">重新測定後再填</button>' : '') +
       (x.rvBy && x.status !== '待審核' ? '<div class="muted sm">' + esc((x.status === '已核准' ? '核准：' : '審核：') + x.rvBy + (x.rvAt ? '　' + x.rvAt : '')) + '</div>' : '') +
+      (x.status === '已核准' && !x.pdf ? '<div class="muted sm">許可證等施工案件核准、簽名都齊了才產出，會隨核准信寄出</div>' : '') +
       (x.comment ? '<div class="muted sm">意見：' + esc(x.comment) + '</div>' : '') + gas + act + '</div>';
   }).join('') + '</div>';
 }
