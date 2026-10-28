@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.22.1';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.23.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -88,6 +88,7 @@ PLAT_PAGES.menu = function () {
       '<span class="mi">' + ic(x.icon, 30, 2.1) + '</span><span class="mx"><b>' + esc(x.name) + '</b><small>' + esc(on ? subs[x.key] : '沒有權限・點這裡申請') + '</small></span>' +
       (on ? (badge[x.key] ? '<span class="mb">' + badge[x.key] + '</span>' : '') + ic('chev', 20, 2.6) : ic('lock', 20, 2.4)) + '</button>';
   }).join('') + '</div>';
+  h += pushCard();
   h += agentCard();
   h += supportCard();
   h += devCard();

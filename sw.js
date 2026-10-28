@@ -1,6 +1,6 @@
 // 作業檢點 PWA：程式檔「有網路先抓新的、沒網路用手機裡的」（v0.7.1 起，改版後打開 App 就是新版）；Google 後端一律不快取
-var CACHE = 'chk-v0.22.1';
-var FILES = ['./', './index.html', './qrcode.js', './plat.js', './sup.js', './cons.js', './app.js', './check.js', './manifest.json', './icon-192.png', './xiaoen.jpg', './icon-512.png'];
+var CACHE = 'chk-v0.23.0';
+var FILES = ['./', './index.html', './qrcode.js', './plat.js', './sup.js', './push.js', './cons.js', './app.js', './check.js', './manifest.json', './icon-192.png', './xiaoen.jpg', './icon-512.png'];
 // 畫面翻譯檔：抓不到也不影響安裝（App 會退回中文）
 var OPTIONAL = ['./i18n.js', './i18n_dict.js'].concat(['explode', 'flame', 'oxid', 'gas', 'corrode', 'skull', 'health', 'warn', 'env'].map(function (k) { return './ghs-' + k + '.svg'; })).concat(['W021', 'W008', 'M018', 'W016', 'W015', 'W012', 'W014', 'M016', 'W023'].map(function (k) { return './iso-' + k + '.svg'; }));   // 10/19：高風險作業卡的 ISO 7010 安全標誌   // 10/15：GHS 圖也先存進手機，沒網路照樣顯示
 self.addEventListener('install', function (e) {
@@ -44,5 +44,41 @@ self.addEventListener('fetch', function (e) {
       clearTimeout(timer);
       fromCache().then(function (hit) { if (!done) { done = true; resolve(hit || Response.error()); } });
     });
+  }));
+});
+
+// ── 手機推播（10/28，push.js 開啟）：後端只叫醒手機不帶內容；這裡用 App 存在手機的網址與權杖去拿最新幾則未讀來顯示 ──
+function swCfg() {
+  return new Promise(function (ok) {
+    try {
+      var rq = indexedDB.open('ehs-push', 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore('kv'); };
+      rq.onsuccess = function () { try { var g = rq.result.transaction('kv').objectStore('kv').get('cfg'); g.onsuccess = function () { ok(g.result || null); }; g.onerror = function () { ok(null); }; } catch (e) { ok(null); } };
+      rq.onerror = function () { ok(null); };
+    } catch (e) { ok(null); }
+  });
+}
+self.addEventListener('push', function (e) {
+  var generic = { title: '員和環安衛系統', body: '您有新通知，點這裡打開 App 看', tag: 'ehs-new' };
+  e.waitUntil(swCfg().then(function (c) {
+    if (!c || !c.url || !c.token) return [generic];
+    return fetch(c.url, { method: 'POST', redirect: 'follow', body: JSON.stringify({ action: 'pushPeek', token: c.token, appVer: c.ver, rid: 'push' + Date.now() }) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var l = (j && j.success && j.data && j.data.list) || [];
+        if (self.navigator && self.navigator.setAppBadge && j && j.data) try { self.navigator.setAppBadge(j.data.unread || 0); } catch (x) {}
+        return l.length ? l.map(function (x) { return { title: x.title || '員和環安衛系統', body: x.body || '', tag: x.id }; }) : [generic];
+      }).catch(function () { return [generic]; });
+  }).then(function (list) {
+    return Promise.all(list.slice(0, 3).map(function (n) {
+      return self.registration.showNotification(n.title, { body: n.body, tag: n.tag, icon: './icon-192.png', badge: './icon-192.png', data: { url: './' } });
+    }));
+  }));
+});
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (ws) {
+    for (var i = 0; i < ws.length; i++) if ('focus' in ws[i]) return ws[i].focus();
+    return self.clients.openWindow('./');
   }));
 });

@@ -1,5 +1,5 @@
 {
- "version": "0.22.1",
+ "version": "0.23.0",
  "chapters": [
   {
    "no": 1,
@@ -107,7 +107,21 @@
       "Tap <b>Add</b> at the top right.",
       "Go back to the home screen and open the App from its icon."
      ],
-     "tip": "On iPhone the home-screen App and Safari are separate: if you signed in in Safari, sign in once more after adding it (only once). Reminder notifications need iOS 16.4 or later.",
+     "tip": "On iPhone the home-screen App and Safari are separate: if you signed in in Safari, sign in once more after adding it (only once). Phone notifications need iOS 16.4 or later; see 1-6 to turn them on.",
+     "warn": false
+    },
+    {
+     "no": "1-6",
+     "title": "Phone notifications (pop up on your phone)",
+     "lead": "Once on, notices such as reviews, assignments and replies pop up on your phone like LINE, so you do not have to keep opening the App.",
+     "shots": [],
+     "steps": [
+      "On iPhone, first add the App to the Home Screen as in <b>1-5</b> and open it <b>from the Home Screen icon</b> (it does not work inside Safari). Android phones can use it directly.",
+      "On the main menu tap \"<b>Turn on phone notifications</b>\".",
+      "When the phone asks whether to allow notifications, tap <b>Allow</b>.",
+      "Shortly you will get \"<b>Phone notifications are on</b>\" — then you are done. Tapping a notice opens the App."
+     ],
+     "tip": "After changing phones, clearing browser data, or deleting the Home Screen App, tap \"Turn on phone notifications\" again. If you tapped \"Don't Allow\" by mistake, turn it on in phone Settings → Notifications.",
      "warn": false
     }
    ]
