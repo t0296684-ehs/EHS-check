@@ -1,5 +1,5 @@
 {
- "version": "0.23.0",
+ "version": "0.23.1",
  "chapters": [
   {
    "no": 1,
@@ -117,11 +117,11 @@
      "shots": [],
      "steps": [
       "On iPhone, first add the App to the Home Screen as in <b>1-5</b> and open it <b>from the Home Screen icon</b> (it does not work inside Safari). Android phones can use it directly.",
-      "On the main menu tap \"<b>Turn on phone notifications</b>\".",
+      "Tap \"<b>Notices</b>\" at the top right, then \"<b>Turn on phone notifications</b>\" at the top (also on the main menu).",
       "When the phone asks whether to allow notifications, tap <b>Allow</b>.",
       "Shortly you will get \"<b>Phone notifications are on</b>\" — then you are done. Tapping a notice opens the App."
      ],
-     "tip": "After changing phones, clearing browser data, or deleting the Home Screen App, tap \"Turn on phone notifications\" again. If you tapped \"Don't Allow\" by mistake, turn it on in phone Settings → Notifications.",
+     "tip": "Once on, the top of the \"Notices\" page shows \"Phone notifications are on\"; tap \"Send a test notice\" to try it. After changing phones, clearing browser data, or deleting the Home Screen App, turn it on again. If you tapped \"Don't Allow\" by mistake, turn it on in phone Settings → Notifications.",
      "warn": false
     }
    ]

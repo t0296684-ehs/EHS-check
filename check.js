@@ -190,7 +190,7 @@ function claimDecide(id, d) {
 PAGES.notice = function () {
   setTitle('通知');
   var list = (S.me && S.me.notices) || [];
-  var h = '<div class="muted upnote">最近 60 天和您有關的通知。單位負責人、環安衛另外會收到 Email。</div>';
+  var h = (window.pushRow ? pushRow() : '') + '<div class="muted upnote">最近 60 天和您有關的通知。單位負責人、環安衛另外會收到 Email。</div>';
   if (!list.length) h += '<div class="empty">目前沒有通知</div>';
   else h += '<div class="list">' + list.map(function (x) {
     var bc = x.type === '廣播';

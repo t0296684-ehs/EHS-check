@@ -53,7 +53,7 @@ function pushFill() {
       '<span class="mx"><b>' + '開啟手機通知' + '</b><small>' + '有新通知時手機會跳出來，不用一直打開 App 看' + '</small></span>' + ic('chev', 20, 2.6) + '</button>' + no + '</div>';
   });
 }
-function pushLater() { lsSet(PUSH_LS_NO, today()); var b = $('pushBox'); if (b) b.innerHTML = ''; }
+function pushLater() { lsSet(PUSH_LS_NO, today()); var b = $('pushBox'); if (b) b.innerHTML = ''; toast('之後隨時可以在右上角「通知」打開', 'ok', 3500); }
 function pushSub(test) {
   return api('pushKey', {}).then(function (k) {
     if (!k.on || !k.key) { var e = new Error('手機通知還沒開放'); e.biz = true; throw e; }
@@ -74,7 +74,7 @@ function pushEnable() {
     busyOn('開啟手機通知…');
     pushCfgSave();
     return pushSub(true).then(function () {
-      busyOff(); lsSet(PUSH_LS_SYNC, today()); toast('開好了！等一下會收到一則測試通知', 'ok'); pushFill();
+      busyOff(); lsSet(PUSH_LS_SYNC, today()); toast('開好了！等一下會收到一則測試通知', 'ok'); pushFill(); pushFillRow();
     }).catch(function (e) { busyOff(); toast(e.message, 'warn'); });
   });
 }
@@ -82,4 +82,29 @@ function pushSync() {
   if (lsGet(PUSH_LS_SYNC, '') === today()) return;
   lsSet(PUSH_LS_SYNC, today());
   pushSub(false).catch(function () { lsSet(PUSH_LS_SYNC, ''); });
+}
+/** 右上角「通知」頁最上面：這支手機的通知狀態，隨時可以開（10/28 Jason：主選單按了「今天先不要」就找不到了）。 */
+function pushRow() {
+  if (S.dev || S.share || !S.me) return '';
+  setTimeout(pushFillRow, 50);
+  return '<div id="pushRow"></div>';
+}
+function pushFillRow() {
+  var box = $('pushRow'); if (!box) return;
+  pushState().then(function (st) {
+    var h;
+    if (st === 'on') h = '<div class="box ok"><div class="r">' + ic('bell', 22) + '<div class="bt"><div class="m"><b>手機通知已開啟</b>：新通知會在這支手機跳出來。</div>' +
+      '<button class="lnk" onclick="pushTest()">傳一則測試通知</button></div></div></div>';
+    else if (st === 'ios') h = '<div class="box info"><div class="r">' + ic('bell', 22) + '<div class="bt"><div class="m"><b>想讓手機跳出通知？</b><br>' +
+      'iPhone 要先把 App 加到主畫面：按 Safari 下方的「分享」→「加入主畫面」，之後從主畫面的圖示打開 App，再按這裡開啟。</div></div></div></div>';
+    else if (st === 'denied') h = '<div class="box warn"><div class="r">' + ic('bell', 22) + '<div class="bt"><div class="m">' +
+      '這支手機擋掉了 App 的通知。要收通知請到手機「設定」→ 通知，找到這個 App（或瀏覽器）打開。</div></div></div></div>';
+    else if (st === 'no') h = '<div class="muted upnote">這支手機不支援跳出通知，通知請在這頁看。</div>';
+    else h = '<button class="btn" style="width:100%;margin-bottom:10px" onclick="pushEnable()">' + ic('bell', 22, 2.4) + '開啟手機通知</button>';
+    box.innerHTML = h;
+  });
+}
+function pushTest() {
+  busyOn('傳送測試通知…');
+  pushSub(true).then(function () { busyOff(); toast('已送出，幾秒內會跳出來', 'ok'); }).catch(function (e) { busyOff(); toast(e.message, 'warn'); });
 }
