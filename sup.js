@@ -522,13 +522,16 @@ function agtAsk() {
   var t = (($('agtT') || {}).value || '').trim();
   if (t.length < 2) return toast('請寫要交辦的事', 'warn');
   if (S.agtBusy) return;
-  S.agtBusy = true; S.agtRid = S.agtRid || ('A' + Date.now().toString(36));
+  S.agtBusy = true; S.agtRid = S.agtRid || ('A' + Date.now().toString(36)); S.agtD = t;   // 送不出去時輸入的字留著（S.agtD），不用重打
+  busyOn('交辦中…');
   api('agentAsk', { text: t, parent: S.agtF || '', rid: S.agtRid }).then(function () {
-    S.agtBusy = false; S.agtRid = null; S.agtD = ''; S.agtF = null; toast('交辦了，公司電腦接到就開始做', 'ok'); agtLoad();
-  }).catch(function (e) { S.agtBusy = false; toast(e.message, 'warn'); });
+    busyOff(); S.agtBusy = false; S.agtRid = null; S.agtD = ''; S.agtF = null; toast('交辦了，公司電腦接到就開始做', 'ok'); agtLoad();
+  }).catch(function (e) { busyOff(); S.agtBusy = false; toast(e.message, 'warn'); });
 }
 function agtConfirm(id, yes) {
   if (yes && !confirm('確定讓 Claude 執行這一項對外動作？')) return;
-  api('agentConfirm', { id: id, yes: !!yes }).then(function () { toast(yes ? '已確認，電腦接手後執行' : '好，這件不做了', 'ok'); agtLoad(); })
-    .catch(function (e) { toast(e.message, 'warn'); agtLoad(); });
+  if (S.agtBusy) return;
+  S.agtBusy = true; busyOn(yes ? '確認中…' : '取消中…');
+  api('agentConfirm', { id: id, yes: !!yes }).then(function () { busyOff(); S.agtBusy = false; toast(yes ? '已確認，電腦接手後執行' : '好，這件不做了', 'ok'); agtLoad(); })
+    .catch(function (e) { busyOff(); S.agtBusy = false; toast(e.message, 'warn'); agtLoad(); });
 }

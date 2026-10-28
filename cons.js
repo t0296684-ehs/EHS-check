@@ -550,7 +550,7 @@ function cnSign() {
   if (!P.seq && !P.other) {
     var left = d.workers.filter(function (w) { return !w.signed; });
     $('app').innerHTML = '<div class="steps"><div class="cur"><i></i><span>1 選您的名字</span></div><div><i></i><span>2 危害告知・簽名</span></div></div>' +
-      (left.length ? '<div class="list">' + left.map(function (w) { return '<button class="li" onclick="S.cpub.seq=' + w.seq + ';S.cpub.nm=' + jsq(w.name) + ';render()"><span class="mn"><span class="nm">' + esc(w.name) + '</span></span>' + ic('chev', 18, 2.6) + '</button>'; }).join('') + '</div>'
+      (left.length ? '<div class="list">' + left.map(function (w) { return '<button class="li" onclick="S.cpub.seq=' + w.seq + ';S.cpub.nm=' + jsq(w.name) + ';S.cpub.supOk=' + (w.sup ? 'true' : 'false') + ';S.cpub.f.useSup=null;render()"><span class="mn"><span class="nm">' + esc(w.name) + '</span></span>' + ic('chev', 18, 2.6) + '</button>'; }).join('') + '</div>'
         : '<div class="empty">名單上的施工人員都簽好了</div>') +
       '<button class="btn line" onclick="S.cpub.other=true;S.cpub.nm=\'\';render()">' + ic('plus', 18, 2.6) + '名單上沒有我（現場臨時人員）</button>';
     bar(''); return;
@@ -563,18 +563,32 @@ function cnSign() {
     '<div class="sec">危害告知<small>請看完再簽名</small></div>' + notice +
     '<label class="cnagree"><input type="checkbox" id="csRead"' + (P.f.read ? ' checked' : '') + ' onchange="S.cpub.f.read=this.checked"><span>我已了解上述危害與規定，會遵守</span></label>' +
     cnField('csId4', '身分證（居留證）末 4 碼', P.f.csId4, { mode: 'numeric', max: 4, hint: '確認是您本人；不會顯示在任何畫面' }) +
-    cnSigBox((P.other ? '' : P.nm + '，') + '請用手指簽全名') + '<div id="csErr"></div>';
-  bar('<button class="btn ghost" onclick="S.cpub.seq=0;S.cpub.other=false;render()">不是我</button><button class="btn" id="csBtn" onclick="cnSignGo()">' + ic('check', 22, 3) + '簽名送出</button>');
+    (P.supOk && !P.other ? cnSupPick(P) : '') +
+    (P.supOk && !P.other && P.f.useSup ? '' : cnSigBox((P.other ? '' : P.nm + '，') + '請用手指簽全名')) + '<div id="csErr"></div>';
+  bar('<button class="btn ghost" onclick="S.cpub.seq=0;S.cpub.other=false;S.cpub.supOk=false;S.cpub.f.useSup=null;render()">不是我</button><button class="btn" id="csBtn" onclick="cnSignGo()">' + ic('check', 22, 3) + '簽名送出</button>');
   sigInit();
 }
+// 10/28：施工負責人也在施工人員名單上 → 問要不要帶入申請時的簽名（只在名字跟施工負責人完全相同時出現，末 4 碼照樣要對）
+function cnSupPick(P) {
+  var on = P.f.useSup;
+  return '<div class="sec">簽名</div><div class="box info"><div class="r">' + ic('pen', 22) + '<div class="bt"><b>' + esc(P.nm) + '，您是本案的施工負責人</b>' +
+    '<div class="m">申請時您已經簽過名。要直接帶入那個簽名嗎？</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn sm' + (on === true ? '' : ' line') + '" onclick="cnSupSet(true)">' + (on === true ? ic('check', 16, 3) : '') + '帶入申請時的簽名</button>' +
+    '<button type="button" class="btn sm' + (on === false ? '' : ' line') + '" onclick="cnSupSet(false)">' + (on === false ? ic('check', 16, 3) : '') + '重新簽一次</button></div></div></div></div>';
+}
+function cnSupSet(v) { var P = S.cpub; P.f.csId4 = cnV('csId4'); P.f.read = !!($('csRead') && $('csRead').checked); P.f.useSup = v; var y = window.scrollY; render(); window.scrollTo(0, y); }
 function cnSignGo() {
   var P = S.cpub, id4 = cnV('csId4'), name = P.other ? cnV('csName') : '';
   if (P.other && nameWhy(name)) return toast(esc(nameWhy(name)), 'err', 4000);
   if (!($('csRead') && $('csRead').checked)) return toast('請先看完危害告知並勾選', 'err');
   if (!/^\d{4}$/.test(id4)) return toast('請填末 4 碼', 'err');
-  if (!SIG.drawn) return toast('請先簽名', 'err');
-  var img = sigExport(); if (!img) return toast('簽名太小，請簽大一點', 'err');
-  var body = { seq: P.other ? 0 : P.seq, name: name, id4: id4, image: img, read: true, akey: cnDev() };
+  var useSup = !!(P.supOk && !P.other && P.f.useSup), img = '';
+  if (P.supOk && !P.other && P.f.useSup == null) return toast('請先選要帶入申請時的簽名，還是重新簽', 'err');
+  if (!useSup) {
+    if (!SIG.drawn) return toast('請先簽名', 'err');
+    img = sigExport(); if (!img) return toast('簽名太小，請簽大一點', 'err');
+  }
+  var body = { seq: P.other ? 0 : P.seq, name: name, id4: id4, image: img, read: true, akey: cnDev(), useSup: useSup };
   cnWkPut({ body: body, nm: P.other ? name : P.nm });                 // 先存進手機再送：送到一半斷線也找得回來
   cnWkSend(body, P.other ? name : P.nm);
 }
@@ -583,9 +597,13 @@ function cnWkSend(body, nm) {
   cnPub('consPubWorkerSign', body).then(function (r) { cnWkPut(null); window.removeEventListener('online', cnWkResend); S.cpub.done = r.name || nm; window.scrollTo(0, 0); render(); })
     .catch(function (e) {
       if (e.biz) { cnWkPut(null); $('csErr').innerHTML = errBox('沒有送出', e.message); return cnUnbusy('csBtn', '再送一次'); }
-      $('csErr').innerHTML = cnStCard('warn', '目前沒有網路訊號，簽名還沒送出', '您的簽名已保存在這支手機，恢復訊號後會自動送出，請盡量不要關閉這個畫面。關掉了也沒關係：有訊號時再掃一次同一個 QR，按「送出這份簽名」，不用重簽。');
+      // 10/28 集安：09:15 系統忙（排程佔用）時，有網路也會送不出；以前只在「恢復網路」才補送，有網路的人只能自己按。改成每 30 秒自動再送
+      var off = navigator.onLine === false;
+      $('csErr').innerHTML = cnStCard('warn', off ? '目前沒有網路訊號，簽名還沒送出' : '系統忙碌，簽名還沒送出',
+        '您的簽名已保存在這支手機，' + (off ? '恢復訊號後' : '30 秒後') + '會自動送出，請盡量不要關閉這個畫面。關掉了也沒關係：再掃一次同一個 QR，按「送出這份簽名」，不用重簽。');
       cnUnbusy('csBtn', '立即重新送出'); $('csBtn').onclick = cnWkResend;
       window.removeEventListener('online', cnWkResend); window.addEventListener('online', cnWkResend);
+      clearTimeout(cnWkSend.t); cnWkSend.t = setTimeout(function () { if (cnWkGet() && S.cpub && S.cpub.w && !S.cpub.done) cnWkResend(); }, 30000);
     });
 }
 function cnWkResend() { var p = cnWkGet(); if (!p) return render(); cnWkSend(p.body, p.nm); }

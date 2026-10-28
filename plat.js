@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.23.2';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.23.3';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -854,10 +854,10 @@ PLAT_PAGES.eduStats = function () {
       '<button class="lnk" onclick="eduHide(' + jsq(x.id) + ',' + (off ? 'true' : 'false') + ')">' + (off ? '重新上架' : '下架') + '</button></span></div>';
   }).join('') + '</div><div class="muted upnote">完成紀錄存在後台「教育訓練簽到」分頁（含簽名），電腦每天匯出成 NAS 的教育訓練簽到表。</div>';
 };
-/** 確認簽到完成 → 待匯入；電腦每天 09:15 把簽到表（P-05-01-A，分 BU／PU，含簽名）與教材放進 NAS 歷年教育訓練資料／民國年／主題 */
+/** 確認簽到完成 → 待匯入；電腦每天 12:15 把簽到表（P-05-01-A，分 BU／PU，含簽名）與教材放進 NAS 歷年教育訓練資料／民國年／主題 */
 function eduArch(id, done, n) {
-  if (!confirm((done < n ? '還有 ' + (n - done) + ' 人沒完成，沒完成的不會列在簽到表。\n\n' : '') + '確認這堂課的簽到完成，匯入 NAS？\n電腦每天 09:15 會把簽到表（P-05-01-A，分 BU／PU）和教材放進「歷年教育訓練資料／民國年／主題」。')) return;
-  api('eduArchive', { id: id }).then(function (r) { S.es = null; toast('已確認，' + r.n + ' 人；明天 09:15 前匯入 NAS', 'ok', 4000); render(); })
+  if (!confirm((done < n ? '還有 ' + (n - done) + ' 人沒完成，沒完成的不會列在簽到表。\n\n' : '') + '確認這堂課的簽到完成，匯入 NAS？\n電腦每天 12:15 會把簽到表（P-05-01-A，分 BU／PU）和教材放進「歷年教育訓練資料／民國年／主題」。')) return;
+  api('eduArchive', { id: id }).then(function (r) { S.es = null; toast('已確認，' + r.n + ' 人；明天 12:15 前匯入 NAS', 'ok', 4000); render(); })
     .catch(function (e) { toast(esc(e.message), 'err', 4500); });
 }
 function eduHide(id, show) {

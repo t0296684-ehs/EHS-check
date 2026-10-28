@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.23.2';
+var APP_VERSION = '0.23.3';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -183,7 +183,7 @@ function api(action, body, opt) {
     }).catch(function (e) {
       if (e.biz || i >= waits.length + (e.server ? 2 : 0)) throw e;
       if (i >= waits.length) waits.push(15000);         // 系統忙碌：多等兩次（每次 15 秒）
-      if (i === 0 && !opt.quiet) toast('連線不穩，自動重試中…', '', 2000);
+      if (i === 0 && !opt.quiet) toast(e.server ? '系統忙碌，自動重試中，請不要關閉畫面…' : '連線不穩，自動重試中…', '', e.server ? 4000 : 2000);
       var w = waits[i++];
       return new Promise(function (res) { setTimeout(res, w); }).then(once);
     });
@@ -1061,7 +1061,7 @@ PAGES.home = function () {
   });
   // 1.8 歸檔收尾沒做完（環安衛）
   if (ehs) (m.archPending || []).forEach(function (x) {
-    tasks.push({ red: true, tag: '歸檔收尾還沒完成', title: x.dept + ' ' + ymLabel(x.period), meta: '每張表的 PDF 或通知信還沒做完（每天 09:15 電腦也會自動補做）',
+    tasks.push({ red: true, tag: '歸檔收尾還沒完成', title: x.dept + ' ' + ymLabel(x.period), meta: '每張表的 PDF 或通知信還沒做完（每天 12:15 電腦也會自動補做）',
       btn: '繼續完成', on: 'archLoop(' + jsq(x.monthId) + ')' });
   });
   // 2. 待審核（主管／環安衛）
