@@ -716,17 +716,24 @@ function cnCaseStaff(d) {
   var row = function (k, x) { return x ? '<div class="kv"><span>' + esc(k) + '</span><b>' + esc(x) + '</b></div>' : ''; };
   var h = '<div class="card">' + row('案件', d.id) + '<div class="kv"><span>狀態</span><b>' + pill(CN_ST_PILL[d.status] || 'na', '', d.status) + '</b></div>' + row('廠商', d.vendor) +
     row('工程', d.work) + row('區域', d.area) + row('期間', d.start + ' ～ ' + d.end) + row('特殊作業', d.spec + (d.hot ? '（' + d.hot + '）' : '')) +
-    row('可能狀況', d.situ) + row('環境危害', d.env) + row('承辦', d.handler) + row('提交', d.submitted ? d.submitted.slice(5) + '　' + d.submittedBy : '') + row('備註', d.note) +
+    row('可能狀況', d.situ) + row('環境危害', d.env) + row('承辦', d.handler) + row('提交', d.submitted ? d.submitted.slice(5) + '　' + d.submittedBy : '') +
+    row('備註', v.commit ? String(d.note || '').replace(/[；;，,]?\s*廠商表示建檔時已提交承諾書（環安衛尚未確認）/, '') : d.note) +   // 10/28：承諾書確認後，舊備註不要再顯示「尚未確認」
     (d.late ? cnStCard('warn', '', esc(d.late)) : '') + '</div>';
+  // 10/28 Jason：輪到承辦簽名時找不到簽名的地方 → 最上面直接講輪到他、按鈕在哪
+  if (d.canSign || d.canSubmit) h = '<div class="box info" id="cnMyTurn"><div class="r">' + ic('pen', 22) + '<div class="bt"><b>' + (d.canSign ? '輪到您：承辦人員簽名' : '輪到您：提交審核') + '</b><div class="m">' +
+    '看過下面的資料，在最下面勾「我已確認上述資料無誤」，再按畫面底部的「' + (d.canSign ? '簽名並提交審核' : '提交審核') + '」。' +
+    (d.canSign ? '會直接用您在 App 存好的簽名，不用再手寫。' : '') + (d.workers.length - d.wSigned ? '<br>施工人員還沒簽完也可以先提交，他們之後可以補簽。' : '') +
+    '</div><button class="btn sm" style="margin-top:8px" onclick="cnGoOk()">前往簽名</button></div></div></div>' + h;
   if (d.canReview || (d.canPmReview && (d.permits || []).some(function (x) { return x.status === '待審核'; }))) h += cnRvSteps(d);
   if (d.gaps && d.gaps.length && ['待審核', '施工人員簽名中', '暫緩－文件不齊'].indexOf(d.status) >= 0) h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>' + (d.status === '待審核' ? '審核前請注意' : '還缺') + '</b><div class="m">' +
     d.gaps.map(esc).join('<br>') + '</div></div></div></div>';
-  h += '<div class="sec">聯絡</div><div class="card">' + row('施工負責人', d.sup + (d.supSigned ? '（已簽）' : '')) +
+  h += '<div class="sec">聯絡</div><div class="card">' + row('施工負責人', d.sup + (d.supSigned ? '（申請書已簽）' : '')) +
     (stel ? '<a class="btn ghost" href="tel:' + esc(stel) + '">' + ic('chat', 18, 2.4) + '打給施工負責人 ' + esc(d.supPhone) + '</a>' : '') +
     row('廠商聯絡人', v.contact) + (tel ? '<a class="btn ghost" href="tel:' + esc(tel) + '">' + ic('chat', 18, 2.4) + '打給廠商 ' + esc(v.phone) + '</a>' : '') +
     row('承諾書', v.commit ? '已收到用印正本' : '尚未收到正本') + (!v.commit && d.canPmReview ? cnCommitBox(d) : '') + '</div>' +
-    '<div class="sec">施工人員簽名 ' + d.wSigned + '/' + d.workers.length + '</div><div class="card">' +
-    d.workers.map(function (w) { return '<div class="cnwk"><span>' + esc(w.name) + (w.extra ? ' <small class="muted">現場補充</small>' : '') + '</span>' + (w.signed ? pill('ok', 'check', '已簽 ' + w.at) : pill('warn', '', '未簽')) + '</div>'; }).join('') + '</div>';
+    '<div class="sec">施工人員簽名 ' + d.wSigned + '/' + d.workers.length + '<small>每人用自己的手機掃 ① 施工人員 QR，看完危害告知後簽名</small></div><div class="card">' +
+    d.workers.map(function (w) { return '<div class="cnwk"><span>' + esc(w.name) + (w.extra ? ' <small class="muted">現場補充</small>' : '') +
+      (w.name === d.sup && !w.signed ? '<br><small class="muted">施工負責人：申請書的簽名不算，也要掃 ① 簽名</small>' : '') + '</span>' + (w.signed ? pill('ok', 'check', '已簽 ' + w.at) : pill('warn', '', '未簽')) + '</div>'; }).join('') + '</div>';
   if (d.sameDevice && d.sameDevice.length) h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>同一支手機簽了好幾位</b><div class="m">' +
     d.sameDevice.map(function (a) { return esc(a.join('、')); }).join('<br>') + '<br>請確認是本人親簽（不是別人代簽）。</div></div></div></div>';
   if (d.files && d.files.length) h += '<div class="sec">附件</div><div class="card">' + d.files.map(function (x) {
@@ -743,8 +750,9 @@ function cnCaseStaff(d) {
   var left = d.workers.length - d.wSigned;
   if (d.canSign || d.canSubmit) h += cnOk('cnBtn', left ? '施工人員還有 ' + left + ' 位沒簽，可以先提交，他們之後仍可補簽' : '');
   $('app').innerHTML = h + '<div id="cnErr"></div>';
-  if (d.canSign) bar('<button class="btn off" id="cnBtn" onclick="cnHandlerSign()">' + ic('pen', 20, 2.4) + '簽名並提交審核' + (left ? '（' + left + ' 位未簽）' : '') + '</button>');
-  else if (d.canSubmit) bar('<button class="btn off" id="cnBtn" onclick="cnSubmit()">' + ic('up', 20, 2.6) + '提交審核</button>');
+  // 10/28：按鈕不再一開始就灰色（看起來像不能按）；沒勾確認就按，會帶到勾選處
+  if (d.canSign) bar('<button class="btn" id="cnBtn" onclick="cnHandlerSign()">' + ic('pen', 20, 2.4) + '簽名並提交審核</button>');
+  else if (d.canSubmit) bar('<button class="btn" id="cnBtn" onclick="cnSubmit()">' + ic('up', 20, 2.6) + '提交審核</button>');
   else if (d.canReview) bar('<button class="btn ghost" onclick="cnReview(\'return\')">退回補件</button><button class="btn ghost" onclick="cnReview(\'reject\')">駁回</button><button class="btn" id="cnBtn" onclick="cnReview(\'approve\')">' + ic('check', 20, 3) + '核准</button>');
   else bar('');
 }
@@ -757,6 +765,7 @@ function cnRvSteps(d) {
     (d.vendorInfo && !d.vendorInfo.commit ? '① 承諾書：還沒確認（核准前要先在「聯絡」那一欄按「確認已收到承諾書」）<br>' : '') +
     (d.vendorInfo && !d.vendorInfo.commit ? '② ' : '① ') + '特殊作業許可：' + esc(s1) + '<br>' + (d.vendorInfo && !d.vendorInfo.commit ? '③ ' : '② ') + '施工案件：' + esc(s2) + '</div></div></div></div>';
 }
+function cnGoOk() { var c = $('cnOk'); if (c) c.parentNode.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
 function cnFileGet(fid) { toast('下載中…', '', 1500); api('consFile', { id: S.cnD.id, fid: fid }).then(cnB64Save).catch(function (e) { toast(esc(e.message), 'err', 4000); }); }
 function cnAfter(msg) { return function () { toast(msg, 'ok', 3500); rcClear(); render(); }; }
 function cnErr(e) { var el = $('cnErr'); if (el) el.innerHTML = errBox('沒有完成', e.message); var b = $('cnBtn'); if (b) { b.disabled = false; b.className = 'btn'; b.textContent = '再試一次'; } }
