@@ -451,6 +451,16 @@ function xeWarm() {
 // ───────────── 小恩助理團隊・交辦（10/28 Jason：離開公司也能交辦、看 Claude 做到哪；只開給他本人，後端也擋）─────────────
 // 交辦存到後台 → 公司電腦每 45 秒來拿、在電腦上做 → 進度與結果寫回來。寄信、部署這類對外動作停在「等確認」，按確認電腦才做。
 var AGT_ST = { '排隊': ['warn', 'clock', '排隊中'], '進行中': ['warn', 'clock', '做事中'], '等確認': ['warn', 'bell', '等您確認'], '完成': ['ok', 'check', '做完了'], '沒做成': ['ng', 'warn', '沒做成'], '已取消': ['na', '', '已取消'] };
+// 常用交辦（10/28 Jason：不要只給一個空白框，常用的放旁邊按一下就好）
+var AGT_QUICK = [
+  ['今天的 Outlook', '看我今天 Outlook 收件匣的信，挑出要我處理或回覆的，依急的排，每封一句話說要做什麼；廣告、電子報、系統自動通知略過。'],
+  ['Gmail 新信', '看我 Gmail 最近一天的新信，挑出需要我處理的，每封一句話說要做什麼；廣告略過。'],
+  ['今天先做什麼', '照環安衛工作總表和最新的工作日誌，告訴我今天最該先做的 3 件事，每件寫下一步，能直接幫我做的就說你可以接手。'],
+  ['到期提醒', '列出工作總表逾期和 7 天內到期的事、這個月例行還沒做的、SDS 這個月到期的，各寫一句下一步。'],
+  ['處理問題回報', '處理員和環安衛系統的問題回報（照問題回報客服的做法），處理完白話回報給我。'],
+  ['承攬商案件', '看員和環安衛系統的承攬商施工案件：哪些在等我審核或簽名、哪些在施工期間、核准文件有沒有都產好存好，白話列給我。'],
+  ['日報草稿', '把今天已執行的事、明天預計、等我決定的，整理成今天的日報草稿給我看，先不要寄。']
+];
 function agentOwner() { return isEhs() && !S.dev && !S.share && S.me && S.me.person && S.me.person.name === '楊坤庭'; }
 function agentCard() {
   if (!agentOwner()) return '';
@@ -495,6 +505,7 @@ PLAT_PAGES.agent = function () {
   h += '<div class="agin">' + (f ? '<div class="mt">追問：' + esc(f.ask.slice(0, 40)) + ' <button class="lnk" onclick="S.agtF=null;render()">取消</button></div>' : '') +
     '<textarea id="agtT" rows="3" placeholder="' + (f ? '要補充或追問什麼' : '交辦什麼事？例：看我今天的 Outlook 有沒有要處理的、把 ENV-13 原料資料整理好') + '">' + esc(S.agtD || '') + '</textarea>' +
     '<div class="mt">對外的事（寄信、部署、送件）會先停下來等您按確認。</div></div>';
+  if (!f) h += '<div class="sec">常用</div><div class="agk">' + AGT_QUICK.map(function (q, i) { return '<button class="chip" onclick="agtQuick(' + i + ')">' + esc(q[0]) + '</button>'; }).join('') + '</div>';
   h += L.length ? '<div class="sec">交辦紀錄</div>' + L.map(agtJob).join('') : '<div class="mt agpc">還沒有交辦過。</div>';
   $('app').innerHTML = h;
   var t = $('agtT'); if (t) t.oninput = function () { S.agtD = t.value; };
@@ -502,6 +513,10 @@ PLAT_PAGES.agent = function () {
   clearTimeout(S.agtTm);                                   // 停在這頁時每 15 秒更新一次進度（正在打字就不重畫）
   S.agtTm = setTimeout(function () { if (S.page === 'agent' && !(document.activeElement && document.activeElement.id === 'agtT')) agtLoad(); }, 15000);
 };
+function agtQuick(i) {
+  var q = AGT_QUICK[i]; if (!q || !confirm('交辦「' + q[0] + '」？')) return;
+  S.agtD = q[1]; S.agtF = null; render(); agtAsk();
+}
 function agtFollow(id) { S.agtF = id; render(); var t = $('agtT'); if (t) t.focus(); }
 function agtAsk() {
   var t = (($('agtT') || {}).value || '').trim();
