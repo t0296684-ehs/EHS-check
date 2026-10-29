@@ -8,7 +8,7 @@ var SUP_CATS = ['不會操作', '畫面錯誤或卡住', '資料不對', '建議
 var SUP_ST = { '新回報': ['warn', 'clock', '等待回覆'], '處理中': ['warn', 'clock', '處理中'], '已回覆': ['ok', 'chat', '已回覆'], '結案': ['na', 'check', '已結案'] };
 var SUP_WANT = '請寫在做什麼、發生什麼事（例：按送出後一直轉圈）';
 function supportCard() {
-  if (S.dev || S.share || !S.me) return '';
+  if (S.share || !S.me) return '';                                  // 10/29：開發者模式也顯示（Jason 用它示範同仁畫面；送出時後端會擋）
   return '<div class="mcards"><button class="mcard" style="--c:#0F766E" onclick="go(\'support\')"><span class="mi">' + ic('chat', 30, 2.1) + '</span>' +
     '<span class="mx"><b>問題回報</b><small>問環安衛（可附截圖），看回覆</small></span>' + ic('chev', 20, 2.6) + '</button></div>';
 }

@@ -791,7 +791,7 @@ PAGES.fill = function () {
   var f = F(a.form, fm.date);
   setTitle(f.name);
   var t = today(), minD = fillMin() + '-01';
-  var st = fillState(f, fm), ff = S.ff;
+  var st = fillState(f, fm), ff = S.ff, side = '';
 
   // 頂部固定：進度＋只看未勾／異常
   if (!fm.noWork) {
@@ -848,10 +848,13 @@ PAGES.fill = function () {
     if (ff === 'all') (f.extra || []).forEach(function (x, i) {
       h += '<div class="item"><label class="qt" for="x' + i + '">' + esc(x) + '</label><textarea id="x' + i + '" class="note plain" oninput="S.fill.x[' + i + ']=this.value;draftSave()">' + esc(fm.x[i] || '') + '</textarea></div>';
     });
-    if (f.evidence && !a.daily) h += evHtml(f, fm);
+    if (f.evidence && !a.daily) side = evHtml(f, fm);
   }
-  h += S.share ? '<div class="box info"><div class="r">' + ic('pen', 22) + '<div class="bt"><b>勾完按送出，下一步請寫姓名並簽名</b><div class="m">代填的檢點要本人當場簽名才算數。</div></div></div></div>'
+  var sig = S.share ? '<div class="box info"><div class="r">' + ic('pen', 22) + '<div class="bt"><b>勾完按送出，下一步請寫姓名並簽名</b><div class="m">代填的檢點要本人當場簽名才算數。</div></div></div></div>'
     : '<div class="sigcard"><img src="' + esc(S.me.signature.image) + '" alt="您的簽名"><div class="stx"><b>送出時自動帶入您的簽名</b>不用再簽</div></div>';
+  // 10/29 網頁版：要附照片、紀要的定期檢查左右分欄（左邊逐項、右邊佐證與簽名），手機照舊往下排
+  if (side && isDesk()) h = '<div class="fdesk"><div class="fmain">' + h + '</div><div class="fside">' + side + sig + '</div></div>';
+  else h += side + sig;
   $('app').innerHTML = h;
   fillBar();
 };
@@ -1852,13 +1855,15 @@ function sfRender() {
     '<span class="sfsp"></span>' + statusPill(v.status) + '<button class="btn ghost sm" onclick="go(\'month\',{dept:' + jsq(sf.dept) + ',period:' + jsq(sf.period) + '})">' + (sf.review ? '月曆檢視' : '月曆・送審') + '</button></div>';
   if (!list.length) { $('app').innerHTML = h + (sf.review ? '<div class="empty">這個月沒有每日檢點表。</div>' : '<div class="empty">這個月沒有指派給您的每日檢點表。</div>') + sfPeriodic(); if (sf.review) sfRevBar(); else bar(''); return; }
   if (sf.fi >= list.length) sf.fi = 0;
+  h += sfDeptChips();
   h += '<div class="sftabs" role="tablist">' + list.map(function (it, i) {
     var n = Object.keys(sf.ed[it.key] || {}).filter(function (d) { return sfDirty(it, d); }).length, nb = sf.review ? sfBadDays(it).length : 0;
     return '<button role="tab" aria-selected="' + (i === sf.fi) + '" class="sftab' + (i === sf.fi ? ' on' : '') + '" onclick="sfTab(' + i + ')">' + esc(it.x.name || it.f.name) + (n ? '<i class="sfdot">' + n + '</i>' : '') + (nb ? '<i class="sfdot ng">' + nb + '</i>' : '') + '</button>';
   }).join('') + '</div>';
   var it = list[sf.fi];
   if (sf.review) h += sfRevHead();
-  else if (!demoDept(v.dept) && (v.status === '填寫中' || v.status === '退回')) h += '<div class="sfhelp">' + ic('info', 16, 2.4) + '<span>點格子直接打字：1 或 V＝正常、2 或 X＝異常、3 或 -＝不適用（依各項的選項）。方向鍵、Tab、Enter 移動；拖曳或 Shift＋方向鍵選一整片一起填；可以從 Excel 複製貼上；Ctrl＋Z 復原。補填的日子會記下填寫時間，單位負責人與環安衛看得到。</span></div>';
+  else if (sf.period === t.slice(0, 7) && !sfLock(it, Number(t.slice(8)))) h += '<div class="sftool"><button class="btn ghost sm" onclick="sfToday()">' + ic('check', 18, 3) + '今天（' + md(t) + '）全部正常</button><button class="btn ghost sm" onclick="sfTodayNoWork()">今天無作業</button></div>';
+  if (!sf.review && !demoDept(v.dept) && (v.status === '填寫中' || v.status === '退回')) h += '<div class="sfhelp">' + ic('info', 16, 2.4) + '<span>點格子直接打字：1 或 V＝正常、2 或 X＝異常、3 或 -＝不適用（依各項的選項）。方向鍵、Tab、Enter 移動；拖曳或 Shift＋方向鍵選一整片一起填；可以從 Excel 複製貼上；Ctrl＋Z 復原。補填的日子會記下填寫時間，單位負責人與環安衛看得到。</span></div>';
   h += '<div class="sfwrap"><div class="sfgrid" id="sfg" tabindex="0" aria-label="' + esc(it.f.name) + '">' + sfTable(it) + '</div><div class="sfside" id="sfs"></div></div>' + sfPeriodic();
   $('app').innerHTML = h;
   for (var d = 1; d <= sfDays(sf.period); d++) sfPaintDay(it, d);
@@ -2272,4 +2277,48 @@ function sfPeriodic() {
   if (per.length) h += '<div class="sec">定期檢查（本月紀錄 ' + per.length + ' 份）</div><div class="sfper">' + per.map(function (x) { return sheetHtml(forms[x.form], x); }).join('') + '</div>';
   else if (sf.review) h += '<div class="sec">定期檢查（本月）</div><div class="empty">這個月沒有定期檢查紀錄。</div>';
   return h;
+}
+
+// ───────────── 網頁版工作台右欄（10/29）：每日檢點今天的狀態＋整月表格入口、快到期的定期檢查 ─────────────
+function deskDaily(m) {
+  if (isEhs()) return '';
+  var t = today(), h = '', multi = m.depts.length > 1;
+  m.depts.forEach(function (d) {
+    var daily = m.assigns.filter(function (a) { return a.dept === d.id && a.daily && F(a.form); });
+    if (!daily.length) return;
+    h += '<div class="card dkc"><div class="mr"><b>' + esc('每日檢點' + (multi ? '・' + d.id : '')) + '</b>' +
+      (demoDept(d.id) ? '' : '<button class="btn ghost sm" onclick="S.sf=null;go(\'sheetFill\',{dept:' + jsq(d.id) + ',period:' + jsq(t.slice(0, 7)) + '})">' + ic('pen', 18, 2.4) + '用表格填寫整月</button>') + '</div><div class="list">' +
+      daily.map(function (a) {
+        var job = pendJob(a, t), f = F(a.form);
+        var st = job ? pill('info', 'up', '待上傳') : a.due.todayNoWork ? pill('na', 'minus', '今日無作業') : a.due.todayDone ? pill('ok', 'check', a.due.signer && a.due.signer !== m.person.name ? a.due.signer + ' 已檢點' : '已檢點') : pill('warn', 'pen', '今天未檢點');
+        return '<button class="li" onclick="openFill(' + jsq(a.key) + ')"><span class="mn"><span class="nm">' + esc(f.name) + '</span><span class="mt">' + esc(f.items.length + ' 項' + (a.object ? '・' + a.object : '')) + '</span></span>' + st + '</button>';
+      }).join('') + '</div></div>';
+  });
+  var due = m.assigns.filter(function (a) { return a.pick && a.due && (a.due.state === 'overdue' || a.due.state === 'soon') && F(a.form); });
+  if (due.length) h += '<div class="card dkc"><div class="mr"><b>' + esc('定期檢查快到期（' + due.length + '）') + '</b><button class="btn ghost sm" onclick="go(\'mine\')">我的表單</button></div><div class="list">' +
+    due.slice(0, 8).map(function (a) {
+      return '<button class="li" onclick="openFill(' + jsq(a.key) + ')"><span class="mn"><span class="nm">' + esc(pickName(a)) + '</span><span class="mt">' + esc(dueMeta(a)) + '</span></span>' + duePill(a) + '</button>';
+    }).join('') + '</div></div>';
+  return h;
+}
+/** 表格頁：一個人負責好幾個部門時，上方切換部門 */
+function sfDeptChips() {
+  var sf = S.sf; if (sf.review) return '';
+  var ds = S.me.depts.filter(function (d) { return S.me.assigns.some(function (a) { return a.dept === d.id && a.daily; }); });
+  if (ds.length < 2) return '';
+  return '<div class="chips">' + ds.map(function (d) {
+    return '<button class="chip' + (d.id === sf.dept ? ' on' : '') + '" aria-pressed="' + (d.id === sf.dept) + '" onclick="S.sf=null;go(\'sheetFill\',{dept:' + jsq(d.id) + ',period:' + jsq(sf.period) + '},true)">' + esc(d.id) + '</button>';
+  }).join('') + '</div>';
+}
+/** 今天這一欄：全部填第一個選項（正常）／記為無作業 */
+function sfToday() {
+  var sf = S.sf, it = sf.list[sf.fi], d = Number(today().slice(8)), nr = it.f.items.length;
+  sf.sel = { r0: 0, c0: d, r1: nr - 1, c1: d }; sfPaintSel();
+  sfFill(function (r) { if (r === nr) return null; var rec = sfRec(it, d), s0 = it.f.items[r].seq, cur = rec && !rec.w ? rec.r[s0] : ''; return cur && cur !== '' ? (cur === 'na' ? 'na' : cur) : sfOpts(it, r)[0].k; });
+  sfSide(); toast('今天已填「' + esc(sfOpts(it, 0)[0].label) + '」，有異常的請個別改，再按存檔', '', 2600);
+}
+function sfTodayNoWork() {
+  var sf = S.sf, it = sf.list[sf.fi], d = Number(today().slice(8)), nr = it.f.items.length;
+  sf.sel = { r0: nr, c0: d, r1: nr, c1: d }; sfPaintSel();
+  sfFill(function (r) { return r === nr ? true : null; }); sfSide();
 }

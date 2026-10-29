@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.25.1';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.26.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -43,6 +43,7 @@ function modOf(k) { return MODS.filter(function (m) { return m.key === k; })[0];
 function workMods() { return ['check', 'env'].filter(modOn); }     // 每天要做的功能；施工申請、教育訓練偶爾用、人人都有，從主選單進
 function landing() {
   if (!plat()) return 'home';                     // 舊後端（沒有平台資料）：維持原本直接進日常檢點
+  if (isDesk() && modOn('check')) return 'home';  // 10/29 網頁版：左邊選單就是主選單，一進來就是工作台
   return 'menu';                                  // 10/14 Jason：一律先到主選單，日常檢點、教育訓練、施工申請、危害性化學品都看得到（沒權限的灰底）
 }
 function goMenu() { S.stack = []; go('menu', {}, true); }
@@ -1689,3 +1690,69 @@ function eduLibHtml(e) {
     }).join('') + '</div>';
   }).join('');
 }
+
+// ───────────── 網頁版外框（10/29 Jason：電腦上不是把手機版放大，用同一套邏輯做成適合網頁的 App）─────────────
+// 寬螢幕（≥1024px）：左邊固定選單取代手機的首頁大方塊、返回鍵與右上角按鈕；內容區放寬、首頁變工作台（左：要做的事；右：每日檢點、送審、各課狀況）。
+// 手機完全照舊。資料、權限、流程兩邊同一套，只是版面不同。
+var DESK_W = 1024;
+function isDesk() { return window.innerWidth >= DESK_W && !S.share && !S.cpub && !S.meet; }
+/** 這一頁屬於選單的哪一格（亮起來） */
+function sideKey(p, a) {
+  if (p === 'sheetFill') return a && a.review ? 'review' : 'grid';
+  var m = { home: 'home', mine: 'mine', fill: 'mine', pick: 'mine', month: 'month', months: 'month', packages: 'review', team: 'team', track: 'track', trackFix: 'track',
+    claim: 'claim', claimReview: 'team', shareMake: 'share', notice: 'notice', bc: 'bc', guide: 'guide', settings: 'settings', remind: 'settings', menu: 'menu',
+    support: 'support', supportNew: 'support', supportItem: 'support', supAdmin: 'support', supAdminItem: 'support', agent: 'agent', devPick: 'dev' };
+  if (m[p]) return m[p];
+  var k = ['edu', 'chem', 'cons', 'env', 'patrol'].filter(function (x) { return p.indexOf(x) === 0; })[0];
+  return k || '';
+}
+function sideReset() { S.stack = []; S.sf = null; }
+function sItem(key, icon, label, js, badge, locked) {
+  var on = sideKey(S.cur, S.arg) === key;
+  return '<button class="sitem' + (on ? ' on' : '') + (locked ? ' lk' : '') + '"' + (on ? ' aria-current="page"' : '') + ' onclick="' + esc('sideReset();' + js) + '">' + ic(icon, 20, 2.3) +
+    '<span>' + esc(label) + '</span>' + (badge ? '<i class="sb">' + esc(String(badge)) + '</i>' : locked ? ic('lock', 16, 2.4) : '') + '</button>';
+}
+function drawSide() {
+  var el = $('side'); if (!el) return;
+  var desk = isDesk(), on = desk && S.me && lsGet(LS.TOKEN, '') && ['login', 'url', 'sign', 'proxy', 'psign'].indexOf(S.cur) < 0;
+  document.body.classList.toggle('desk', desk);
+  document.body.classList.toggle('hasside', !!on);
+  document.body.setAttribute('data-page', S.cur || '');
+  if (!on) { el.innerHTML = ''; return; }
+  var m = S.me, p = plat() || { mods: { check: true, edu: true } }, ehs = isEhs(), mgr = isMgr(), t = today();
+  var h = '<div class="sbrand">' + ic('logo', 26, 2) + '<b>員和環安衛系統</b></div><div class="swho"><b>' + esc(m.person.name) + '</b><small>' + esc(whoLine().split('・').slice(1).join('・') || m.person.role) + '</small></div>';
+  h += sItem('home', 'grid', modOn('check') ? '工作台' : '主選單', modOn('check') ? "go('home',{},true)" : "go('menu',{},true)");
+  if (modOn('check')) {
+    h += '<div class="ssec">日常檢點</div>';
+    var dd = m.depts.filter(function (d) { return m.assigns.some(function (a) { return a.dept === d.id && a.daily; }); });
+    if (!ehs && dd.length) h += sItem('grid', 'pen', '表格填寫', "go('sheetFill',{dept:" + JSON.stringify(dd[0].id) + ",period:" + JSON.stringify(t.slice(0, 7)) + "},true)");
+    if (!ehs && !mgr && m.assigns.some(function (a) { return a.daily || a.pick || a.missingEquip; })) h += sItem('mine', 'clip', '我的表單', "go('mine',{},true)");
+    if (!ehs) { var d1 = m.depts.length === 1 ? m.depts[0].id : '';
+      h += sItem('month', 'cal', demoDept(d1) ? '月曆' : '月曆・補填', d1 ? "go('month',{dept:" + JSON.stringify(d1) + ",period:" + JSON.stringify(t.slice(0, 7)) + "},true)" : "go('months',{},true)"); }
+    else h += sItem('month', 'cal', '月結紀錄', "go('months',{},true)");
+    if (mgr || ehs) h += sItem('review', 'review', '審核', "go('packages',{},true)", m.pendingReview || 0);
+    if (mgr || ehs) h += sItem('team', 'swap', '部門管理', "S.team=null;go('team',{},true)");
+    if (!ehs && !mgr && (m.claimable || []).length) h += sItem('claim', 'plus', '領取表單', "go('claim',{},true)");
+    if (!ehs && dd.length) h += sItem('share', 'chat', '請人代填', "go('shareMake',{},true)");
+    h += sItem('track', 'warn', '異常追蹤', "S.tk=null;go('track',{},true)", m.tracksOpen || 0);
+    if (ehs) h += sItem('bc', 'bell', '廣播', "S.bc=null;go('bc',{},true)");
+  }
+  var others = MODS.filter(function (x) { return x.key !== 'check' && (!x.hide || modOn(x.key)); });
+  if (others.length) {
+    h += '<div class="ssec">其他功能</div>';
+    var bd = { cons: p.consTodo || 0, edu: p.eduReady ? '!' : p.eduUnread || 0 };
+    others.forEach(function (x) { h += sItem(x.key, x.icon, x.name, modOn(x.key) ? 'goMod(' + JSON.stringify(x.key) + ')' : 'permAsk(' + JSON.stringify(x.key) + ')', modOn(x.key) ? bd[x.key] : 0, !modOn(x.key)); });
+  }
+  if (ehs) { h += '<div class="ssec">環安衛</div>';
+    if (window.agentOwner && agentOwner()) h += sItem('agent', 'spark', '小恩助理團隊', "S.agt=null;go('agent',{},true)");
+    h += sItem('dev', 'sliders', '開發者模式', "S.dp=null;go('devPick',{},true)"); }
+  h += '<div class="sfill"></div><div class="ssec">說明與設定</div>' + sItem('support', 'chat', '問題回報', "go('support',{},true)") +
+    sItem('notice', 'bell', '通知', "go('notice',{},true)", m.unread || 0) + sItem('guide', 'info', '使用教學', "go('guide',{},true)") + sItem('settings', 'sliders', '設定', "go('settings',{},true)") +
+    '<div class="sver">' + netTag() + '<span>v' + APP_VERSION + '</span></div>';
+  el.innerHTML = h;
+}
+var DESK_WAS = null;
+window.addEventListener('resize', function () {
+  var d = isDesk(); if (DESK_WAS === null) { DESK_WAS = d; return; }
+  if (d !== DESK_WAS) { DESK_WAS = d; if (typeof render === 'function' && S.me) render(); }
+});

@@ -1,5 +1,5 @@
 {
- "version": "0.25.1",
+ "version": "0.26.0",
  "chapters": [
   {
    "no": 1,
@@ -122,6 +122,22 @@
       "Shortly you will get \"<b>Phone notifications are on</b>\" — then you are done. Tapping a notice opens the App."
      ],
      "tip": "Once on, the top of the \"Notices\" page shows \"Phone notifications are on\"; tap \"Send a test notice\" to try it. After changing phones, clearing browser data, or deleting the Home Screen App, turn it on again. If you tapped \"Don't Allow\" by mistake, turn it on in phone Settings → Notifications.",
+     "warn": false
+    },
+    {
+     "no": "1-7",
+     "title": "Using it on a computer (web version)",
+     "lead": "Open the same address in a browser on a computer to get the web version: the data, permissions and steps are exactly the same as on the phone, with a layout made for computers. Use whichever you prefer.",
+     "shots": [],
+     "steps": [
+      "On the computer, open the App address in Chrome or Edge and log in (bookmark it). On a wide enough screen it switches to the web version automatically.",
+      "The menu on the left is always there: Workbench, Table entry, My forms, Calendar, Review, Abnormality tracking, other functions, plus Issue reports, Notices, User guide and Settings. Click to switch pages.",
+      "<b>Workbench</b>: the left side lists what to do; the right side shows today's status of each daily checklist and periodic inspections due soon. Supervisors and EHS also see how each unit is doing.",
+      "<b>Daily checks</b>: use \"Table entry\" to fill a whole month at once (see 2-10). If today is fine, click \"Today: all normal\" and save.",
+      "<b>Periodic inspections that need photos</b> use two columns: tick items on the left; write the summary and upload photos from the computer on the right.",
+      "<b>Supervisor review</b>: use \"Review as a table\" to see the whole month at once (see 3-4)."
+     ],
+     "tip": "On a narrower screen (for example a tablet held upright) it switches back to the phone layout automatically; the functions stay the same.",
      "warn": false
     }
    ]

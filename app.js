@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.25.1';
+var APP_VERSION = '0.26.0';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -484,6 +484,7 @@ function render() {
   $('bar').innerHTML = ''; padBar();
   fn();
   drawTop();
+  if (window.drawSide) drawSide();                                   // 網頁版左側選單（plat.js）
   if (window.xeFab) xeFab();
   if (window.coachAfter) coachAfter();
 }
@@ -1129,16 +1130,17 @@ PAGES.home = function () {
   S.hero = '<div class="hero-in">' + heroTop() + '<div class="hi"><div class="hn"><div class="h1">' + greet() + '，' + esc(m.person.name) + '</div><div class="hsub">' + esc(sub) + '</div></div></div>' +
     '<div class="hs">' + hs + '</div></div>';
 
-  // 內容
-  var h = netBlock() + clockBlock() + outboxBlock();
+  // 內容（10/29 網頁版：左欄要做的事、右欄每日檢點／送審／各課狀況；手機照原本順序往下排）
+  var top = netBlock() + clockBlock() + outboxBlock(), h = '';
   if (tasks.length) h += '<div class="sec"><span class="sl"><span class="cnt">' + tasks.length + '</span>要做的事</span></div>' + tasks.map(taskHtml).join('');
   else h += '<div class="card calm">' + ic('check', 24, 3) + '目前沒有要做的事</div>';
+  var main = h; h = '';
   if (subs.length) h += '<div class="sec">月結送審<small>' + dueTxt(subs[0].period) + ' 前送出</small></div><div class="list">' + subs.map(function (x) {
     return '<button class="li" onclick="' + goMonth(x.dept, x.period) + '"><span class="mn"><span class="nm">' + esc(dn(x.dept) + ymLabel(x.period)) + '</span>' +
       '<span class="mt">' + (demoDept(x.dept) ? '整課一起送，任一位同仁送出即可' : '先確認沒有漏填（可補填），整課一起送，任一位同仁送出即可') + '</span></span>' + pill('na', 'pen', '可以送審') + '</button>';
   }).join('') + '</div>';
 
-  if (!ehs && !mgr && done.length) {
+  if (!ehs && !mgr && done.length && !isDesk()) {                   // 網頁版右欄「每日檢點」已經列出每張今天的狀態
     h += '<div class="sec">今天已完成</div><div class="list">' + done.map(function (a) {
       var job = pendJob(a, t);
       var dot = job ? '<span class="dotic info">' + ic('up', 16, 3) + '</span>' : a.due.todayNoWork ? '<span class="dotic na">' + ic('minus', 16, 3) + '</span>' : '<span class="dotic ok">' + ic('check', 16, 3.2) + '</span>';
@@ -1178,7 +1180,9 @@ PAGES.home = function () {
   if (window.sfTiles) tl += sfTiles(m);
   tl += tile('review', '月結紀錄', "go('months')");
   tl += tile('clock', '提醒設定', "go('remind')");
-  h += '<div class="tiles">' + tl + '</div><div class="ver">v' + APP_VERSION + '</div>';
+  tl += tile('chat', '問題回報', "go('support')", '', '問環安衛（可附截圖）');      // 10/29：只用日常檢點的同仁在這頁也找得到
+  if (isDesk()) h = top + '<div class="desk2"><div class="dcol">' + main + '</div><div class="dcol">' + (window.deskDaily ? deskDaily(m) : '') + h + '</div></div><div class="ver">v' + APP_VERSION + '</div>';
+  else h = top + main + h + '<div class="tiles">' + tl + '</div><div class="ver">v' + APP_VERSION + '</div>';
   $('app').innerHTML = h;
 };
 // ───────────── 啟動 ─────────────
