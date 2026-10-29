@@ -1,5 +1,5 @@
 {
- "version": "0.26.0",
+ "version": "0.26.1",
  "chapters": [
   {
    "no": 1,
@@ -135,7 +135,8 @@
       "<b>Workbench</b>: the left side lists what to do; the right side shows today's status of each daily checklist and periodic inspections due soon. Supervisors and EHS also see how each unit is doing.",
       "<b>Daily checks</b>: use \"Table entry\" to fill a whole month at once (see 2-10). If today is fine, click \"Today: all normal\" and save.",
       "<b>Periodic inspections that need photos</b> use two columns: tick items on the left; write the summary and upload photos from the computer on the right.",
-      "<b>Supervisor review</b>: use \"Review as a table\" to see the whole month at once (see 3-4)."
+      "<b>Supervisor review</b>: use \"Review as a table\" to see the whole month at once (see 3-4).",
+      "<b>Calendar</b>: the calendar on the left, that day's record and the month status on the right. <b>Unit management</b> uses the \"Assignment table\": one row per inspector, one column per form or piece of equipment; tick and save everything at once (from today or from next month)."
      ],
      "tip": "On a narrower screen (for example a tablet held upright) it switches back to the phone layout automatically; the functions stay the same.",
      "warn": false

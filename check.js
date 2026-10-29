@@ -467,7 +467,7 @@ PAGES.team = function () {
   var ds = teamDepts();
   var allOk = ds.length > 1 && !isEhs();                     // 環安衛管全廠，不做「全部」（一次讀太多課）
   if (!S.arg.dept || (S.arg.dept === '*' && !allOk)) S.arg.dept = allOk ? '*' : ds[0];
-  if (!S.arg.tab) S.arg.tab = 'people';
+  if (!S.arg.tab || (S.arg.tab === 'grid' && !isDesk())) S.arg.tab = isDesk() ? 'grid' : 'people';   // 網頁版預設分工表（人員 × 表單／設備）
   var tm = S.team && S.team.dept === S.arg.dept ? S.team : null;
   var h = '';
   if (ds.length > 1) h += '<div class="chips">' + (allOk ? ['*'] : []).concat(ds).map(function (d) { return '<button class="chip' + (d === S.arg.dept ? ' on' : '') + '" onclick="teamDept(' + jsq(d) + ')">' + esc(d === '*' ? '全部' : d) + '</button>'; }).join('') + '</div>';
@@ -504,10 +504,11 @@ PAGES.team = function () {
   }
   var tab = S.arg.tab, forms = tm.targets.filter(function (x) { return x.kind === 'form'; }), eqs = tm.targets.filter(function (x) { return x.kind === 'equip'; });
   var ops = tm.people.filter(function (p) { return p.role === '檢點人員'; });
-  h += '<div class="seg" role="tablist">' + [['people', '人員 ' + ops.length], ['form', '表單 ' + forms.length], ['equip', '設備 ' + eqs.length]].map(function (t) {
+  h += '<div class="seg" role="tablist">' + (isDesk() ? [['grid', '分工表']] : []).concat([['people', '人員 ' + ops.length], ['form', '表單 ' + forms.length], ['equip', '設備 ' + eqs.length]]).map(function (t) {
     return '<button role="tab" aria-selected="' + (tab === t[0]) + '" class="' + (tab === t[0] ? 'on' : '') + '" onclick="teamTab(' + jsq(t[0]) + ')">' + esc(t[1]) + '</button>';
   }).join('') + '</div>';
   var nameOf = {}; tm.targets.forEach(function (x) { nameOf[x.key] = x.name; });
+  if (tab === 'grid') { $('app').innerHTML = h + tmxHtml(tm); tmxBar(tm); return; }
   if (tab === 'people') {
     h += '<div class="muted upnote">點一位同仁，勾選他負責的表單和設備。人員、表單、設備的新增或停用請洽環安衛中心。</div>';
     h += '<div class="list">' + tm.people.map(function (p) {
@@ -824,6 +825,7 @@ PAGES.fill = function () {
     h += '<div class="box warn"><div class="r">' + ic('info', 22) + '<div class="bt"><b>這一天記為「無作業」</b><div class="m">表上留空白。按下方送出即可；要改回來請按「↺ 取消無作業」。</div></div></div></div>';
   } else {
     var g = null, shown = 0, nextSeq = st.todo[0] || st.noNote[0];
+    h += '<div class="fitems">';                                  // 網頁版：項目排兩欄（CSS），手機照舊一欄
     f.items.forEach(function (it) {
       var v = fm.r[it.seq];
       if (ff === 'todo' && v) return;
@@ -845,6 +847,7 @@ PAGES.fill = function () {
         '</div>';
     });
     if (!shown) h += '<div class="empty">' + (ff === 'todo' ? '都勾完了，沒有未勾的項目' : '沒有異常的項目') + '</div>';
+    h += '</div>';
     if (ff === 'all') (f.extra || []).forEach(function (x, i) {
       h += '<div class="item"><label class="qt" for="x' + i + '">' + esc(x) + '</label><textarea id="x' + i + '" class="note plain" oninput="S.fill.x[' + i + ']=this.value;draftSave()">' + esc(fm.x[i] || '') + '</textarea></div>';
     });
@@ -1003,6 +1006,7 @@ function monthRender() {
   var late = seeLate(v) ? (mm.late || {}) : {};
   var h = monthNav(v.period);
   if (S.mErr) h += errBox(S.mErr.t, S.mErr.m, S.mErr.btn || '');
+  var p0 = h.length;                                             // 網頁版：本月狀態、補填、送審前要補的，移到月曆右邊那一欄
   h += '<div class="card"><div class="mr"><b>本月狀態</b>' + statusPill(v.status) + '</div>' +
     (v.status === '退回' ? '<div class="box err" role="alert"><div class="r">' + ic('ret', 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(v.reason) + '</div></div></div></div>' : '') +
     (v.sheetUrl ? slBox(v) : '') + '</div>';     // 10/29：試算表只有環安衛看得到（平常唯讀，輸入後台密碼才開放編輯 30 分鐘）
@@ -1021,6 +1025,7 @@ function monthRender() {
       (v.problems.length > 20 ? '<div class="li" style="min-height:44px"><span class="mt">…還有 ' + (v.problems.length - 20) + ' 個</span></div>' : '') + '</div></div>';
   }
   var dl = mm.daily.filter(function (x) { return forms[x.form]; });
+  var topPart = h.slice(p0), deskCal = isDesk() && dl.length && S.mv === 'cal'; if (deskCal) h = h.slice(0, p0);
   if (dl.length) {
     if (S.mf >= dl.length) S.mf = 0;
     var x = dl[S.mf], f = forms[x.form];
@@ -1039,11 +1044,12 @@ function monthRender() {
       (nBad ? '<span class="ng">異常 <b>' + nBad + '</b> 天</span>' : '') + (nLate ? '<span class="wn">補登 <b>' + nLate + '</b> 天</span>' : '') + '</div>';
     var blanks = blankDays(x, v.period), canEdit = (v.status === '填寫中' || v.status === '退回') && !ehs && v.period >= fillMin();
     if (canEdit && blanks.length) stats += '<div class="blankl">' + ic('pen', 16, 2.4) + '平日沒紀錄 ' + blanks.length + ' 天（' + blanks.slice(0, 10).join('、') + (blanks.length > 10 ? '…' : '') + ' 號）：點日期可以補填</div>';
-    if (S.mv === 'cal') h += '<div class="card calcard' + (S.mSlide ? (S.mSlide > 0 ? ' slideL' : ' slideR') : '') + '">' + stats + calHtml(f, x, v.period, late[x.form]) + '</div>' + dayDetail(f, x, v.period, late[x.form]);
+    var calc = '<div class="card calcard' + (S.mSlide ? (S.mSlide > 0 ? ' slideL' : ' slideR') : '') + '">' + stats + calHtml(f, x, v.period, late[x.form]) + '</div>', dd = dayDetail(f, x, v.period, late[x.form]);
+    if (S.mv === 'cal') h += deskCal ? '<div class="mdesk"><div class="mdmain">' + calc + '</div><div class="mdside">' + (dd || '<div class="card"><div class="muted">點月曆上的日期，這裡會顯示那天的檢查人員、異常與說明；沒紀錄的平日可以直接補填。</div></div>') + topPart + '</div></div>' : calc + dd;
     else h += '<div class="card">' + stats + '</div>' + gridHtml(f, x, v.period, seeLate(v) ? late[x.form] : null);
   }
   if (mm.periodic.length) h += '<div class="sec">定期檢查（本月）</div>';
-  mm.periodic.forEach(function (x) { h += sheetHtml(forms[x.form], x); });
+  h += (isDesk() && mm.periodic.length ? '<div class="sfper">' : '') + mm.periodic.map(function (x) { return sheetHtml(forms[x.form], x); }).join('') + (isDesk() && mm.periodic.length ? '</div>' : '');
   if (!mm.daily.length && !mm.periodic.length) h += '<div class="empty">這個月沒有資料。</div>';
   $('app').innerHTML = h;
   S.mSlide = 0; mSwipe();
@@ -2321,4 +2327,66 @@ function sfTodayNoWork() {
   var sf = S.sf, it = sf.list[sf.fi], d = Number(today().slice(8)), nr = it.f.items.length;
   sf.sel = { r0: nr, c0: d, r1: nr, c1: d }; sfPaintSel();
   sfFill(function (r) { return r === nr ? true : null; }); sfSide();
+}
+
+// ───────────── 網頁版部門管理：分工表（人員 × 表單／設備，一張表勾完）─────────────
+// 手機是「點一位同仁 → 勾他負責的」；電腦一次看整課：每一列一位檢點人員、每一欄一張表或一台設備，勾選就是負責；改完一次存（今天起或下月起）。
+function tmxWant(tm) {
+  if (!S.tmx || S.tmx.dept !== tm.dept || S.tmx.at !== tm) { S.tmx = { dept: tm.dept, at: tm, want: {} }; tm.targets.forEach(function (x) { S.tmx.want[x.key] = x.now.slice(); }); }
+  return S.tmx.want;
+}
+function tmxDiff(tm) {
+  var w = tmxWant(tm);
+  return tm.targets.filter(function (x) { return w[x.key].slice().sort().join() !== x.now.slice().sort().join(); }).map(function (x) { return { key: x.key, names: w[x.key].slice(), name: x.name }; });
+}
+function tmxHtml(tm) {
+  var w = tmxWant(tm), ops = tm.people.filter(function (p) { return p.role === '檢點人員'; });
+  var cols = tm.targets.filter(function (x) { return x.kind === 'form'; }).sort(function (a, b) { return (b.daily ? 1 : 0) - (a.daily ? 1 : 0); }).concat(tm.targets.filter(function (x) { return x.kind === 'equip'; }));
+  if (!ops.length) return '<div class="empty">這一課還沒有檢點人員，人員新增請洽環安衛中心。</div>';
+  var nf = cols.filter(function (x) { return x.kind === 'form'; }).length;
+  var h = '<div class="muted upnote">每一列一位檢點人員、每一欄一張表或一台設備：勾選＝負責，同一項可以多人。改完按下方「今天起生效」或「下月起」一次存。人員、表單、設備的新增或停用請洽環安衛中心。</div>' +
+    '<div class="tmx"><table><thead><tr><th class="t">檢點人員</th>' + (nf ? '<th class="grp" colspan="' + nf + '">表單</th>' : '') + (cols.length - nf ? '<th class="grp" colspan="' + (cols.length - nf) + '">設備</th>' : '') + '</tr><tr><th class="t"></th>' +
+    cols.map(function (x) { return '<th class="c' + (x.daily ? ' dly' : '') + '" title="' + esc(x.name) + '"><span>' + esc(x.name) + '</span>' + (x.daily ? '<small>每日</small>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>';
+  ops.forEach(function (p) {
+    var warn = !p.loggedIn || !p.signed;
+    h += '<tr><td class="t"><b>' + esc(p.name) + '</b><small class="' + (warn ? 'wn' : '') + '">' + esc((p.loggedIn ? '已登入' : '還沒登入') + '・' + (p.signed ? '已簽名' : '還沒簽名')) + '</small></td>';
+    cols.forEach(function (x) {
+      var on = w[x.key].indexOf(p.name) >= 0, was = x.now.indexOf(p.name) >= 0, nx = x.next && x.next.indexOf(p.name) >= 0 !== was;
+      h += '<td class="' + (on !== was ? 'chg' : '') + '"><label><input type="checkbox"' + (on ? ' checked' : '') + ' aria-label="' + esc(p.name + '・' + x.name) + '" onchange="tmxTick(' + jsq(x.key) + ',' + jsq(p.name) + ',this.checked)"></label>' +
+        (nx ? '<i class="nx" title="' + esc(Number(tm.month.slice(5)) + ' 月起' + (was ? '不負責' : '負責')) + '"></i>' : '') + '</td>';
+    });
+    h += '</tr>';
+  });
+  h += '<tr class="sum"><td class="t">負責人數</td>' + cols.map(function (x) { var n = w[x.key].length; return '<td class="' + (n ? '' : 'none') + '">' + (n || '無') + '</td>'; }).join('') + '</tr></tbody></table></div>';
+  var none = cols.filter(function (x) { return !w[x.key].length; });
+  if (none.length) h += '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>' + esc(none.length + ' 項沒有人負責') + '</b><div class="m">' + esc('沒有負責人＝本課不再使用（手機上看不到、不算缺漏）：' + none.map(function (x) { return x.name; }).join('、')) + '</div></div></div></div>';
+  return h;
+}
+function tmxTick(key, name, on) {
+  var tm = S.team, w = tmxWant(tm)[key];
+  if (on && w.indexOf(name) < 0) w.push(name);
+  if (!on) tmxWant(tm)[key] = w.filter(function (n) { return n !== name; });
+  var y = window.scrollY, g = document.querySelector('.tmx'), sx = g ? g.scrollLeft : 0; render(); window.scrollTo(0, y); g = document.querySelector('.tmx'); if (g) g.scrollLeft = sx;
+}
+function tmxBar(tm) {
+  var n = tmxDiff(tm).length, mo = Number(tm.month.slice(5)) + ' 月';
+  bar('<div class="btns r21"><button class="btn"' + (n ? '' : ' disabled') + ' onclick="tmxSave(\'now\')">' + ic('check', 22, 2.8) + (n ? '今天起生效（' + n + ' 項）' : '沒有變更') + '</button>' +
+    '<button class="btn ghost"' + (n ? '' : ' disabled') + ' onclick="tmxSave(\'next\')">下月起（' + esc(mo) + '）</button></div>' + (n ? '<button class="btn ghost sm" onclick="S.tmx=null;render()">還原</button>' : ''));
+}
+function tmxSave(when) {
+  var tm = S.team, ch = tmxDiff(tm); if (!ch.length) return;
+  if (!navigator.onLine) return toast('沒有網路，調整要連上網路才能存', 'err', 3500);
+  var empty = ch.filter(function (c) { return !c.names.length; });
+  if (empty.length && !confirm(sfT('沒有勾任何人＝本課不再使用：') + empty.map(function (c) { return c.name; }).join('、') + '\n' + sfT('確定嗎？'))) return;
+  busyOn('儲存中…', '共 ' + ch.length + ' 項');
+  var i = 0, step = function () {
+    if (i >= ch.length) { rcClear(); return api('team', { deptId: tm.dept }).then(function (r) { S.team = r; S.teamAt = Date.now(); }); }   // 不用暫存：要看到剛存好的
+    var c = ch[i++];
+    return api(when === 'now' ? 'assignNow' : 'nextSet', { deptId: tm.dept, target: c.key, names: c.names }).then(step);
+  };
+  step().then(function () {
+    busyOff(); S.tmx = null; toast(when === 'now' ? '已改好 ' + ch.length + ' 項，今天起生效' : '已安排 ' + ch.length + ' 項，' + Number(tm.month.slice(5)) + ' 月 1 日生效', 'ok', 3500);
+    if (when === 'now') refreshMe();
+    render();
+  }).catch(function (e) { busyOff(); toast(esc(e.message) + (i > 1 ? '（前 ' + (i - 1) + ' 項已存）' : ''), 'err', 5000); S.tmx = null; teamLoad(tm.dept).then(function () { render(); }); });
 }
