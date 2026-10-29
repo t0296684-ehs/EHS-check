@@ -1,5 +1,5 @@
 {
- "version": "0.23.5",
+ "version": "0.24.0",
  "chapters": [
   {
    "no": 1,
@@ -858,7 +858,7 @@
       "<b>Cases</b> tab: open cases marked <b>Awaiting your review</b>. <b>Check before review</b> lists unsigned workers, missing permits and the commitment status; check attachments, same-phone warnings and history, then <b>Approve</b>, <b>Return</b> or <b>Reject</b> (separate items with “；” and they are listed one by one in the contractor's email).",
       "<b>Contractors & commitments</b> tab: open the uploaded commitment, check the owner signature and company stamps, then tap <b>Confirm commitment received</b>; held cases resume and the contractor is notified. If not actually received, tap <b>Not actually received?</b>. Use <b>Resend login code</b> if a contractor forgot it.",
       "<b>Contractor login</b>: at the bottom of the app login page tap <b>Contractor login</b> — account = <b>tax ID</b>, login code = the <b>6 digits</b> emailed at registration; the phone remembers it. If forgotten, enter the tax ID and a new code is sent to the registered email.",
-      "<b>Wrong or missing special work</b>: on the case page tap <b>Edit contractor application</b>, change special work, conditions, hazards or area, <b>enter a reason</b> and save. It is logged and the contractor is emailed at once. Removed work cancels its unapproved permits; adding hot work, lifting, confined space or work at height <b>returns the case</b> so the contractor applies for the permit."
+      "<b>Wrong or missing special work</b>: on the case page tap <b>Edit contractor application</b>, change special work, conditions, hazards, area or joint work, <b>enter a reason</b> and save. It is logged and the contractor is emailed at once. Removed work cancels its unapproved permits; adding hot work, lifting, confined space or work at height <b>returns the case</b> so the contractor applies for the permit."
      ],
      "tip": "Save your own signature in the App before approving (it goes into the EHS box on the documents). Approval documents and permits are filed on the NAS every day at 12:15, under OSH 06 contractor management / contractor forms / records / year / month / one folder per job.",
      "warn": false

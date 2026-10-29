@@ -281,12 +281,30 @@ function cnBackToApply(tax) {
   S.cpub = { kind: 'apply', i: P.i, form: P.form, f: { caTax: tax }, step: 0, auto: true };
   cnHash('apply'); window.scrollTo(0, 0); render();
 }
+/** 10/29：施工區域改下拉（清單在後端 CONS_AREA），清單外選「其他」再自己寫。 */
+var CN_AREA_OTHER = '其他（自行填寫）';
+function cnAreaSel(list, f) {
+  list = list || [];
+  var sel = f.caAreaSel || (f.caArea ? (list.indexOf(f.caArea) >= 0 ? f.caArea : CN_AREA_OTHER) : '');
+  f.caAreaSel = sel;
+  return '<label class="nl req" for="caAreaSel">施工區域</label><select class="field" id="caAreaSel" onchange="cnKeep();S.cpub.f.caAreaSel=this.value;cnRedraw()">' +
+    '<option value="">請選擇</option>' + list.concat([CN_AREA_OTHER]).map(function (x) { return '<option value="' + esc(x) + '"' + (x === sel ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>' +
+    (sel === CN_AREA_OTHER ? cnField('caArea', '請寫施工位置', list.indexOf(f.caArea) >= 0 ? '' : f.caArea, { max: 40, ph: '例：辦公大樓屋頂、高壓變電站' }) : '');
+}
+function cnAreaVal() { var s = S.cpub.f.caAreaSel || ''; return s === CN_AREA_OTHER ? cnV('caArea') : s; }
+/** 10/29：職安法第 27 條，有共同作業才要開協議組織會議（核准時附會議簽到表）。fn：點選後呼叫的函式名稱 */
+function cnJointQ(v, fn) {
+  return '<label class="nl req">施工期間，同一區域是否有員和員工或其他廠商同時作業？</label><div class="cwrap">' + ['是', '否'].map(function (x) {
+    return '<button type="button" class="chip' + (v === x ? ' on' : '') + '" onclick="' + fn + '(' + jsq(x) + ')">' + (v === x ? ic('check', 14, 3) : '') + esc(x) + '</button>'; }).join('') + '</div>' +
+    '<div class="muted sm">有的話，開工前要召開協議組織會議（職業安全衛生法第 27 條），核准時會附上會議簽到表。</div>';
+}
+function cnJoint(x) { cnKeep(); S.cpub.f.joint = x; var y = window.scrollY; render(); window.scrollTo(0, y); }
 /** 施工內容表單（申請與補件共用）。f：S.cpub.f，o：選項 */
 function cnCaseForm(o, f, fix) {
   var ws = f.workers = f.workers || (fix ? [] : [{ name: '', id4: '' }]);
   var spec = f.spec || [], pmT = fix ? [] : spec.filter(function (x) { return (o.permit || []).indexOf(x) >= 0; });
   var h = '<div class="sec">施工內容</div>' +
-    cnField('caWork', '工程名稱', f.caWork) + cnField('caArea', '施工區域', f.caArea, { ph: '例：PU部一廠、BU粉體區' }) +
+    cnField('caWork', '工程名稱', f.caWork) + cnAreaSel(o.area, f) +
     '<div class="r2">' + cnField('caStart', '預計開工日', f.caStart, { type: 'date', max: 10, change: 'cnRedraw()' }) + cnField('caEnd', '預計完工日', f.caEnd, { type: 'date', max: 10, change: 'cnRedraw()' }) + '</div>' +
     '<label class="nl">特殊作業（有的才勾）</label>' + cnChips('spec', o.spec, spec) +
     (spec.indexOf('動火作業') >= 0 ? '<label class="nl req">動火方式</label>' + cnChips('hot', o.hot, f.hot) : '') +
@@ -295,6 +313,7 @@ function cnCaseForm(o, f, fix) {
     (fix && spec.some(function (x) { return (o.permit || ['動火作業', '吊掛作業', '局限空間作業', '高架作業']).indexOf(x) >= 0; }) ? '<div class="muted sm">新加勾的特殊作業，送出修改後請在案件頁按「申請特殊作業許可」。</div>' : '') +
     '<label class="nl">施工期間可能產生的狀況</label>' + cnChips('situ', o.situ, f.situ) +
     '<label class="nl">施工環境可能的危害</label>' + cnChips('env', o.env, f.env) +
+    cnJointQ(f.joint, 'cnJoint') +
     '<div class="sec">' + (fix ? '新增施工人員' : '施工人員') + '<small>一列一人；沒有身分證的外籍人員填居留證末 4 碼</small></div>' +
     '<div class="cnw cnwh"><span>姓名</span><span>身分證末 4 碼</span><span></span></div>' +
     ws.map(function (w, k) {
@@ -375,7 +394,7 @@ function cnSigBox(t) {
 }
 function cnCaseBody() {
   var f = S.cpub.f;
-  return { work: cnV('caWork'), area: cnV('caArea'), start: cnV('caStart'), end: cnV('caEnd'), spec: f.spec || [], hot: f.hot || [], situ: f.situ || [], env: f.env || [],
+  return { work: cnV('caWork'), area: cnAreaVal(), joint: f.joint || '', start: cnV('caStart'), end: cnV('caEnd'), spec: f.spec || [], hot: f.hot || [], situ: f.situ || [], env: f.env || [],
            workers: (f.workers || []).map(function (w) { return { name: String(w.name || '').trim(), id4: String(w.id4 || '').trim() }; }),
            sup: cnV('caSup'), supPhone: cnV('caSupPhone'), email: cnV('caEmail'), note: cnV('caNote'), files: f.files || [] };
 }
@@ -384,6 +403,8 @@ function cnApplyGo() {
   var b = cnCaseBody(), f = S.cpub.f, o = S.cpub.form;
   b.tax = S.cpub.vendor.tax; b.agree = !!($('caAgree') && $('caAgree').checked);
   b.commitDeclared = !!f.commitDeclared; b.commitFiles = f.commitFiles || [];
+  if (!b.area) return toast(S.cpub.f.caAreaSel ? '請寫施工位置' : '請選擇施工區域', 'err');
+  if (!b.joint) return toast('請回答：同一區域是否有員和員工或其他廠商同時作業', 'err');
   if (!S.cpub.vendor.commit && !b.commitDeclared && !b.commitFiles.length) return toast('請勾「建檔時已提交承諾書」或上傳承諾書', 'err');
   b.permits = (f.spec || []).filter(function (t) { return (o.permit || []).indexOf(t) >= 0; }).map(function (t) {
     var p = (f.pm || {})[t] || {};
@@ -463,6 +484,7 @@ function cnCase() {
     '<div class="card"><div class="kv"><span>狀態</span><b>' + pill(CN_ST_PILL[d.status] || 'na', '', d.status) + '</b></div>' +
     (d.comment && (d.status === '補件退回' || d.status === '已駁回') ? '<div class="box bad"><div class="r">' + ic('warn', 22) + '<div class="bt"><b>環安衛意見</b><div class="m">' + esc(d.comment).replace(/\n/g, '<br>') + '</div></div></div></div>' : '') +
     '<div class="kv"><span>工程</span><b>' + esc(d.work) + '</b></div><div class="kv"><span>區域</span><b>' + esc(d.area) + '</b></div>' +
+    (d.joint ? '<div class="kv"><span>共同作業</span><b>' + esc(d.joint === '是' ? '有（開工前召開協議組織會議）' : '無') + '</b></div>' : '') +
     '<div class="kv"><span>期間</span><b>' + esc(d.start + ' ～ ' + d.end) + '</b></div><div class="kv"><span>特殊作業</span><b>' + esc(d.spec) + '</b></div>' +
     '<div class="kv"><span>員和承辦</span><b>' + esc(d.handler) + (d.handlerSigned ? '（已簽）' : '') + '</b></div></div>' + cnProgress(d);
   if (d.status !== '已核准' && d.status !== '已駁回') h += '<div class="sec">還要做的事</div><div class="card">' + d.todo.map(function (t) {
@@ -513,7 +535,7 @@ function cnAttachGo() {
 }
 function cnFixStart() {
   var d = S.cpub.d;
-  S.cpub.f = { caWork: d.work, caArea: d.area, caStart: d.start, caEnd: d.end, spec: d.specRaw.slice(), hot: d.hotRaw.slice(), situ: d.situRaw.slice(), env: d.envRaw.slice(),
+  S.cpub.f = { caWork: d.work, caArea: d.area, joint: d.joint || '', caStart: d.start, caEnd: d.end, spec: d.specRaw.slice(), hot: d.hotRaw.slice(), situ: d.situRaw.slice(), env: d.envRaw.slice(),
                caSup: d.sup, caSupPhone: d.supPhone, caEmail: d.email, caNote: d.note, workers: [], files: [] };
   S.cpub.fix = true; S.cpub.form = Object.assign({ lateDays: 3 }, d.form); S.cpub.keep = d.workers.map(function (w) { return w.seq; });
   window.scrollTo(0, 0); render();
@@ -754,7 +776,7 @@ function cnCaseStaff(d) {
   var v = d.vendorInfo, tel = String(v.phone || '').replace(/[^\d+#]/g, ''), stel = String(d.supPhone || '').replace(/[^\d+#]/g, '');
   var row = function (k, x) { return x ? '<div class="kv"><span>' + esc(k) + '</span><b>' + esc(x) + '</b></div>' : ''; };
   var h = '<div class="card">' + row('案件', d.id) + '<div class="kv"><span>狀態</span><b>' + pill(CN_ST_PILL[d.status] || 'na', '', d.status) + '</b></div>' + row('廠商', d.vendor) +
-    row('工程', d.work) + row('區域', d.area) + row('期間', d.start + ' ～ ' + d.end) + row('特殊作業', d.spec + (d.hot ? '（' + d.hot + '）' : '')) +
+    row('工程', d.work) + row('區域', d.area) + row('共同作業', d.joint === '是' ? '有（開工前召開協議組織會議）' : d.joint === '否' ? '無' : '') + row('期間', d.start + ' ～ ' + d.end) + row('特殊作業', d.spec + (d.hot ? '（' + d.hot + '）' : '')) +
     row('可能狀況', d.situ) + row('環境危害', d.env) + row('承辦', d.handler) + row('提交', d.submitted ? d.submitted.slice(5) + '　' + d.submittedBy : '') +
     row('備註', v.commit ? String(d.note || '').replace(/[；;，,]?\s*廠商表示建檔時已提交承諾書（環安衛尚未確認）/, '') : d.note) +   // 10/28：承諾書確認後，舊備註不要再顯示「尚未確認」
     (d.late ? cnStCard('warn', '', esc(d.late)) : '') + '</div>';
@@ -834,10 +856,20 @@ function cnSubmit() { if (!cnOkChk()) return; cnBusy('cnBtn', '提交中…'); a
 /** 環安衛修改廠商的申請內容（10/19 Jason：廠商常把特殊作業勾錯、漏勾）。 */
 function cnEhsEditStart() {
   var d = S.cnD;
-  S.cnEdit = { id: d.id, spec: (d.specRaw || []).slice(), hot: (d.hotRaw || []).slice(), situ: (d.situRaw || []).slice(), env: (d.envRaw || []).slice(), area: d.area, why: '' };
+  S.cnEdit = { id: d.id, spec: (d.specRaw || []).slice(), hot: (d.hotRaw || []).slice(), situ: (d.situRaw || []).slice(), env: (d.envRaw || []).slice(), area: d.area, joint: d.joint || '', why: '' };
   cnCaseStaff(d); window.scrollTo(0, 0);
 }
-function cnEeKeep() { var E = S.cnEdit; if (!E) return; if ($('eeArea')) E.area = $('eeArea').value; if ($('eeWhy')) E.why = $('eeWhy').value; }
+function cnEeKeep() { var E = S.cnEdit; if (!E) return; if ($('eeAreaSel')) E.areaSel = $('eeAreaSel').value; if ($('eeArea')) E.area = $('eeArea').value; if ($('eeWhy')) E.why = $('eeWhy').value; }
+function cnEeJoint(x) { cnEeKeep(); S.cnEdit.joint = x; var y = window.scrollY; cnCaseStaff(S.cnD); window.scrollTo(0, y); }
+function cnEeArea() {
+  var E = S.cnEdit, list = (S.cnD.form || {}).area || [];
+  if (E.areaSel === undefined) E.areaSel = list.indexOf(E.area) >= 0 ? E.area : CN_AREA_OTHER;
+  var oth = E.areaSel === CN_AREA_OTHER;
+  return '<label class="nl req" for="eeAreaSel">施工區域</label><select class="field" id="eeAreaSel" onchange="cnEeKeep();var y=window.scrollY;cnCaseStaff(S.cnD);window.scrollTo(0,y)">' +
+    list.concat([CN_AREA_OTHER]).map(function (x) { return '<option value="' + esc(x) + '"' + (x === E.areaSel ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>' +
+    (oth ? '<input class="field" id="eeArea" maxlength="40" placeholder="請寫施工位置" value="' + esc(list.indexOf(E.area) >= 0 ? '' : E.area || '') + '">' : '');
+}
+function cnEeAreaVal() { var E = S.cnEdit; return E.areaSel === CN_AREA_OTHER ? String(E.area || '').trim() : E.areaSel; }
 function cnEeTog(k, x) { cnEeKeep(); var a = S.cnEdit[k], i = a.indexOf(x); if (i >= 0) a.splice(i, 1); else a.push(x); var y = window.scrollY; cnCaseStaff(S.cnD); window.scrollTo(0, y); }
 function cnEeChips(k, list) {
   var sel = S.cnEdit[k];
@@ -852,7 +884,7 @@ function cnEhsEditForm(d, h) {
     (E.spec.indexOf('動火作業') >= 0 ? '<label class="nl req">動火方式</label>' + cnEeChips('hot', o.hot || []) : '') +
     '<label class="nl">施工期間可能產生的狀況</label>' + cnEeChips('situ', o.situ || []) +
     '<label class="nl">施工環境可能的危害</label>' + cnEeChips('env', o.env || []) +
-    '<label class="nl req" for="eeArea">施工區域</label><input class="field" id="eeArea" maxlength="40" value="' + esc(E.area || '') + '">' +
+    cnEeArea() + cnJointQ(E.joint, 'cnEeJoint') +
     '<label class="nl req" for="eeWhy">修改原因（廠商會看到）</label><textarea class="field" id="eeWhy" rows="2" maxlength="200" placeholder="例：只是更換燈具，不是高架作業">' + esc(E.why || '') + '</textarea></div>' +
     (add.length || rm.length ? '<div class="box ' + (addPm.length ? 'warn' : 'info') + '"><div class="r">' + ic(addPm.length ? 'warn' : 'info', 20) + '<div class="bt"><b>這次的變動</b><div class="m">' +
       (add.length ? '加上：' + esc(add.join('、')) + '<br>' : '') + (rm.length ? '拿掉：' + esc(rm.join('、')) + '（還沒核准的許可會一併取消）<br>' : '') +
@@ -865,9 +897,9 @@ function cnEhsEditGo() {
   var E = S.cnEdit;
   if (String(E.why || '').trim().length < 2) { toast('請寫修改原因（廠商會看到）', 'err'); if ($('eeWhy')) $('eeWhy').focus(); return; }
   if (E.spec.indexOf('動火作業') >= 0 && !E.hot.length) return toast('有動火作業，請勾動火方式', 'err');
-  if (!String(E.area || '').trim()) return toast('施工區域不能空白', 'err');
+  if (!cnEeAreaVal()) return toast('施工區域不能空白', 'err');
   cnBusy('cnBtn', '儲存中…');
-  api('consEhsEdit', { id: E.id, spec: E.spec, hot: E.spec.indexOf('動火作業') >= 0 ? E.hot : [], situ: E.situ, env: E.env, area: String(E.area).trim(), comment: String(E.why).trim() }).then(function (r) {
+  api('consEhsEdit', { id: E.id, spec: E.spec, hot: E.spec.indexOf('動火作業') >= 0 ? E.hot : [], situ: E.situ, env: E.env, area: cnEeAreaVal(), joint: E.joint, comment: String(E.why).trim() }).then(function (r) {
     S.cnEdit = null;
     cnAfter('已修改並通知廠商' + (r.needPermit && r.needPermit.length ? '；已退回補件，請廠商申請「' + r.needPermit.join('、') + '」許可' : '') + (r.cancelled && r.cancelled.length ? '；取消 ' + r.cancelled.length + ' 張許可' : ''))();
   }).catch(cnErr);
