@@ -1,5 +1,5 @@
 {
- "version": "0.24.1",
+ "version": "0.25.0",
  "chapters": [
   {
    "no": 1,
@@ -349,6 +349,22 @@
       "Tap <b>\"Fixed — close\"</b>; the person who found it and the supervisor are notified."
      ],
      "tip": "If you marked \"Abnormal\" by mistake, change it back to OK the same day and resend; the issue is cancelled automatically.",
+     "warn": false
+    },
+    {
+     "no": "2-10",
+     "title": "Table entry on a computer (fill a whole month like a spreadsheet)",
+     "lead": "Open the App in a browser on a computer to fill in many days at once, just like a Google spreadsheet. No Google account is needed, and your e-signature is still added when you save.",
+     "shots": [],
+     "steps": [
+      "On the computer, open the App address in a browser and log in (the same address as on the phone; bookmark it). On the home page tap <b>\"Table entry (computer)\"</b>, or on the calendar page tap <b>\"Fill in as a table\"</b>.",
+      "The tabs at the top are the daily checklists you are responsible for; click one to switch. In the grid, columns are dates and rows are check items.",
+      "Click a cell and type: <b>1 or V</b> = normal, <b>2 or X</b> = abnormal, <b>3 or -</b> = not applicable; move with the arrow keys, Tab or Enter. Click a date to select the whole day, or drag to select a block, then type once to fill it all. You can also copy and paste from Excel; <b>Ctrl + Z</b> undoes.",
+      "When you enter abnormal, a note box appears on the right. Describe the problem and the action taken, then press <b>Esc</b> to go back to the table.",
+      "If there was no shift or no work all day, type 1 in the <b>\"No work\"</b> row at the bottom.",
+      "Tap <b>\"Save and sign\"</b> at the bottom: each finished day is submitted as one record with your signature. Unfinished days stay as drafts and are not lost even if you close the page."
+     ],
+     "tip": "Grey cells cannot be changed (future dates, days signed by someone else, months already submitted). For days filled in late, the time of entry is recorded and visible to the unit supervisor and EHS. At month end, still tap \"Month complete, lock and send to the unit supervisor\" on the calendar page.",
      "warn": false
     }
    ]

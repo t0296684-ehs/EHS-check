@@ -1007,6 +1007,8 @@ function monthRender() {
     (v.status === '填寫中' || v.status === '退回' ? '<div class="muted sm2">在試算表填的內容，要回到這裡按「確認」才會帶入電子簽名、才能送審。</div>' : '') + '</div>';
   h += confirmBlock(v);
   h += bfButton(v);                                              // 一次補填全部漏填
+  if (sfWide() && !isEhs() && (v.status === '填寫中' || v.status === '退回') && sfMine(v).length)
+    h += '<button class="btn ghost" onclick="S.sf=null;go(\'sheetFill\',{dept:' + jsq(v.dept) + ',period:' + jsq(v.period) + '})">' + ic('pen', 20, 2.4) + '用表格填寫（電腦版，像試算表一樣整月填）</button>';
   var pend = (S.outbox || []).filter(function (j) { return j.body.deptId === v.dept && j.body.date.slice(0, 7) === v.period; });
   if (pend.length) h += '<div class="strip info">' + ic('cloud', 24, 2.2) + '<div class="stx"><span>手機裡還有 <b>' + pend.length + ' 筆</b>這個月的檢點沒上傳完</span><small>上傳完才會出現在下面</small></div>' +
     '<button class="btn sm" onclick="flush().then(function(){render()})">立即上傳</button></div>';
@@ -1736,3 +1738,425 @@ function logoutDo(name, tok) {
     return obRefresh();
   });
 }
+
+// ───────────── 電腦版表格填寫（10/29 Jason：電腦上用 App 網頁版，填法要像 Google 試算表；同仁不用 Google 帳號）─────────────
+// 一課一個月一頁：上面分頁＝我負責的每日表，格子＝項目 × 日期，方向鍵移動、打 1／2／3 或 V／X／- 直接填，可拉選一整片一起填、可從 Excel 貼上、Ctrl+Z 復原。
+// 存檔＝每一天各送一筆（跟手機送出同一條路：先存待上傳、背景上傳、伺服器帶入本人簽名、補填照記填寫時間）；沒填完的天留在草稿，不會不見。
+var SF_DRAFT = 'chk.sfd', SF_GEN = { ok: ['v', 'V', '√', '✓', 'ˇ', 'o', 'O', '○'], ng: ['x', 'X', '×', '✗'], na: ['-', '/', '－', '／', '─', '—'], care: ['Δ', '△'] };
+function sfWide() { return window.innerWidth >= 900; }
+function sfT(s) { return window.I18N && I18N.tr ? I18N.tr(s) : s; }
+/** 這個月我負責、可以用表格填的每日表 */
+function sfMine(v) {
+  return (v.model.daily || []).map(function (x) {
+    var a = (S.me.assigns || []).filter(function (y) { return y.daily && y.dept === v.dept && y.form === x.form; })[0];
+    var f = a && F(x.form, v.period + '-01');
+    return a && f && f.items && f.items.length ? { a: a, x: x, f: f } : null;
+  }).filter(Boolean);
+}
+/** 首頁（電腦寬螢幕）入口：每個有每日表的部門一格 */
+function sfTiles(m) {
+  if (!sfWide() || isEhs()) return '';
+  return m.depts.filter(function (d) { return !demoDept(d.id) && m.assigns.some(function (a) { return a.dept === d.id && a.daily; }); }).map(function (d, i, all) {
+    return tile('pen', '表格填寫（電腦版）', "go('sheetFill',{dept:" + jsq(d.id) + ',period:' + jsq(today().slice(0, 7)) + '})', '', all.length > 1 ? d.id : '像試算表一樣，一次填整個月');
+  }).join('');
+}
+function sfDraftAll() { return lsGet(SF_DRAFT, {}); }
+function sfDraftSave() { var sf = S.sf; if (!sf) return; var all = sfDraftAll(), k = sf.dept + '|' + sf.period, any = Object.keys(sf.ed).some(function (x) { return Object.keys(sf.ed[x]).length; }); if (any) all[k] = sf.ed; else delete all[k]; lsSet(SF_DRAFT, all); }
+
+PAGES.sheetFill = function () {
+  var a = S.arg;
+  setTitle('表格填寫');
+  if (!S.sf || S.sf.arg !== a) S.sf = { arg: a, dept: a.dept, period: a.period, fi: 0, ed: sfDraftAll()[a.dept + '|' + a.period] || {}, sel: { r0: 0, c0: 0, r1: 0, c1: 0 }, undo: [] };
+  var sf = S.sf;
+  if (!sf.v) $('app').innerHTML = loading('讀取這個月的紀錄中…');
+  else sfRender();
+  if (!sf.v || sf.stale) sfLoad();
+};
+function sfLoad() {
+  var sf = S.sf; sf.stale = false;
+  return api('monthView', { deptId: sf.dept, period: sf.period }, { quiet: !!sf.v }).then(function (v) {
+    if (S.page !== 'sheetFill' || S.sf !== sf) return;
+    sf.v = v; sf.list = sfMine(v);
+    if (!sf.seeded) { sf.seeded = true; sfSeedSel(); }
+    sfRender();
+  }).catch(function (e) { if (!sf.v) $('app').innerHTML = errBox('讀不到這個月的資料', e.message) + '<button class="btn navy" onclick="render()">再試一次</button>'; });
+}
+/** 一開始游標放在第一個還沒填的平日 */
+function sfSeedSel() {
+  var sf = S.sf, it = sf.list[sf.fi]; if (!it) return;
+  var t = today(), n = sfDays(sf.period);
+  for (var d = 1; d <= n; d++) { var date = sf.period + '-' + pad(d); if (date > t) break; if (workDay(date) && !sfLock(it, d) && !sfRec(it, d)) { sf.sel = { r0: 0, c0: d, r1: 0, c1: d }; return; } }
+  var c = Math.min(n, sf.period === t.slice(0, 7) ? Number(t.slice(8)) : 1); sf.sel = { r0: 0, c0: c, r1: 0, c1: c };
+}
+function sfDays(per) { return new Date(Number(per.slice(0, 4)), Number(per.slice(5)), 0).getDate(); }
+function sfDate(d) { return S.sf.period + '-' + pad(d); }
+/** 這一天現在的內容：自己改到一半的 → 還在手機待上傳的 → 伺服器上的 */
+function sfRec(it, d) {
+  var e = (S.sf.ed[it.a.key] || {})[d]; if (e) return e;
+  return sfBase(it, d);
+}
+function sfBase(it, d) {
+  var j = pendJob(it.a, sfDate(d));
+  if (j) return { r: j.body.results || {}, n: j.body.notes || {}, w: !!j.body.noWork, pend: true, signer: S.me.person.name };
+  var r = it.x.days[d];
+  return r ? { r: r.results || {}, n: r.notes || {}, w: !!r.noWork, signer: r.signer, unconf: r.unconf } : null;
+}
+function sfEmpty(x) { return !x || (!x.w && !Object.keys(x.r || {}).length && !Object.keys(sfNotes(x)).length); }
+function sfSame(p, q) {
+  if (sfEmpty(p) && sfEmpty(q)) return true;
+  if (!p || !q) return false;
+  return !!p.w === !!q.w && JSON.stringify(sfSort(p.r)) === JSON.stringify(sfSort(q.r)) && JSON.stringify(sfSort(sfNotes(p))) === JSON.stringify(sfSort(sfNotes(q)));
+}
+function sfNotes(r) { var o = {}; Object.keys(r.n || {}).forEach(function (k) { if (String(r.n[k] || '').trim()) o[k] = r.n[k]; }); return o; }
+function sfSort(o) { var x = {}; Object.keys(o || {}).sort().forEach(function (k) { x[k] = o[k]; }); return x; }
+/** 這一天能不能改（空字串＝可以）：規則同月曆「補填這天／修改這天」 */
+function sfLock(it, d) {
+  var sf = S.sf, v = sf.v, date = sfDate(d), t = today();
+  if (!(v.status === '填寫中' || v.status === '退回')) return '本月已送審（' + v.status + '），不能修改';
+  if (date > t) return '未來的日子';
+  if (demoDept(v.dept) && date !== t) return '示範區只能填今天';
+  if (date < fillMin() + '-01') return '超過補填期限';
+  var r = it.x.days[d], me = S.me.person.name;
+  if (r && r.signer && r.signer !== me && !(r.noWork && !mgrOf(v.dept))) return '這天由 ' + r.signer + ' 檢點，不能修改';
+  return '';
+}
+function sfDirty(it, d) { var e = (S.sf.ed[it.a.key] || {})[d]; return !!e && !sfSame(e, sfBase(it, d)); }
+/** 改到一半的這一天還缺什麼（空字串＝可以存） */
+function sfProb(it, d) {
+  var e = (S.sf.ed[it.a.key] || {})[d]; if (!e || e.w) return '';
+  var f = it.f, miss = f.items.filter(function (q) { return !e.r[q.seq]; });
+  if (miss.length) return '還有 ' + miss.length + ' 項沒填（第 ' + miss[0].seq + ' 項起）';
+  for (var i = 0; i < f.items.length; i++) { var s = f.items[i].seq, w = noteWhy(f, e, s); if (w) return '第 ' + s + ' 項' + (w === '還沒寫' ? '要寫說明' : '：' + w); }
+  return '';
+}
+function sfOpts(it, ri) { var q = it.f.items[ri]; return (q && q.opts) || it.f.opts; }
+function sfMark(it, ri, k) { var o = sfOpts(it, ri).filter(function (x) { return x.k === k; })[0]; return o ? (o.mark || o.label) : k ? '?' : ''; }
+/** 打的字 → 選項：1／2／3＝第幾個選項；也認 V、X、-、△ 與選項本身的符號、文字 */
+function sfKeyOf(it, ri, s) {
+  s = String(s == null ? '' : s).trim(); if (!s) return '';
+  var opts = sfOpts(it, ri);
+  if (/^[1-9１-９]$/.test(s)) { var o = opts[Number(s.replace(/[１-９]/, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })) - 1]; return o ? o.k : null; }
+  var hit = opts.filter(function (o) { return o.mark === s || o.label === s; })[0]; if (hit) return hit.k;
+  var g = Object.keys(SF_GEN).filter(function (k) { return SF_GEN[k].indexOf(s) >= 0; })[0];
+  return g && opts.some(function (o) { return o.k === g; }) ? g : null;
+}
+
+function sfRender() {
+  var sf = S.sf, v = sf.v, list = sf.list, t = today();
+  var h = '<div class="sfnav"><button class="btn ghost sm" onclick="sfGo(-1)">' + ic('back', 18, 2.8) + '上個月</button><b>' + esc(ymLabel(sf.period)) + '</b>' +
+    '<button class="btn ghost sm" onclick="sfGo(1)"' + (sf.period >= t.slice(0, 7) ? ' disabled' : '') + '>下個月' + ic('right', 18, 2.8) + '</button>' +
+    '<span class="sfsp"></span>' + statusPill(v.status) + '<button class="btn ghost sm" onclick="go(\'month\',{dept:' + jsq(sf.dept) + ',period:' + jsq(sf.period) + '})">月曆・送審</button></div>';
+  if (!list.length) { $('app').innerHTML = h + '<div class="empty">這個月沒有指派給您的每日檢點表。定期檢查請在手機「我的表單」填寫。</div>'; bar(''); return; }
+  if (sf.fi >= list.length) sf.fi = 0;
+  h += '<div class="sftabs" role="tablist">' + list.map(function (it, i) {
+    var n = Object.keys(sf.ed[it.a.key] || {}).filter(function (d) { return sfDirty(it, d); }).length;
+    return '<button role="tab" aria-selected="' + (i === sf.fi) + '" class="sftab' + (i === sf.fi ? ' on' : '') + '" onclick="sfTab(' + i + ')">' + esc(it.x.name || it.f.name) + (n ? '<i class="sfdot">' + n + '</i>' : '') + '</button>';
+  }).join('') + '</div>';
+  var it = list[sf.fi];
+  if (!demoDept(v.dept) && (v.status === '填寫中' || v.status === '退回')) h += '<div class="sfhelp">' + ic('info', 16, 2.4) + '<span>點格子直接打字：1 或 V＝正常、2 或 X＝異常、3 或 -＝不適用（依各項的選項）。方向鍵、Tab、Enter 移動；拖曳或 Shift＋方向鍵選一整片一起填；可以從 Excel 複製貼上；Ctrl＋Z 復原。補填的日子會記下填寫時間，單位負責人與環安衛看得到。</span></div>';
+  h += '<div class="sfwrap"><div class="sfgrid" id="sfg" tabindex="0" aria-label="' + esc(it.f.name) + '">' + sfTable(it) + '</div><div class="sfside" id="sfs"></div></div>';
+  $('app').innerHTML = h;
+  for (var d = 1; d <= sfDays(sf.period); d++) sfPaintDay(it, d);
+  sfMouse(); sfPaintSel(); sfSide(); sfBar();
+  var g = $('sfg'); if (g && !document.querySelector('.sfside textarea:focus')) g.focus({ preventScroll: true });
+}
+function sfTable(it) {
+  var sf = S.sf, n = sfDays(sf.period), t = today(), f = it.f;
+  var h = '<table><thead><tr><th class="t">項目</th>';
+  for (var d = 1; d <= n; d++) {
+    var date = sfDate(d), wd = !workDay(date);
+    h += '<th class="sfh' + (wd ? ' we' : '') + (date === t ? ' td' : '') + '" data-c="' + d + '">' + d + '<small>' + esc(wk(date)) + '</small></th>';
+  }
+  h += '</tr></thead><tbody>';
+  var g = null;
+  f.items.forEach(function (q, ri) {
+    if (q.group && q.group !== g) { g = q.group; h += '<tr class="sfg"><td class="t" colspan="' + (n + 1) + '">' + esc(g) + '</td></tr>'; }
+    h += '<tr><td class="t" data-r="' + ri + '"><span class="no">' + esc(q.seq) + '</span>' + esc(q.text) + '</td>';
+    for (var d = 1; d <= n; d++) h += '<td id="sc' + ri + '_' + d + '" data-r="' + ri + '" data-c="' + d + '"></td>';
+    h += '</tr>';
+  });
+  var nr = f.items.length;
+  h += '<tr class="sfw"><td class="t" data-r="' + nr + '">無作業（整天沒上班、沒作業）</td>';
+  for (var d2 = 1; d2 <= n; d2++) h += '<td id="sc' + nr + '_' + d2 + '" data-r="' + nr + '" data-c="' + d2 + '"></td>';
+  h += '</tr><tr class="sfsg"><td class="t">檢查人員</td>';
+  for (var d3 = 1; d3 <= n; d3++) h += '<td id="sg' + d3 + '"></td>';
+  h += '</tr></tbody></table>';
+  return h;
+}
+/** 只重畫一天（整欄），打字不會整頁閃 */
+function sfPaintDay(it, d) {
+  var f = it.f, rec = sfRec(it, d), lock = sfLock(it, d), dirty = sfDirty(it, d), prob = dirty ? sfProb(it, d) : '', nr = f.items.length;
+  f.items.forEach(function (q, ri) {
+    var el = $('sc' + ri + '_' + d); if (!el) return;
+    var k = rec && !rec.w ? rec.r[q.seq] : '', bad = k && (k === '?' || isBad(f, k)), note = rec && String((rec.n || {})[q.seq] || '').trim();
+    el.textContent = rec && rec.w ? '' : sfShow(sfMark(it, ri, k));
+    el.className = sfKeep(el) + (lock ? 'lk' : '') + (bad ? ' bad' : '') + (dirty ? ' dt' : rec && rec.pend ? ' pd' : rec && rec.unconf ? ' uc' : '') + (rec && rec.w ? ' nw' : '') + (note ? ' nt' : '') +
+      (dirty && bad && f.noteFor.indexOf(k) >= 0 && noteWhy(f, rec, q.seq) ? ' need' : '') + (dirty && !rec.w && !k ? ' miss' : '') + (!rec && !lock && sfGap(d) ? ' gap' : '');
+    el.title = lock || (note ? sfT('說明') + '：' + rec.n[q.seq] : '');
+  });
+  var w = $('sc' + nr + '_' + d);
+  if (w) { w.textContent = rec && rec.w ? '無' : ''; w.className = sfKeep(w) + (lock ? 'lk' : '') + (dirty ? ' dt' : rec && rec.pend ? ' pd' : '') + (rec && rec.w ? ' on' : ''); w.title = lock; }
+  var sg = $('sg' + d);
+  if (sg) { sg.textContent = dirty ? (prob ? '!' : '✎') : rec ? (rec.w ? '' : String(rec.signer || '').slice(-2)) : ''; sg.className = dirty ? (prob ? 'need' : 'dt') : rec && rec.pend ? 'pd' : ''; sg.title = dirty ? (prob || sfT('存檔後帶入您的簽名')) : rec && rec.pend ? sfT('已存，等待上傳') : ''; }
+  var th = document.querySelector('#sfg th[data-c="' + d + '"]'); if (th) th.classList.toggle('dt', dirty);
+}
+/** 過去的上班日還沒有紀錄（淡淡標出來，跟月曆的虛線框同一個意思） */
+function sfGap(d) { var date = sfDate(d); return date < today() && workDay(date) && !demoDept(S.sf.dept) && !(S.me.startPeriod && S.sf.period < S.me.startPeriod); }
+function sfShow(m) { return m === 'ˇ' ? '✓' : m; }   // 紙本、試算表用「ˇ」，螢幕上太小看不清，畫面改顯示 ✓（存回試算表仍是原符號）
+function sfKeep(el) { return (el.classList.contains('sel') ? 'sel ' : '') + (el.classList.contains('cur') ? 'cur ' : ''); }
+function sfPaintSel() {
+  var sf = S.sf, s = sf.sel, g = $('sfg'); if (!g) return;
+  g.querySelectorAll('td.sel,td.cur').forEach(function (e) { e.classList.remove('sel'); e.classList.remove('cur'); });
+  var r0 = Math.min(s.r0, s.r1), r1 = Math.max(s.r0, s.r1), c0 = Math.min(s.c0, s.c1), c1 = Math.max(s.c0, s.c1);
+  for (var r = r0; r <= r1; r++) for (var c = c0; c <= c1; c++) { var e = $('sc' + r + '_' + c); if (e) e.classList.add('sel'); }
+  var cur = $('sc' + s.r1 + '_' + s.c1); if (cur) { cur.classList.add('cur'); sfScrollTo(cur); }
+}
+function sfScrollTo(el) {
+  var g = $('sfg'); if (!g) return;
+  var gr = g.getBoundingClientRect(), er = el.getBoundingClientRect(), lw = 260;
+  if (er.left < gr.left + lw) g.scrollLeft -= gr.left + lw - er.left + 8;
+  else if (er.right > gr.right) g.scrollLeft += er.right - gr.right + 8;
+  if (er.top < gr.top + 40) g.scrollTop -= gr.top + 40 - er.top + 4;
+  else if (er.bottom > gr.bottom) g.scrollTop += er.bottom - gr.bottom + 4;
+}
+/** 右邊：選到的格子（日期、項目、要寫的說明）＋還沒填完的天 */
+function sfSide() {
+  var sf = S.sf, el = $('sfs'), it = sf.list[sf.fi]; if (!el || !it) return;
+  var s = sf.sel, d = s.c1, ri = s.r1, f = it.f, q = f.items[ri], date = sfDate(d), rec = sfRec(it, d), lock = sfLock(it, d);
+  var h = '<div class="card"><div class="mr"><b>' + md(date) + '（' + esc(wk(date)) + '）</b>' + (lock ? pill('na', '', sfT('不能修改')) : sfDirty(it, d) ? pill('warn', 'pen', sfT('未存檔')) : rec && rec.pend ? pill('ok', 'cloud', sfT('已存，等待上傳')) : rec ? pill('ok', 'check', sfT('已送出')) : '') + '</div>';
+  if (lock) h += '<div class="muted">' + esc(lock) + '</div>';
+  if (q) {
+    var k = rec && !rec.w ? rec.r[q.seq] : '';
+    h += '<div class="sfq"><span class="sfno">' + esc(q.seq) + '</span>' + esc(q.text) + (q.method ? ' <small>（' + esc(q.method) + '）</small>' : '') + '</div>';
+    if (!lock && !(rec && rec.w)) h += '<div class="sfopts">' + sfOpts(it, ri).map(function (o, i) {
+      return '<button class="opt ' + optClass(o.k) + (k === o.k ? ' on' : '') + '" onclick="sfPut(' + jsq(o.k) + ')"><kbd>' + (i + 1) + '</kbd>' + esc(o.label) + '</button>';
+    }).join('') + '</div>';
+    else if (k) h += '<div class="muted">' + esc(optLabel(f, q.seq, k)) + '</div>';
+    if (k && f.noteFor.indexOf(k) >= 0) {
+      var w = rec && !lock ? noteWhy(f, rec, q.seq) : '';
+      h += '<label class="nl req" for="sfn">' + esc(f.noteTitle || '請說明異常狀況與處理方式') + '</label>' +
+        '<textarea id="sfn" class="note"' + (lock ? ' disabled' : '') + ' placeholder="' + esc(f.noteTitle || '請說明異常狀況與處理方式') + '" oninput="sfNote(this.value)" onkeydown="sfNoteKey(event)">' + esc((rec && rec.n[q.seq]) || '') + '</textarea>' +
+        '<div class="hint nbad" id="sfnh"' + (w && String((rec.n || {})[q.seq] || '').trim() ? '' : ' hidden') + '>' + esc(w) + '</div><div class="muted sm2">' + esc(sfT('寫完按 Esc 回到表格')) + '</div>';
+    } else if (rec && rec.n && rec.n[q.seq]) h += '<div class="muted">' + esc(sfT('說明') + '：' + rec.n[q.seq]) + '</div>';
+  } else h += '<div class="muted">' + esc(rec && rec.w ? '這一天記為「無作業」，表上留空白。' : '這一天整天沒上班、沒作業，就在這一列打 1 或 V。') + '</div>';
+  h += '</div>' + sfTodo();
+  el.innerHTML = h;
+}
+function sfTodo() {
+  var sf = S.sf, rows = [];
+  sf.list.forEach(function (it, i) {
+    Object.keys(sf.ed[it.a.key] || {}).sort(function (a, b) { return a - b; }).forEach(function (d) {
+      if (!sfDirty(it, d)) return; var p = sfProb(it, d); if (p) rows.push({ i: i, d: Number(d), t: md(sfDate(d)) + ' ' + (it.x.name || it.f.name), p: p });
+    });
+  });
+  if (!rows.length) return '';
+  return '<div class="card"><b>' + esc('還沒填完的日子（' + rows.length + '）') + '</b><div class="list">' + rows.slice(0, 30).map(function (x) {
+    return '<button class="li" onclick="sfJump(' + x.i + ',' + x.d + ')"><span class="mn"><span class="nm">' + esc(x.t) + '</span><span class="mt wn">' + esc(x.p) + '</span></span></button>';
+  }).join('') + '</div><div class="muted sm2">' + esc(sfT('沒填完的先留在草稿，不會不見；填好再存檔。')) + '</div></div>';
+}
+function sfJump(i, d) {
+  var sf = S.sf, it = sf.list[i], e = (sf.ed[it.a.key] || {})[d], ri = 0;
+  if (e) { var miss = it.f.items.map(function (q, j) { return j; }).filter(function (j) { var s = it.f.items[j].seq; return !e.r[s] || noteWhy(it.f, e, s); }); ri = miss.length ? miss[0] : 0; }
+  sf.sel = { r0: ri, c0: d, r1: ri, c1: d };
+  if (i !== sf.fi) { sf.fi = i; sfRender(); } else { sfPaintSel(); sfSide(); $('sfg').focus({ preventScroll: true }); }
+}
+function sfSaveList() {
+  var sf = S.sf, ok = [], bad = 0;
+  sf.list.forEach(function (it) { Object.keys(sf.ed[it.a.key] || {}).forEach(function (d) { if (!sfDirty(it, d)) return; if (sfProb(it, d)) bad++; else ok.push({ it: it, d: Number(d) }); }); });
+  return { ok: ok, bad: bad };
+}
+function sfBar() {
+  var s = sfSaveList();
+  if (!s.ok.length && !s.bad.length) return bar('');
+  bar((s.ok.length ? '<button class="btn" id="sfBtn" onclick="sfSave()">' + ic('check', 22, 2.8) + '存檔並帶入簽名（' + s.ok.length + ' 天）</button>' : '<button class="btn" disabled>還沒有填完的日子可以存</button>') +
+    (s.bad.length ? '<div class="muted sm2">還沒填完 ' + s.bad.length + ' 天（先留在草稿，右邊有清單）</div>' : ''));
+}
+
+// ── 編輯 ──
+function sfEditRec(it, d) {
+  var ed = S.sf.ed[it.a.key] = S.sf.ed[it.a.key] || {};
+  if (!ed[d]) { var b = sfBase(it, d); ed[d] = { r: Object.assign({}, b ? b.r : {}), n: Object.assign({}, b ? b.n : {}), w: !!(b && b.w) }; }
+  return ed[d];
+}
+function sfAfter(it, days) {
+  var sf = S.sf, ed = sf.ed[it.a.key] || {};
+  days.forEach(function (d) { if (ed[d] && sfSame(ed[d], sfBase(it, d))) delete ed[d]; sfPaintDay(it, d); });
+  sfDraftSave(); sfSide(); sfBar(); sfTabDots();
+}
+function sfTabDots() {
+  var sf = S.sf; document.querySelectorAll('.sftab').forEach(function (b, i) {
+    var it = sf.list[i]; if (!it) return; var n = Object.keys(sf.ed[it.a.key] || {}).filter(function (d) { return sfDirty(it, d); }).length, dot = b.querySelector('.sfdot');
+    if (n && !dot) { dot = document.createElement('i'); dot.className = 'sfdot'; b.appendChild(dot); }
+    if (dot) { if (n) dot.textContent = n; else dot.remove(); }
+  });
+}
+function sfPush() { var sf = S.sf; sf.undo.push(JSON.stringify(sf.ed)); if (sf.undo.length > 60) sf.undo.shift(); }
+function sfUndo() {
+  var sf = S.sf; if (!sf.undo.length) return toast('沒有可以復原的動作', '', 1500);
+  sf.ed = JSON.parse(sf.undo.pop()); var it = sf.list[sf.fi];
+  for (var d = 1; d <= sfDays(sf.period); d++) sfPaintDay(it, d);
+  sfDraftSave(); sfSide(); sfBar(); sfTabDots();
+}
+function sfRect() { var s = S.sf.sel; return { r0: Math.min(s.r0, s.r1), r1: Math.max(s.r0, s.r1), c0: Math.min(s.c0, s.c1), c1: Math.max(s.c0, s.c1) }; }
+/** 把選到的那一片填成 fn(列) 回傳的值：選項 k、''＝清掉；無作業那一列 true／false */
+function sfFill(fn, ext) {
+  var sf = S.sf, it = sf.list[sf.fi], R = sfRect(), nr = it.f.items.length, days = [], skip = 0;
+  if (ext) { R.r1 = Math.min(nr, ext.r1); R.c1 = Math.min(sfDays(sf.period), ext.c1); sf.sel = { r0: R.r0, c0: R.c0, r1: R.r1, c1: R.c1 }; sfPaintSel(); }
+  var one = R.r0 === R.r1 && R.c0 === R.c1;
+  sfPush();
+  for (var c = R.c0; c <= R.c1; c++) {
+    if (sfLock(it, c)) { skip++; continue; }
+    var touched = false;
+    for (var r = R.r0; r <= R.r1; r++) {
+      var val = fn(r, c); if (val === null || val === undefined) continue;
+      var e = sfEditRec(it, c);
+      if (r === nr) { e.w = !!val; }
+      else { var s = it.f.items[r].seq; if (val) e.r[s] = val; else delete e.r[s]; if (val) e.w = false; }
+      touched = true;
+    }
+    if (touched) days.push(c);
+  }
+  if (!days.length) { sf.undo.pop(); if (skip) toast(sfLock(it, R.c0) || '這幾天不能修改', '', 2200); return false; }
+  sfAfter(it, days);
+  if (skip && !one) toast('有 ' + skip + ' 天不能修改，已略過', '', 2200);
+  return true;
+}
+function sfPut(k) {
+  var sf = S.sf, it = sf.list[sf.fi], nr = it.f.items.length, idx = sfOpts(it, sf.sel.r1).map(function (o) { return o.k; }).indexOf(k);
+  sfFill(function (r) { if (r === nr) return null; var o = sfOpts(it, r); return (o.filter(function (x) { return x.k === k; })[0] || o[idx] || {}).k || null; });
+  sfAfterPut(k);
+}
+/** 打一格選到要寫說明的選項 → 游標直接進說明框；拉一整片填的不跳 */
+function sfAfterPut(k) {
+  var sf = S.sf, it = sf.list[sf.fi], R = sfRect();
+  if (R.r0 === R.r1 && R.c0 === R.c1 && R.r0 < it.f.items.length && it.f.noteFor.indexOf(k) >= 0) {
+    var ta = $('sfn'); if (ta && !String(ta.value).trim()) { ta.focus(); return; }
+  }
+  if (R.r0 === R.r1 && R.c0 === R.c1) sfMove(1, 0, false);
+}
+function sfType(ch) {
+  var sf = S.sf, it = sf.list[sf.fi], nr = it.f.items.length;
+  if (sf.sel.r1 === nr && Math.min(sf.sel.r0, sf.sel.r1) === nr) {        // 無作業這一列：打什麼都是切換
+    var on = !((sfRec(it, sf.sel.c1) || {}).w);
+    if (sfFill(function (r) { return r === nr ? on : null; })) sfMove(0, 1, false);
+    return true;
+  }
+  var k0 = sfKeyOf(it, sf.sel.r1, ch); if (k0 === null) { toast('看不懂「' + esc(ch) + '」：請打 1／2／3 或 V／X／-', 'err', 2200); return true; }
+  if (!k0) return false;
+  var ki = sfOpts(it, sf.sel.r1).map(function (o) { return o.k; }).indexOf(k0);
+  sfFill(function (r) { if (r === nr) return null; var k = sfKeyOf(it, r, ch); if (k === null && ki >= 0) { var o = sfOpts(it, r)[ki]; k = o ? o.k : null; } return k; });
+  sfAfterPut(k0);
+  return true;
+}
+function sfClear() { var it = S.sf.list[S.sf.fi], nr = it.f.items.length; sfFill(function (r) { return r === nr ? false : ''; }); }
+function sfNote(val) {
+  var sf = S.sf, it = sf.list[sf.fi], d = sf.sel.c1, q = it.f.items[sf.sel.r1]; if (!q || sfLock(it, d)) return;
+  var e = sfEditRec(it, d); e.n[q.seq] = val;
+  var ed = sf.ed[it.a.key]; if (sfSame(e, sfBase(it, d))) delete ed[d];
+  sfPaintDay(it, d); sfDraftSave(); sfBar(); sfTabDots();
+  var w = String(val || '').trim() ? noteWhy(it.f, e, q.seq) : '', hn = $('sfnh'); if (hn) { hn.textContent = w; hn.hidden = !w; }
+  var sd = document.querySelector('#sfs .card + .card'); var nt = sfTodo();
+  if (sd) { if (nt) sd.outerHTML = nt; else sd.remove(); } else if (nt) $('sfs').insertAdjacentHTML('beforeend', nt);
+}
+function sfNoteKey(e) { if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); $('sfg').focus({ preventScroll: true }); sfMove(1, 0, false); } else if (e.key === 'Tab') { e.preventDefault(); $('sfg').focus({ preventScroll: true }); sfMove(0, e.shiftKey ? -1 : 1, false); } }
+function sfMove(dr, dc, ext) {
+  var sf = S.sf, it = sf.list[sf.fi], s = sf.sel, nr = it.f.items.length, n = sfDays(sf.period);
+  var r = Math.max(0, Math.min(nr, s.r1 + dr)), c = Math.max(1, Math.min(n, s.c1 + dc));
+  sf.sel = ext ? { r0: s.r0, c0: s.c0, r1: r, c1: c } : { r0: r, c0: c, r1: r, c1: c };
+  sfPaintSel(); sfSide();
+}
+function sfKey(e) {
+  if (S.page !== 'sheetFill' || !S.sf || !S.sf.list || !S.sf.list.length) return;
+  var a = document.activeElement; if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  if (a && /^(BUTTON|A)$/.test(a.tagName) && (e.key === 'Enter' || e.key === ' ')) return;
+  if (document.querySelector('.dlg,.pview,#busy')) return;
+  var k = e.key, it = S.sf.list[S.sf.fi], ctl = e.ctrlKey || e.metaKey;
+  if (ctl && (k === 'z' || k === 'Z')) { e.preventDefault(); return sfUndo(); }
+  if (ctl && k === 's') { e.preventDefault(); return sfSave(); }
+  if (ctl && (k === 'PageDown' || k === 'PageUp')) { e.preventDefault(); return sfTab((S.sf.fi + (k === 'PageDown' ? 1 : -1) + S.sf.list.length) % S.sf.list.length); }
+  if (ctl && k === 'a') { e.preventDefault(); S.sf.sel = { r0: 0, c0: 1, r1: it.f.items.length - 1, c1: sfDays(S.sf.period) }; sfPaintSel(); return sfSide(); }
+  if (ctl || e.altKey) return;
+  var mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[k];
+  if (mv) { e.preventDefault(); return sfMove(mv[0], mv[1], e.shiftKey); }
+  if (k === 'Tab') { e.preventDefault(); return sfMove(0, e.shiftKey ? -1 : 1, false); }
+  if (k === 'Enter') { e.preventDefault(); var ta = $('sfn'); if (ta && !e.shiftKey && !ta.disabled) return ta.focus(); return sfMove(e.shiftKey ? -1 : 1, 0, false); }
+  if (k === 'Home') { e.preventDefault(); return sfMove(0, -99, e.shiftKey); }
+  if (k === 'End') { e.preventDefault(); return sfMove(0, 99, e.shiftKey); }
+  if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); return sfClear(); }
+  if (k === ' ') { e.preventDefault(); return sfType('1'); }
+  if (k.length === 1 && sfType(k)) e.preventDefault();
+}
+function sfMouse() {
+  var g = $('sfg'); if (!g) return;
+  var down = false;
+  var cell = function (t) { var td = t.closest && t.closest('td[data-c],th[data-c],td[data-r]'); return td && g.contains(td) ? td : null; };
+  g.onmousedown = function (e) {
+    var td = cell(e.target); if (!td || e.button !== 0) return;
+    var sf = S.sf, it = sf.list[sf.fi], nr = it.f.items.length, n = sfDays(sf.period);
+    if (td.tagName === 'TH') { var c = Number(td.getAttribute('data-c')); sf.sel = e.shiftKey ? { r0: 0, c0: sf.sel.c0, r1: nr - 1, c1: c } : { r0: 0, c0: c, r1: nr - 1, c1: c }; }
+    else if (!td.hasAttribute('data-c')) { var r = Number(td.getAttribute('data-r')); sf.sel = { r0: r, c0: 1, r1: r, c1: n }; }
+    else { var r2 = Number(td.getAttribute('data-r')), c2 = Number(td.getAttribute('data-c')); sf.sel = e.shiftKey ? { r0: sf.sel.r0, c0: sf.sel.c0, r1: r2, c1: c2 } : { r0: r2, c0: c2, r1: r2, c1: c2 }; down = true; }
+    e.preventDefault(); g.focus({ preventScroll: true }); sfPaintSel(); sfSide();
+  };
+  g.onmouseover = function (e) {
+    if (!down || !(e.buttons & 1)) { down = false; return; }
+    var td = cell(e.target); if (!td || !td.hasAttribute('data-c') || td.tagName === 'TH') return;
+    var sf = S.sf, r = Number(td.getAttribute('data-r')), c = Number(td.getAttribute('data-c'));
+    if (sf.sel.r1 === r && sf.sel.c1 === c) return;
+    sf.sel.r1 = r; sf.sel.c1 = c; sfPaintSel();
+  };
+  g.onmouseup = function () { if (down) { down = false; sfSide(); } };
+  g.ondblclick = function (e) {                       // 連點兩下：換下一個選項（滑鼠派）
+    var td = cell(e.target); if (!td || !td.hasAttribute('data-c') || td.tagName === 'TH') return;
+    var sf = S.sf, it = sf.list[sf.fi], r = Number(td.getAttribute('data-r')), c = Number(td.getAttribute('data-c'));
+    if (r === it.f.items.length) return sfType('1');
+    var o = sfOpts(it, r), rec = sfRec(it, c), cur = rec && !rec.w ? rec.r[it.f.items[r].seq] : '', i = o.map(function (x) { return x.k; }).indexOf(cur);
+    sfFill(function (rr) { return rr === r ? o[(i + 1) % o.length].k : null; });
+  };
+  g.oncopy = function (e) {
+    var sf = S.sf, it = sf.list[sf.fi], R = sfRect(), nr = it.f.items.length, rows = [];
+    for (var r = R.r0; r <= R.r1; r++) { var row = []; for (var c = R.c0; c <= R.c1; c++) { var rec = sfRec(it, c); row.push(r === nr ? (rec && rec.w ? '無' : '') : rec && !rec.w ? sfMark(it, r, rec.r[it.f.items[r].seq]) : ''); } rows.push(row.join('\t')); }
+    e.clipboardData.setData('text/plain', rows.join('\n')); e.preventDefault(); toast('已複製', '', 1200);
+  };
+  g.onpaste = function (e) {
+    var txt = (e.clipboardData && e.clipboardData.getData('text/plain')) || ''; if (!txt) return;
+    e.preventDefault();
+    var sf = S.sf, it = sf.list[sf.fi], R = sfRect(), nr = it.f.items.length, rows = txt.replace(/\r/g, '').replace(/\n$/, '').split('\n').map(function (l) { return l.split('\t'); });
+    var single = rows.length === 1 && rows[0].length === 1, bad = 0;
+    sfFill(function (r, c) {
+      var s = single ? rows[0][0] : (rows[r - R.r0] || [])[c - R.c0];
+      if (!single && (r - R.r0 >= rows.length || c - R.c0 >= (rows[0] || []).length)) return null;
+      s = String(s == null ? '' : s).trim(); if (!s) return null;
+      if (r === nr) return /^(無|無作業|v|V|1|✓|√)$/.test(s) ? true : null;
+      var k = sfKeyOf(it, r, s); if (k === null) { bad++; return null; } return k;
+    }, single ? null : { r1: R.r0 + rows.length - 1, c1: R.c0 + rows[0].length - 1 });
+    if (bad) toast('有 ' + bad + ' 格看不懂，沒有貼上', 'err', 2600);
+  };
+}
+function sfTab(i) { var sf = S.sf; if (i === sf.fi) return; sf.fi = i; sf.undo = []; sfSeedSel(); sfRender(); }
+function sfGo(k) { var sf = S.sf, np = addM(sf.period, k); if (np > today().slice(0, 7)) return; S.sf = null; go('sheetFill', { dept: sf.dept, period: np }, true); }
+
+function sfSave() {
+  var sf = S.sf, s = sfSaveList(); if (!s.ok.length) return toast(s.bad ? '還沒填完的日子不能存，右邊有清單' : '沒有要存的', '', 2400);
+  if (S.dev) return devBlock('表格填寫');
+  var btn = $('sfBtn'); if (btn) { btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>' + esc(sfT('存檔中…')); }
+  var tok = lsGet(LS.TOKEN, ''), who = S.me.person.name, p = Promise.resolve(), saved = [];
+  s.ok.forEach(function (x) {
+    var it = x.it, a = it.a, e = sf.ed[a.key][x.d], date = sfDate(x.d), notes = {};
+    if (!e.w) Object.keys(e.n || {}).forEach(function (k) { if (k !== '*' && String(e.n[k] || '').trim() && isBad(it.f, e.r[k])) notes[k] = e.n[k]; });
+    var body = { deptId: a.dept, formId: a.form, object: a.object || '', kind: a.kind || '', date: date, results: e.w ? {} : e.r, notes: notes, extra: {}, noWork: !!e.w };
+    var job = { id: newId(), token: tok, who: who, key: a.key, body: body, created: Date.now(), status: 'pending', label: it.f.name + ' ' + md(date), via: 'grid' };
+    p = p.then(function () { return obPut(job); }).then(function () { saved.push(x); });
+  });
+  p.then(function () {
+    saved.forEach(function (x) { delete sf.ed[x.it.a.key][x.d]; });
+    sfDraftSave(); return obRefresh();
+  }).then(function () {
+    sfRender();
+    toast('已存 ' + saved.length + ' 天，已帶入您的簽名；背景上傳中', 'ok', 3500);
+    flush().then(function () { if (S.page === 'sheetFill' && S.sf === sf) { sf.stale = true; sfLoad(); } });
+  }).catch(function (err) {
+    toast('存檔失敗：' + esc(err.message), 'err', 5000); sfRender();
+  });
+}
+document.addEventListener('keydown', sfKey);

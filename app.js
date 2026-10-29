@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.24.1';
+var APP_VERSION = '0.25.0';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -480,6 +480,7 @@ function render() {
   var fn = PAGES[p] || PAGES.home;
   if (window.trailPush) trailPush(p);
   S.cur = p; S.hero = null; S.topExtra = '';
+  document.body.classList.toggle('wide', p === 'sheetFill');          // 電腦版表格填寫：版面放寬到整個螢幕
   $('bar').innerHTML = ''; padBar();
   fn();
   drawTop();
@@ -1174,6 +1175,7 @@ PAGES.home = function () {
   if (!ehs) { var d1 = m.depts.length === 1 ? m.depts[0].id : '';
     if (d1 && demoDept(d1)) tl += tile('cal', '月曆', goMonth(d1, t.slice(0, 7)), '', '本月每天的紀錄');
     else tl += tile('cal', '月曆・補填', d1 ? goMonth(d1, t.slice(0, 7)) : "go('months')", '', d1 ? '本月每天的紀錄，漏填的點日期補' : '選部門看月曆、補填'); }
+  if (window.sfTiles) tl += sfTiles(m);
   tl += tile('review', '月結紀錄', "go('months')");
   tl += tile('clock', '提醒設定', "go('remind')");
   h += '<div class="tiles">' + tl + '</div><div class="ver">v' + APP_VERSION + '</div>';

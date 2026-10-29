@@ -237,6 +237,45 @@ display:flex;align-items:center;justify-content:center;gap:6px;line-height:1.25;
 .grid th.t{background:#F6F7F9}
 .grid td.bad{background:var(--ngbg);color:var(--ng);font-weight:700}
 .grid th.late{background:#FFE7CF}
+/* 電腦版表格填寫（10/29） */
+body.wide .page,body.wide .tb,body.wide .bar .in,body.wide .prog-in{max-width:none}
+body.wide .page{padding-left:20px;padding-right:20px}
+.sfnav{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sfnav b{font-size:18px}.sfsp{flex:1}
+.sftabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--line)}
+.sftab{border:1px solid var(--line);border-bottom:none;background:#F6F7F9;border-radius:10px 10px 0 0;padding:8px 14px;font-size:15px;font-weight:600;color:var(--sub);cursor:pointer;display:flex;align-items:center;gap:6px;min-height:40px}
+.sftab.on{background:#fff;color:var(--navy);box-shadow:inset 0 3px 0 #1A5FB4}
+.sfdot{font-style:normal;background:#F5A623;color:#fff;border-radius:9px;font-size:12px;padding:0 6px;min-width:18px;text-align:center}
+.sfhelp{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--sub);line-height:1.5}.sfhelp b{color:var(--navy)}
+.sfwrap{display:flex;gap:14px;align-items:flex-start}
+.sfgrid{flex:1;min-width:0;overflow:auto;max-height:calc(100vh - 250px);background:#fff;border-radius:12px;border:1px solid var(--line);outline:none;user-select:none}
+.sfgrid:focus{box-shadow:0 0 0 2px #1A5FB4}
+.sfgrid table{border-collapse:separate;border-spacing:0;font-size:14px}
+.sfgrid th,.sfgrid td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center;min-width:34px;height:32px;padding:0 2px;cursor:cell;font-size:15px;font-weight:700;color:#1E7A4C}
+.sfgrid thead th{position:sticky;top:0;background:#F6F7F9;z-index:2;font-weight:700;color:var(--navy);font-size:14px;line-height:1.1;padding:4px 2px}
+.sfgrid thead th small{display:block;font-size:11px;font-weight:500;color:var(--sub)}
+.sfgrid th.we{background:#ECEEF2;color:#8A94A3}.sfgrid th.td{background:#DCEBFB;color:#1A5FB4}.sfgrid th.dt{box-shadow:inset 0 -3px 0 #F5A623}
+.sfgrid td.t,.sfgrid th.t{position:sticky;left:0;z-index:1;background:#fff;text-align:left;color:var(--navy);font-weight:500;font-size:14px;min-width:240px;max-width:300px;padding:4px 8px;line-height:1.35;cursor:pointer;white-space:normal}
+.sfgrid thead th.t{z-index:3;background:#F6F7F9}
+.sfgrid td.t .no{display:inline-block;min-width:22px;font-weight:700;color:var(--sub)}
+.sfgrid tr.sfg td.t{background:#F0F3F7;font-weight:700;color:var(--navy);cursor:default}
+.sfgrid tr.sfw td{background:#FAFAFB;color:var(--sub)}.sfgrid tr.sfw td.on{background:#E2E6EB;font-weight:700;color:var(--sub)}
+.sfgrid tr.sfsg td{font-size:12px;color:var(--sub);cursor:default;background:#FAFAFB}
+.sfgrid tr.sfsg td.need{color:var(--ng);font-weight:800}.sfgrid tr.sfsg td.dt{color:#B26A00;font-weight:800}
+.sfgrid td.lk{background:#F3F4F6;color:#9AA3AE;cursor:not-allowed}
+.sfgrid td.bad{background:var(--ngbg);color:var(--ng);font-weight:800}
+.sfgrid td.dt{background:#FFF6DB}.sfgrid td.dt.bad{background:#FFE1DC}
+.sfgrid td.pd{background:#EEF6FF}
+.sfgrid td.uc{box-shadow:inset 0 0 0 2px #1A5FB4}
+.sfgrid td.nw{background:#EEF0F3}.sfgrid td.gap{background:#FFFBEF}
+.sfgrid td.miss{box-shadow:inset 0 0 0 2px #F5A623}
+.sfgrid td.need{box-shadow:inset 0 0 0 2px var(--ng)}
+.sfgrid td.nt{background-image:linear-gradient(225deg,#F5A623 6px,transparent 6px)}
+.sfgrid td.sel{background-color:#D6E6FA}.sfgrid td.cur{box-shadow:inset 0 0 0 2px #1A5FB4!important}
+.sfside{width:340px;flex:none;display:flex;flex-direction:column;gap:12px;position:sticky;top:80px}
+.sfq{font-size:16px;line-height:1.5;font-weight:600}.sfq .sfno{color:var(--sub);margin-right:8px;font-weight:800}
+.sfopts{display:flex;flex-direction:column;gap:6px}.sfopts .opt{justify-content:flex-start;min-height:42px}
+.sfopts kbd{font:700 12px/1 system-ui;border:1px solid currentColor;border-radius:5px;padding:2px 5px;margin-right:8px;opacity:.7}
+@media (max-width:1100px){.sfwrap{flex-direction:column}.sfside{width:100%;position:static}}
 .sheet .sr{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid #EEF0F3}
 .sheet .sr div{flex:1;min-width:0;font-size:15px;word-break:break-word}
 .sheet .sr small{display:block;color:var(--ngT);font-size:14px}
