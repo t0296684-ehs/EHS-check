@@ -589,6 +589,30 @@ background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba
 .tbm{display:block;width:100%;text-align:left;border:2px solid #B45309;background:#FFF7ED;margin-bottom:6px}
 .tbm .fh{display:flex;align-items:center;gap:8px;color:#9A3412}
 .tbm .fh b{font-size:18px}
+/* 手機版主管總覽（10/30） */
+.seg{grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none}
+.tmks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tmk{background:var(--card);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:1px;border-left:4px solid #CBD3DE}
+.tmk b{font-size:24px;font-weight:800;color:var(--navy);line-height:1.2;font-variant-numeric:tabular-nums}.tmk span{font-size:13px;color:var(--sub);font-weight:600}
+.tmk.warn{border-left-color:var(--orange)}.tmk.ng{border-left-color:var(--ng)}.tmk.ng b{color:var(--ngT)}
+.tmflt{margin-top:2px}.tmflt .tmc{font-style:normal;font-size:12px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#EEF1F5;color:var(--navy);display:inline-flex;align-items:center;justify-content:center}
+.tmflt .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}.tmflt .chip.on .tmc{background:rgba(255,255,255,.22);color:#fff}
+.tmsearch{display:flex;align-items:center;gap:8px;min-height:46px;padding:0 12px;border:1.5px solid var(--line2);border-radius:14px;background:#fff;color:var(--sub)}
+.tmsearch input{flex:1;border:0;outline:0;font-size:16px;background:none;min-width:0}
+.tmd{display:flex;align-items:center;width:100%;text-align:left;font-size:17px;font-weight:900;color:var(--navy);padding:10px 2px 2px}
+.tmg{display:flex;align-items:center;gap:4px;width:100%;text-align:left;font-size:14px;font-weight:800;color:var(--sub);padding:8px 4px 4px}
+.tmg small{margin-left:6px;min-width:20px;padding:0 6px;border-radius:6px;background:#E3E8EF;color:var(--navy);font-size:12px;text-align:center}
+.li.tmr{align-items:flex-start}.li.tmr .mn{gap:6px}.li.tmr .nm small{font-weight:500;color:var(--sub);font-size:13px}
+.li.tmr.none .nm{color:var(--ngT)}
+.tmfs{display:flex;flex-wrap:wrap;gap:5px}
+.tmf{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:2px 8px 2px 3px;border-radius:8px;background:#F2F4F7;font-size:13px;font-weight:700;color:var(--ink)}
+.tmf em{font-style:normal;font-size:11.5px;font-weight:800;padding:2px 6px;border-radius:6px;background:#fff;color:var(--sub)}
+.tmf u{text-decoration:none;font-size:12px;margin-left:2px}
+.tmf.ng{background:#FDECEA}.tmf.ng u{color:var(--ngT)}.tmf.warn{background:#FFF4E0}.tmf.warn u{color:#9A4A06}.tmf.na u{color:var(--sub)}
+.tmw{display:flex;flex-wrap:wrap}
+.li.tmp{align-items:center;cursor:pointer}.li.tmp.none .nm{color:var(--ngT)}
+.tmdet{background:#F8FAFC;border-bottom:1px solid #EEF0F3;padding:4px 16px 10px 40px}
+.tmdi{display:flex;flex-direction:column;gap:4px;padding:6px 0}.tmdi b{font-size:13.5px;color:var(--sub)}
 /* ── 網頁版（10/29，寬螢幕 ≥1024px）：左側固定選單＋放寬的內容區；手機完全不受影響 ── */
 #side{display:none}
 body.hasside #side{display:flex;flex-direction:column;gap:2px;position:fixed;left:0;top:0;bottom:0;width:248px;background:var(--navy);color:#fff;z-index:30;overflow-y:auto;padding:18px 12px 14px}

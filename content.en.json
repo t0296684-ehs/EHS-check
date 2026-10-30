@@ -1,5 +1,5 @@
 {
- "version": "0.28.1",
+ "version": "0.29.0",
  "chapters": [
   {
    "no": 1,
@@ -141,6 +141,21 @@
       "Keyboard: <b>Esc</b> goes back; <b>Alt+number</b> jumps to that item in the left menu."
      ],
      "tip": "On a narrower screen (for example a tablet held upright) it switches back to the phone layout automatically; the functions stay the same.",
+     "warn": false
+    },
+    {
+     "no": "1-8",
+     "title": "Monthly deadlines: the 5th and the 15th",
+     "lead": "There are three deadlines each month. As they approach, the home page counts down the days left; once passed, it turns red and shows how many days overdue.",
+     "shots": [],
+     "steps": [
+      "<b>Monthly periodic checks</b> (e.g. monthly forklift or crane checks): finish this month's check <b>by the 5th</b>.",
+      "<b>Submitting last month's daily check records</b>: <b>by the 5th</b> of each month; the whole section submits together, and anyone in the section can send it.",
+      "<b>Supervisor approval and sending to EHS</b>: <b>by the 15th</b> of each month.",
+      "<b>Yearly and two-yearly periodic checks</b>: counted from the last check date; reminders start 30 days before.",
+      "\"To do\" on the home page shows the date and days left; overdue items go to the top in red. Supervisors and EHS can see which sections are overdue."
+     ],
+     "tip": "The EHS Center can change these dates (back office \"Settings\").",
      "warn": false
     }
    ]
@@ -478,7 +493,7 @@
     },
     {
      "no": "3-5",
-     "title": "Section overview (computer): all equipment, forms and owners at a glance",
+     "title": "Section overview: all equipment, forms and owners at a glance",
      "lead": "Open \"Department\" on a computer and the first page is the overview: which machines your section has (or \"All\" if you manage several), which checklists each uses, who is responsible, and whether periodic checks are due, all in one table.",
      "shots": [],
      "steps": [
@@ -489,7 +504,7 @@
       "Click any machine or form to open the owner screen; changes can start today or next month.",
       "<b>\"Export to Excel\"</b> saves what you see as an Excel file for meetings or printing."
      ],
-     "tip": "The \"Assignment table\" tab is the person × form checkbox grid, handy for changing many people at once; the overview is for seeing the whole picture and spotting problems.",
+     "tip": "The \"Assignment table\" tab is the person × form checkbox grid, handy for changing many people at once; the overview is for seeing the whole picture and spotting problems. The phone has the same overview: equipment as cards, one row per person, with the same filters and edits.",
      "warn": false
     }
    ]

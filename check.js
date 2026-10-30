@@ -467,7 +467,7 @@ PAGES.team = function () {
   var ds = teamDepts();
   var allOk = ds.length > 1 && !isEhs();                     // 環安衛管全廠，不做「全部」（一次讀太多課）
   if (!S.arg.dept || (S.arg.dept === '*' && !allOk)) S.arg.dept = allOk ? '*' : ds[0];
-  if (!S.arg.tab || ((S.arg.tab === 'grid' || S.arg.tab === 'ov') && !isDesk())) S.arg.tab = isDesk() ? 'ov' : 'people';   // 網頁版預設總覽（10/30）；分工表是人員 × 表單／設備
+  if (!S.arg.tab || (S.arg.tab === 'grid' && !isDesk())) S.arg.tab = 'ov';   // 10/30：手機、電腦都先看總覽；分工表（人員 × 表單）只有電腦版   // 網頁版預設總覽（10/30）；分工表是人員 × 表單／設備
   var tm = S.team && S.team.dept === S.arg.dept ? S.team : null;
   var h = '';
   if (ds.length > 1) h += '<div class="chips">' + (allOk ? ['*'] : []).concat(ds).map(function (d) { return '<button class="chip' + (d === S.arg.dept ? ' on' : '') + '" onclick="teamDept(' + jsq(d) + ')">' + esc(d === '*' ? '全部' : d) + '</button>'; }).join('') + '</div>';
@@ -480,7 +480,7 @@ PAGES.team = function () {
         .catch(function (e) { $('app').innerHTML = h + '<div class="box warn"><div class="r">' + ic('warn', 22) + '<div class="bt"><div class="m">' + esc(e.message) + '</div></div></div></div>'; });
       return;
     }
-    if (isDesk()) { $('app').innerHTML = h + tovHtml(all); return; }        // 網頁版：所有課一起的總覽（依設備／依人員）
+    $('app').innerHTML = h + (isDesk() ? tovHtml(all) : tovMobile(all)); return;   // 所有課一起的總覽（依設備／依人員）；手機排成卡片
     var nOps = 0; all.forEach(function (t) { nOps += t.people.filter(function (p) { return p.role === '檢點人員'; }).length; });
     h += '<div class="muted upnote">您管理 ' + all.length + ' 個課、' + nOps + ' 位檢點人員。點課名可以調整那一課的人員、表單、設備。</div>';
     h += all.map(function (t) {
@@ -505,12 +505,12 @@ PAGES.team = function () {
   }
   var tab = S.arg.tab, forms = tm.targets.filter(function (x) { return x.kind === 'form'; }), eqs = tm.targets.filter(function (x) { return x.kind === 'equip'; });
   var ops = tm.people.filter(function (p) { return p.role === '檢點人員'; });
-  h += '<div class="seg" role="tablist">' + (isDesk() ? [['ov', '總覽'], ['grid', '分工表']] : []).concat([['people', '人員 ' + ops.length], ['form', '表單 ' + forms.length], ['equip', '設備 ' + eqs.length]]).map(function (t) {
+  h += '<div class="seg" role="tablist">' + (isDesk() ? [['ov', '總覽'], ['grid', '分工表']] : [['ov', '總覽']]).concat([['people', '人員 ' + ops.length], ['form', '表單 ' + forms.length], ['equip', '設備 ' + eqs.length]]).map(function (t) {
     return '<button role="tab" aria-selected="' + (tab === t[0]) + '" class="' + (tab === t[0] ? 'on' : '') + '" onclick="teamTab(' + jsq(t[0]) + ')">' + esc(t[1]) + '</button>';
   }).join('') + '</div>';
   var nameOf = {}; tm.targets.forEach(function (x) { nameOf[x.key] = x.name; });
   if (tab === 'grid') { $('app').innerHTML = h + tmxHtml(tm); tmxBar(tm); return; }
-  if (tab === 'ov') { $('app').innerHTML = h + tovHtml([tm]); return; }
+  if (tab === 'ov') { $('app').innerHTML = h + (isDesk() ? tovHtml([tm]) : tovMobile([tm])); return; }
   if (tab === 'people') {
     h += '<div class="muted upnote">點一位同仁，勾選他負責的表單和設備。人員、表單、設備的新增或停用請洽環安衛中心。</div>';
     h += '<div class="list">' + tm.people.map(function (p) {
@@ -620,7 +620,7 @@ function tovHtml(list) {
           '<small data-raw>' + rs.length + '</small>' + (none ? '<span class="tvgs warn">' + esc('未指派 ' + none) + '</span>' : '') + (bad ? '<span class="tvgs ng">' + esc('已到期 ' + bad) + '</span>' : '') + '</td></tr>';
         if (fold[gk]) return;
         rows += rs.map(function (x) {
-          var cc = tovCells(x).c, label = x.kind === 'equip' ? (x.obj || x.name) : tovShort(x.name), sub = x.kind === 'equip' ? (x.loc || '') : (x.form || '');
+          var cc = tovCells(x).c, label = x.kind === 'equip' ? (x.obj || x.name) + (x.part ? '・' + x.part : '') : tovShort(x.name), sub = x.kind === 'equip' ? (x.loc || '') : (x.form || '');
           rowsOut.push([t.dept, g, label, sub].concat(cc.map(function (l) { return l.map(function (y) { return tovShort(y.name) + (y.st && y.st !== 'ok' ? '（' + TOV_ST[y.st][1] + '）' : ''); }).join('、'); }), [x.now.join('、') || '未指派']));
           return '<tr class="' + (x.now.length ? '' : 'none') + '" onclick="tovGo(' + jsq(t.dept) + ',\'teamEdit\',{key:' + jsq(x.key) + '})"><td class="tveq"><b data-raw>' + esc(label) + '</b><small>' + esc(sub) + '</small></td>' +
             cc.map(function (l) { return '<td class="tvc">' + (l.length ? l.map(function (y) { return tovTag(y.name, y.freq, y.st, y.sub); }).join('') : '<span class="tvdash">—</span>') + '</td>'; }).join('') +
@@ -658,7 +658,7 @@ function tovHtml(list) {
           '<td class="tvact"><button class="btn ghost sm" onclick="event.stopPropagation();tovGo(' + jsq(t.dept) + ',\'teamPerson\',{name:' + jsq(p.name) + '})">調整</button></td></tr>';
         if (open[k]) r += '<tr class="tvdet"><td colspan="9">' + (o.mine.length ? o.mine.map(function (x) {
           var cc = tovCells(x).c, all = []; cc.forEach(function (l) { all = all.concat(l); });
-          return '<div class="tvpi"><span class="tvpe" data-raw>' + esc(x.kind === 'equip' ? (x.cat || '') + ' ' + (x.obj || '') : '區域型') + '</span><span class="tvfs">' + all.map(function (y) { return tovTag(y.name, y.freq, y.st, y.sub); }).join('') + '</span></div>';
+          return '<div class="tvpi"><span class="tvpe" data-raw>' + esc(x.kind === 'equip' ? (x.cat || '') + ' ' + (x.obj || '') + (x.part ? '・' + x.part : '') : '區域型') + '</span><span class="tvfs">' + all.map(function (y) { return tovTag(y.name, y.freq, y.st, y.sub); }).join('') + '</span></div>';
         }).join('') : '<div class="tvnone pad">沒有負責任何設備或表單</div>') + '</td></tr>';
         return r;
       }).join('');
@@ -679,7 +679,76 @@ function tovExport() {
   a.download = '分工總覽_' + (S.arg.ov === 'people' ? '依人員' : '依設備') + '_' + t.replace(/-/g, '') + '.csv';
   document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.parentNode.removeChild(a); }, 500);
 }
-function teamDept(d) { S.arg = { dept: d, tab: S.arg.dept === '*' && isDesk() ? 'ov' : S.arg.tab, ov: S.arg.ov }; S.team = null; render(); }   // 從「全部」總覽點進一課：網頁版先看那一課的總覽
+/** 手機版總覽（10/30 Jason：手機上的主管、環安衛也要有一樣好用的管理體驗）：同一份資料，排成單手好滑的卡片 */
+function tovMobile(list) {
+  var mode = S.arg.ov || 'equip', q = String(S.arg.q || '').trim().toLowerCase(), multi = list.length > 1, flt = S.arg.flt || 'all';
+  var fold = S.arg.fold || {}, open = S.arg.open || {}, FQ = ['每日', '每月', '每年', '其他'];
+  var nOp = 0, nOff = 0, nEq = 0, cnt = { none: 0, overdue: 0, never: 0, soon: 0 };
+  list.forEach(function (t) {
+    t.people.forEach(function (p) { if (p.role === '檢點人員') { nOp++; if (!p.loggedIn || !p.signed) nOff++; } });
+    t.targets.forEach(function (x) { if (x.kind === 'equip') nEq++; if (!x.now.length) cnt.none++; ['overdue', 'never', 'soon'].forEach(function (s) { if (tovMatch(x, s)) cnt[s]++; }); });
+  });
+  var st = function (n, l, tone) { return '<div class="tmk' + (tone ? ' ' + tone : '') + '"><b data-raw>' + n + '</b><span>' + esc(l) + '</span></div>'; };
+  var h = '<div class="tmks">' + st(nOp, nOff ? '檢點人員・' + nOff + ' 位未就緒' : '檢點人員', nOff ? 'warn' : '') + st(nEq, '設備', '') +
+    st(cnt.none, '未指派', cnt.none ? 'warn' : '') + st(cnt.overdue, '定期檢查已到期', cnt.overdue ? 'ng' : '') + '</div>';
+  h += '<div class="seg two" role="tablist">' + [['equip', '依設備'], ['people', '依人員']].map(function (m) {
+    return '<button role="tab" aria-selected="' + (mode === m[0]) + '" class="' + (mode === m[0] ? 'on' : '') + '" onclick="tovSet(\'ov\',' + jsq(m[0]) + ')">' + esc(m[1]) + '</button>';
+  }).join('') + '</div>';
+  h += '<div class="chips tmflt">' + [['all', '全部', 0], ['none', '未指派', cnt.none], ['overdue', '已到期', cnt.overdue], ['never', '尚無紀錄', cnt.never], ['soon', '快到期', cnt.soon]].map(function (b) {
+    return '<button class="chip' + (flt === b[0] ? ' on' : '') + '" onclick="tovSet(\'flt\',' + jsq(b[0]) + ')">' + esc(b[1]) + (b[0] !== 'all' ? '<i class="tmc" data-raw>' + b[2] + '</i>' : '') + '</button>';
+  }).join('') + '</div>';
+  h += '<label class="tmsearch">' + ic('search', 18, 2.4) + '<input id="tovq" type="search" placeholder="篩選：設備、表單或人名" value="' + esc(S.arg.q || '') + '" oninput="tovQ(this.value)"></label>';
+  var hit = function (s) { return !q || String(s).toLowerCase().indexOf(q) >= 0; };
+  var chips = function (x) {
+    var c = tovCells(x).c, out = '';
+    c.forEach(function (l, i) { l.forEach(function (y) { out += '<span class="tmf' + (y.st ? ' ' + TOV_ST[y.st][0] : '') + '"><em>' + esc(i === 3 ? y.freq : FQ[i]) + '</em>' + esc(tovShort(y.name)) + (y.st && y.st !== 'ok' ? '<u>' + esc(TOV_ST[y.st][1]) + '</u>' : '') + '</span>'; }); });
+    return out || '<span class="tvnone">沒有對應的檢點表</span>';
+  };
+  var body = '';
+  list.forEach(function (t) {
+    var dk = (mode === 'equip' ? 'd:' : 'p:') + t.dept, inner = '';
+    if (mode === 'equip') {
+      var groups = {}, order = [];
+      t.targets.forEach(function (x) { var g = x.kind === 'equip' ? (x.cat || '設備') : '區域型檢點（不分設備）'; if (!groups[g]) { groups[g] = []; order.push(g); } groups[g].push(x); });
+      order.sort(function (a, b) { return (a.indexOf('區域型') === 0) - (b.indexOf('區域型') === 0); });
+      order.forEach(function (g) {
+        var rs = groups[g].filter(function (x) { return tovMatch(x, flt) && hit([x.name, x.loc, x.now.join(' ')].join(' ')); });
+        if (!rs.length) return;
+        var gk = dk + '|' + g;
+        inner += '<button class="tmg" onclick="tovFold(' + jsq(gk) + ')"><span class="tvcar' + (fold[gk] ? ' shut' : '') + '">' + ic('chev', 14, 2.6) + '</span>' + esc(g) + '<small data-raw>' + rs.length + '</small></button>';
+        if (fold[gk]) return;
+        inner += '<div class="list">' + rs.map(function (x) {
+          var label = x.kind === 'equip' ? (x.obj || x.name) + (x.part ? '・' + x.part : '') : tovShort(x.name);
+          return '<button class="li tmr' + (x.now.length ? '' : ' none') + '" onclick="tovGo(' + jsq(t.dept) + ',\'teamEdit\',{key:' + jsq(x.key) + '})"><span class="mn">' +
+            '<span class="nm" data-raw>' + esc(label) + (x.kind === 'equip' && x.loc ? '<small> ' + esc(x.loc) + '</small>' : '') + '</span>' +
+            '<span class="tmfs">' + chips(x) + '</span><span class="tmw">' + tovWho(x.now) + '</span></span>' + ic('chev', 18, 2.6) + '</button>';
+        }).join('') + '</div>';
+      });
+    } else {
+      var by = {}; t.targets.forEach(function (x) { by[x.key] = x; });
+      var ps = t.people.filter(function (p) { return p.role === '檢點人員'; }).map(function (p) {
+        var mine = p.equips.concat(p.forms).map(function (k) { return by[k]; }).filter(Boolean), n = [0, 0, 0, 0];
+        mine.forEach(function (x) { tovCells(x).c.forEach(function (l, i) { n[i] += l.length; }); });
+        return { p: p, mine: mine, n: n, bad: mine.filter(function (x) { return tovMatch(x, 'overdue'); }).length };
+      }).filter(function (o) { return (flt === 'all' || (flt === 'none' ? !o.mine.length : o.mine.some(function (x) { return tovMatch(x, flt); }))) && hit(o.p.name + ' ' + o.mine.map(function (x) { return x.name; }).join(' ')); });
+      if (ps.length) inner += '<div class="list">' + ps.map(function (o) {
+        var p = o.p, k = t.dept + '|' + p.name, warn = [!p.loggedIn ? '還沒登入' : '', !p.signed ? '還沒簽名' : ''].filter(String);
+        var sum = o.mine.length ? [p.equips.length ? p.equips.length + ' 台設備' : ''].concat(o.n.map(function (v, i) { return v ? FQ[i] + ' ' + v : ''; })).filter(String).join('・') : '未負責';
+        var r = '<div class="li tmp' + (o.mine.length ? '' : ' none') + '" onclick="tovOpen(' + jsq(k) + ')"><span class="tvcar' + (open[k] ? '' : ' shut') + '">' + ic('chev', 14, 2.6) + '</span><span class="mn"><span class="nm" data-raw>' + esc(p.name) +
+          (warn.length ? ' <span class="tvw">' + esc(warn.join('・')) + '</span>' : '') + '</span><span class="mt">' + esc(sum) + (o.bad ? '' : '') + '</span>' + (o.bad ? '<span class="mt"><span class="tvgs ng">' + esc('已到期 ' + o.bad) + '</span></span>' : '') + '</span>' +
+          '<button class="btn ghost sm" onclick="event.stopPropagation();tovGo(' + jsq(t.dept) + ',\'teamPerson\',{name:' + jsq(p.name) + '})">調整</button></div>';
+        if (open[k]) r += '<div class="tmdet">' + (o.mine.length ? o.mine.map(function (x) {
+          return '<div class="tmdi"><b data-raw>' + esc(x.kind === 'equip' ? (x.cat || '') + ' ' + (x.obj || '') + (x.part ? '・' + x.part : '') : '區域型') + '</b><span class="tmfs">' + chips(x) + '</span></div>';
+        }).join('') : '<div class="tvnone pad">沒有負責任何設備或表單</div>') + '</div>';
+        return r;
+      }).join('') + '</div>';
+    }
+    if (!inner) return;
+    body += (multi ? '<button class="tvdept tmd" onclick="tovFold(' + jsq(dk) + ')"><span class="tvcar' + (fold[dk] ? ' shut' : '') + '">' + ic('chev', 14, 2.6) + '</span>' + esc(t.dept) + '</button>' : '') + (fold[dk] ? '' : inner);
+  });
+  return h + (body || '<div class="empty">' + esc(mode === 'equip' ? '沒有符合的設備或表單' : '沒有符合的人員') + '</div>');
+}
+function teamDept(d) { S.arg = { dept: d, tab: S.arg.dept === '*' ? 'ov' : S.arg.tab, ov: S.arg.ov }; S.team = null; render(); }   // 從「全部」總覽點進一課：網頁版先看那一課的總覽
 function teamTab(t) { S.arg.tab = t; render(); }
 PAGES.teamEdit = function () {
   var tm = S.team, tg = tm && tm.targets.filter(function (x) { return x.key === S.arg.key; })[0];

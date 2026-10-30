@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.28.1';
+var APP_VERSION = '0.29.0';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -1021,11 +1021,24 @@ function duePill(a) {
     if (d.todayDone && d.signer && S.me && d.signer !== S.me.person.name) return pill('ok', 'check', d.signer + ' 已檢點');   // 同事檢點了（輪流、代理、代填）：寫出是誰
     return d.todayDone ? pill('ok', 'check', '已檢點') : pill('warn', 'clock', '今天未檢點');
   }
-  return ({ never: pill('na', '', '尚無紀錄'), overdue: pill('ng', 'warn', '已到期'), soon: pill('warn', 'clock', '快到期'), ok: pill('ok', 'check', '期限內') })[d.state] || '';
+  return dueChip(d.state, d.due);
 }
+// ── 期限倒數（10/30 Jason：期限要明確、有急迫感）：剩幾天、今天到期、逾時幾天，日期寫出來 ──
+function dDays(due) { if (!due) return null; var a = new Date(today() + 'T00:00:00'), b = new Date(String(due).slice(0, 10) + 'T00:00:00'); return Math.round((b - a) / 86400000); }
+function mdTxt(due) { return due ? Number(String(due).slice(5, 7)) + '/' + Number(String(due).slice(8, 10)) : ''; }
+function dueChip(state, due) {
+  var n = dDays(due);
+  if (state === 'overdue') return pill('ng', 'warn', n != null ? '逾時 ' + Math.max(1, -n) + ' 天' : '已到期');
+  if (state === 'soon') return pill('warn', 'clock', n == null ? '快到期' : n <= 0 ? '今天到期' : '剩 ' + n + ' 天');
+  if (state === 'never') return pill('na', '', '尚無紀錄');
+  return state === 'ok' ? pill('ok', 'check', '期限內') : '';
+}
+/** 某個月份的「下個月 N 號」（送審、主管核准的期限） */
+function monthDue(period, day) { var y = Number(period.slice(0, 4)), mo = Number(period.slice(5)) + 1; if (mo > 12) { mo = 1; y++; } return y + '-' + ('0' + mo).slice(-2) + '-' + ('0' + day).slice(-2); }
+function leftTxt(due) { var n = dDays(due); return n == null ? '' : n < 0 ? '逾時 ' + (-n) + ' 天' : n === 0 ? '今天到期' : '剩 ' + n + ' 天'; }
 function dueMeta(a) {
   var d = a.due || {};
-  return (a.freq || '') + (d.last ? '｜上次 ' + d.last + (d.due ? '｜下次 ' + d.due : '') : '');
+  return (a.freq || '') + (d.due && d.state !== 'ok' ? '｜' + mdTxt(d.due) + ' 前要完成' : '') + (d.last ? '｜上次 ' + d.last + (d.due && d.state === 'ok' ? '｜下次 ' + d.due : '') : '');
 }
 function goMonth(dept, period) { return "go('month',{dept:" + jsq(dept) + ',period:' + jsq(period) + '})'; }
 function pickName(a) { var f = F(a.form); return (f ? f.name : '') + (a.object ? ' ' + a.object : ''); }
@@ -1108,7 +1121,9 @@ PAGES.home = function () {
     var want = ehs ? '待環安衛審核' : '待主管審核';
     var mine = (S.pkgs || []).filter(function (x) { return x.status === want; });
     if (mine.length) mine.forEach(function (x) {
-      tasks.push({ tag: ehs ? '單位負責人已核准，待您歸檔' : '待您審核', title: x.dept + ' ' + ymLabel(x.period), meta: (x.submitter || '') + ' ' + (x.submittedAt || '').slice(5, 16) + ' 送出',
+      var rd = monthDue(x.period, m.reviewDay || 15), late = !ehs && dDays(rd) < 0;
+      tasks.push({ red: late, tag: ehs ? '單位負責人已核准，待您歸檔' : (late ? '審核逾時 ' + (-dDays(rd)) + ' 天' : '待您審核・' + mdTxt(rd) + ' 前・' + leftTxt(rd)), title: x.dept + ' ' + ymLabel(x.period),
+        meta: (x.submitter || '') + ' ' + (x.submittedAt || '').slice(5, 16) + ' 送出' + (ehs ? '' : '；請在 ' + mdTxt(rd) + ' 前核准送環安衛'),
         btn: ehs ? '看 PDF 並歸檔' : '開始審核', on: goMonth(x.dept, x.period) });
     });
     else tasks.push({ tag: ehs ? '待您歸檔' : '待您審核', title: '有 ' + m.pendingReview + ' 份等您' + (ehs ? '歸檔' : '審核'),
@@ -1123,10 +1138,14 @@ PAGES.home = function () {
     var f = F(a.form);
     tasks.push({ tag: dn(a.dept) + '今天的每日檢點', title: f.name, meta: '共 ' + f.items.length + ' 項・沒問題按「全部正常」就好', btn: '開始檢點', on: 'openFill(' + jsq(a.key) + ')' });
   });
-  // 4. 已到期的定期檢查
+  // 4. 定期檢查：逾時的紅色置頂、快到期的寫出日期與剩幾天（10/30：每月定期檢查每月 N 號前完成）
   if (!ehs && !mgr) m.depts.forEach(function (d) {
-    var od = m.assigns.filter(function (a) { return a.dept === d.id && a.pick && a.due && a.due.state === 'overdue'; });
-    if (od.length) tasks.push({ tag: dn(d.id) + '定期檢查', title: od.length + ' 張已到期', meta: od.slice(0, 2).map(pickName).join('、') + (od.length > 2 ? '…' : ''), btn: '去看看', on: "go('mine')" });
+    var byDue = function (a, b) { return String(a.due.due || '') < String(b.due.due || '') ? -1 : 1; };
+    var od = m.assigns.filter(function (a) { return a.dept === d.id && a.pick && a.due && a.due.state === 'overdue'; }).sort(byDue);
+    var sn = m.assigns.filter(function (a) { return a.dept === d.id && a.pick && a.due && a.due.state === 'soon'; }).sort(byDue);
+    var one = function (l) { return l.length === 1 ? 'openFill(' + jsq(l[0].key) + ')' : "go('mine')"; };
+    if (od.length) tasks.unshift({ red: true, tag: dn(d.id) + '定期檢查逾時 ' + Math.max(1, -dDays(od[0].due.due)) + ' 天', title: od.length + ' 張定期檢查已過期限', meta: od.slice(0, 3).map(function (a) { return pickName(a) + '（' + mdTxt(a.due.due) + ' 到期）'; }).join('、') + (od.length > 3 ? '…' : ''), btn: od.length === 1 ? '馬上填寫' : '去填寫', on: one(od) });
+    if (sn.length) tasks.push({ tag: dn(d.id) + '定期檢查・' + mdTxt(sn[0].due.due) + ' 前・' + leftTxt(sn[0].due.due), title: sn.length + ' 張定期檢查快到期', meta: sn.slice(0, 3).map(function (a) { return pickName(a) + '（' + mdTxt(a.due.due) + ' 前）'; }).join('、') + (sn.length > 3 ? '…' : ''), btn: sn.length === 1 ? '開始填寫' : '去填寫', on: one(sn) });
   });
   // 4.5 還沒有任何表（檢點人員）：10/30 Jason：指派了就直接出現，不用同仁自己去領 → 只告知、不催
   if (!ehs && !mgr && !m.assigns.some(function (a) { return a.daily || a.pick; }))
@@ -1144,10 +1163,23 @@ PAGES.home = function () {
   if (!ehs) m.months.forEach(function (x) {
     if (x.period < t.slice(0, 7) && x.status === '填寫中' && !mgrOf(x.dept)) {     // 送審是檢點人員的事；主管看「各課執行狀況」
       var mo = Number(x.period.slice(5)), late = Number(t.slice(8)) > sDay;
-      if (late) tasks.push({ red: true, tag: dn(x.dept) + '已超過 ' + dueTxt(x.period) + ' 送審期限', title: '送出 ' + mo + ' 月的檢點紀錄', meta: '整課一起送，任一位同仁送出即可', btn: '檢查並送出 ' + mo + ' 月', on: goMonth(x.dept, x.period) });
+      var sd = monthDue(x.period, sDay);
+      if (late) tasks.unshift({ red: true, tag: dn(x.dept) + '送審逾時 ' + (-dDays(sd)) + ' 天（期限 ' + dueTxt(x.period) + '）', title: '送出 ' + mo + ' 月的檢點紀錄', meta: '整課一起送，任一位同仁送出即可', btn: '檢查並送出 ' + mo + ' 月', on: goMonth(x.dept, x.period) });
+      else if (dDays(sd) <= 2) tasks.push({ tag: dn(x.dept) + '送審・' + dueTxt(x.period) + ' 前・' + leftTxt(sd), title: '送出 ' + mo + ' 月的檢點紀錄', meta: '先確認沒有漏填（可補填），整課一起送，任一位同仁送出即可', btn: '檢查並送出 ' + mo + ' 月', on: goMonth(x.dept, x.period) });
       else subs.push(x);
     }
   });
+  // 5.5 主管、環安衛：各課上個月逾時沒送審、主管逾時沒核准（10/30）
+  if (mgr || ehs) {
+    var lateS = [], lateR = [], rDay = m.reviewDay || 15;
+    m.depts.forEach(function (d) { (d.months || []).forEach(function (x) {
+      if (x.period >= t.slice(0, 7) || demoDept(d.id) || x.period < (m.startPeriod || '')) return;
+      if (x.status === '填寫中' && dDays(monthDue(x.period, sDay)) < 0) lateS.push({ d: d.id, p: x.period, n: -dDays(monthDue(x.period, sDay)) });
+      if (x.status === '待主管審核' && dDays(monthDue(x.period, rDay)) < 0 && (ehs || !mgrOf(d.id))) lateR.push({ d: d.id, p: x.period, n: -dDays(monthDue(x.period, rDay)) });
+    }); });
+    if (lateS.length) tasks.unshift({ red: true, tag: '送審逾時（每月 ' + sDay + ' 號前）', title: lateS.length + ' 課還沒送出上個月的檢點紀錄', meta: lateS.slice(0, 3).map(function (x) { return x.d + ' ' + ymLabel(x.p) + '・逾時 ' + x.n + ' 天'; }).join('、') + (lateS.length > 3 ? '…' : ''), btn: lateS.length === 1 ? '去看那一課' : '看各課狀況', on: lateS.length === 1 ? goMonth(lateS[0].d, lateS[0].p) : "go('months')" });
+    if (lateR.length) tasks.unshift({ red: true, tag: '主管審核逾時（每月 ' + rDay + ' 號前）', title: lateR.length + ' 課的單位負責人還沒核准', meta: lateR.slice(0, 3).map(function (x) { return x.d + ' ' + ymLabel(x.p) + '・逾時 ' + x.n + ' 天'; }).join('、') + (lateR.length > 3 ? '…' : ''), btn: '看各課狀況', on: "go('months')" });
+  }
 
   // 頂部
   var say, sub;
@@ -1169,7 +1201,7 @@ PAGES.home = function () {
   if (tasks.length) h += '<div class="sec"><span class="sl"><span class="cnt">' + tasks.length + '</span>要做的事</span></div>' + tasks.map(taskHtml).join('');
   else h += '<div class="card calm">' + ic('check', 24, 3) + '目前沒有要做的事</div>';
   var main = h; h = '';
-  if (subs.length) h += '<div class="sec">月結送審<small>' + dueTxt(subs[0].period) + ' 前送出</small></div><div class="list">' + subs.map(function (x) {
+  if (subs.length) h += '<div class="sec">月結送審<small>' + dueTxt(subs[0].period) + ' 前送出・' + leftTxt(monthDue(subs[0].period, sDay)) + '</small></div><div class="list">' + subs.map(function (x) {
     return '<button class="li" onclick="' + goMonth(x.dept, x.period) + '"><span class="mn"><span class="nm">' + esc(dn(x.dept) + ymLabel(x.period)) + '</span>' +
       '<span class="mt">' + (demoDept(x.dept) ? '整課一起送，任一位同仁送出即可' : '先確認沒有漏填（可補填），整課一起送，任一位同仁送出即可') + '</span></span>' + pill('na', 'pen', '可以送審') + '</button>';
   }).join('') + '</div>';
