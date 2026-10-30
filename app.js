@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.27.0';
+var APP_VERSION = '0.27.1';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -658,7 +658,7 @@ PAGES.sign = function () {
   var bk = v ? '上一步' : (has && has.imageV ? '返回' : '重新選身分');
   bar('<div class="btns r12"><button class="btn ghost" onclick="sigBack()">' + ic('back', 20, 2.6) + bk + '</button>' +
     '<button class="btn" id="sigBtn" onclick="sigNext()">' + (v ? ic('check', 22, 2.8) + '儲存兩個簽名' : '下一步：簽直式' + ic('arrow', 20, 2.6)) + '</button></div>');
-  sigInit();
+  sigInit(); sigBtnSync();
   if (v && SIG.h) setTimeout(sigAutoV, 150);       // 進直式這一步先自動轉一次給本人預覽，確認了才用
   else if (!v && S.arg.keepH && SIG.h) setTimeout(function () { sigPaint(SIG.h); }, 150);   // 從直式回來：剛簽的橫式還在，不用重簽
 };
@@ -683,7 +683,7 @@ function sigPaint(url) {
     var k = Math.min((W - pad * 2) / img.width, (H - pad * 2) / img.height, 1.5);
     var w = img.width * k, h = img.height * k;
     ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
-    SIG.drawn = true;
+    SIG.drawn = true; sigBtnSync();
   };
   img.src = url;
 }
@@ -702,7 +702,7 @@ function sigInit() {
   function pt(e) { var r = cv.getBoundingClientRect(); var t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; }
   function start(e) { e.preventDefault(); size(); down = true; last = pt(e); }
   function move(e) { if (!down) return; e.preventDefault(); var p = pt(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; SIG.drawn = true; }
-  function end() { if (down && SIG.drawn && !document.querySelector('.coach.cbar')) coachSign(); down = false; }
+  function end() { if (down && SIG.drawn && !document.querySelector('.coach.cbar')) coachSign(); down = false; sigBtnSync(); }
   cv.addEventListener('mousedown', start); cv.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
   cv.addEventListener('touchstart', start, { passive: false }); cv.addEventListener('touchmove', move, { passive: false }); cv.addEventListener('touchend', end);
   SIG.drawn = false;
@@ -724,7 +724,7 @@ function sigUpload(inp) {
     var k = Math.min((W - pad * 2) / out.c.width, (H - pad * 2) / out.c.height);
     var w = out.c.width * k, h = out.c.height * k;
     ctx.drawImage(out.c, (W - w) / 2, (H - h) / 2, w, h);
-    SIG.drawn = true;
+    SIG.drawn = true; sigBtnSync();
     var vert = S.arg.step === 'v';
     if (vert && out.c.width > out.c.height * 1.2) toast('這張看起來是橫的簽名；直式要由上往下簽，請確認後再儲存', 'err', 5000);
     else if (!vert && out.c.height > out.c.width * 1.2) toast('這張看起來是直的簽名；這一步要橫式，請確認後再按下一步', 'err', 5000);
@@ -875,12 +875,20 @@ function vpYes() {
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.restore();
   var k = Math.min((W - pad * 2) / o.width, (H - pad * 2) / o.height), ww = o.width * k, hh = o.height * k;
   ctx.drawImage(o, (W - ww) / 2, (H - hh) / 2, ww, hh);
-  SIG.drawn = true;
+  SIG.drawn = true; sigBtnSync();
   $('vprev').innerHTML = '<div class="muted okt">' + ic('check', 18, 3) + ' 已放進直式框，儲存中…</div>';
   sigNext();
 }
 function vpNo() { SIG.vprev = null; $('vprev').innerHTML = '<div class="muted">好，請在下面的框裡<b>由上往下</b>簽全名；也可以上傳直式簽名照片。</div>'; sigClear(); }
-function sigClear() { var cv = $('cv'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; coachSign(); }
+function sigClear() { var cv = $('cv'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); SIG.drawn = false; sigBtnSync(); coachSign(); }
+/** 10/30 源頭防呆：10/29 BU 教育訓練 3 位同仁沒簽就按下一步（「請先簽名」被擋）。還沒簽時按鈕顯示灰色；按了不跳錯誤，改成捲到簽名框並閃一下 */
+function sigBtnSync() { var b = $('sigBtn'); if (b && !b.disabled) b.classList.toggle('wait', !SIG.drawn); }
+function sigNudge() {
+  var w = document.querySelector('.sigwrap') || $('cv'); if (!w) return;
+  w.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  w.classList.remove('nudge'); void w.offsetWidth; w.classList.add('nudge');
+  if (window.coachSign) coachSign();
+}
 /** 裁到筆跡範圍、縮小、存成透明 PNG（約 5～15 KB）。 */
 function sigExport() {
   var cv = $('cv'), ctx = cv.getContext('2d');
@@ -896,7 +904,7 @@ function sigExport() {
   return o.toDataURL('image/png');
 }
 function sigNext() {
-  if (!SIG.drawn) return toast('請先簽名', 'err');
+  if (!SIG.drawn) return sigNudge();
   var img = sigExport();
   if (!img) return toast('簽名太小，請簽大一點', 'err');
   if (img.length > 44000) return toast('簽名圖雜點太多，請用白紙黑筆重拍，或直接在框裡簽', 'err', 4500);

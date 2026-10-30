@@ -1479,7 +1479,7 @@ function proxySubmit() {
   var nw = nameWhy(name); if (nw) { $('pname').classList.add('bad'); $('pname').focus(); return toast(esc(nw), 'err', 4000); }
   var img = '';
   if (!fm.noWork) {
-    if (!SIG.drawn) return toast('請先簽名', 'err');
+    if (!SIG.drawn) return sigNudge();
     img = sigExport(); if (!img) return toast('簽名太小，請簽大一點', 'err');
   }
   var btn = $('psBtn'); btn.disabled = true; btn.className = 'btn busy'; btn.innerHTML = '<span class="spin"></span>送出中…';

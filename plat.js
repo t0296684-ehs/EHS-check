@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.27.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.27.1';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -1340,7 +1340,7 @@ function meetSignGo() {
   var name = ($('msN').value || '').trim(), unit = ($('msU').value || '').trim();
   var nw = nameWhy(name); if (nw) { $('msN').classList.add('bad'); $('msN').focus(); return toast(esc(nw), 'err', 4000); }
   if (!unit) return toast('請寫公司或單位', 'err');
-  if (!SIG.drawn) return toast('請先簽名', 'err');
+  if (!SIG.drawn) return sigNudge();
   var img = sigExport(); if (!img) return toast('簽名太小，請簽大一點', 'err');
   meetBusy($('msBtn'), '加入中…');
   api('meetAddSign', { id: S.arg.id, name: name, unit: unit, image: img }).then(function () {
@@ -1507,7 +1507,7 @@ function meetJoinSign() {
   var name = ($('mjN').value || '').trim(), unit = ($('mjU').value || '').trim();
   var nw = nameWhy(name); if (nw) { $('mjN').classList.add('bad'); $('mjN').focus(); return toast(esc(nw), 'err', 4000); }
   if (!unit) { $('mjU').classList.add('bad'); return toast('請寫公司或單位', 'err'); }
-  if (!SIG.drawn) return toast('請先簽名', 'err');
+  if (!SIG.drawn) return sigNudge();
   var img = sigExport(); if (!img) return toast('簽名太小，請簽大一點', 'err');
   meetBusy($('mjBtn'), '送出中…');
   meetPub('meetSign', { name: name, unit: unit, image: img }).then(function () { S.meet.d = null; window.scrollTo(0, 0); render(); })
