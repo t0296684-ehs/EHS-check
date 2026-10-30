@@ -1755,7 +1755,7 @@ PAGES.remind = function () {
   var h = '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><b>時間到，手機會自己跳通知</b><div class="m">勾選要提醒的項目後按下方按鈕，會下載一個行事曆檔，用手機的「行事曆」開啟加入（不用開著 App）。之後要改，先到行事曆刪掉舊的再重新加入。</div></div></div></div>';
   var row = function (key, title, freq, r) {
     var x = '<div class="ritem"><label class="ck"><input type="checkbox" ' + (r.on ? 'checked' : '') +
-      ' onchange="remSet(' + jsq(key) + ',\'on\',this.checked)"><span>' + esc(title) + '</span></label>';
+      ' onchange="remSet(' + jsq(key) + ',\'on\',this.checked)"><span>' + (Array.isArray(title) ? title.map(function (t) { return '<span>' + esc(t) + '</span>'; }).join('') : esc(title)) + '</span></label>';   // 分段：外語逐段翻（部門｜表名｜頻率黏在一起字典比不到）
     if (r.on) {
       x += '<div class="ropts">';
       if (freq === '作業日') {
@@ -1775,7 +1775,7 @@ PAGES.remind = function () {
     }
     return x + '</div>';
   };
-  if (!isEhs()) list.forEach(function (a) { var r = Object.assign(remDefault(a), R[a.key] || {}); h += row(a.key, a.dept + '｜' + aTitle(a) + '（' + (a.daily ? '每個作業日' : a.freq) + '）', a.daily ? '作業日' : a.freq, r); });
+  if (!isEhs()) list.forEach(function (a) { var r = Object.assign(remDefault(a), R[a.key] || {}); h += row(a.key, [a.dept, '｜', aTitle(a), '（' + (a.daily ? '每個作業日' : a.freq) + '）'], a.daily ? '作業日' : a.freq, r); });
   if (!isEhs() && !isMgr()) h += row('close', '月底送單位負責人', 'close', Object.assign({ on: false, time: '16:00', dom: -1 }, R.close || {}));
   if (isMgr() || isEhs()) h += row('review', '每月審核檢點紀錄', 'review', Object.assign({ on: false, time: '09:00', dom: isEhs() ? 8 : 3 }, R.review || {}));
   $('app').innerHTML = h;

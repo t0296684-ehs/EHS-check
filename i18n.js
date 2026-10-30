@@ -43,7 +43,7 @@ var I18N = (function () {
         if (!m) continue;
         var vals = {};
         pats[i].names.forEach(function (n, j) { vals[n] = m[j + 1]; });
-        hit = pats[i].to.replace(/\{(s?\d)\}/g, function (x, n) { return vals[n] !== undefined ? (n.charAt(0) === 's' ? (dict[vals[n]] || vals[n]) : vals[n]) : x; });
+        hit = pats[i].to.replace(/\{(s?\d)\}/g, function (x, n) { return vals[n] !== undefined ? (n.charAt(0) === 's' ? tr(vals[n]) : vals[n]) : x; });
         break;
       }
     }
