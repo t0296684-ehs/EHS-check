@@ -122,10 +122,10 @@ PAGES.pick = function () {
 };
 // ───────────── 領取表單：本課已開放、還不是自己的表或設備（表單內容只有環安衛中心能改）─────────────
 PAGES.claim = function () {
-  setTitle('領取表單');
+  setTitle('申請表單');
   var list = S.me.claimable || [], multi = S.me.depts.length > 1;
-  var h = '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">這裡是本課已開放、但還沒指派給您的表。按「領取」會送申請給單位負責人，核准後就會出現在首頁。' +
-    '要取消領取請洽單位負責人。</div></div></div></div>';
+  var h = '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">單位負責人指派給您的表會自動出現在首頁，不用申請。這裡是本課其他還沒指派給您的表或設備；想多負責哪一項，按「申請」送給單位負責人，核准後就會出現在首頁。' +
+    '要取消請洽單位負責人。</div></div></div></div>';
   S.me.depts.forEach(function (d) {
     var mine = list.filter(function (x) { return x.dept === d.id; });
     if (!mine.length) return;
@@ -133,7 +133,7 @@ PAGES.claim = function () {
     if (fs.length) h += '<div class="sec">' + esc((multi ? d.id + '・' : '') + '檢查表') + '</div><div class="list">' + fs.map(function (x, i) {
       return claimRow(x, x.name, (x.daily ? '每日檢點' : '定期檢查') + '・' + (x.users.length ? '目前使用：' + x.users.join('、') : '目前沒有人使用'), 'f' + i + d.id);
     }).join('') + '</div>';
-    if (es.length) h += '<div class="sec">' + esc((multi ? d.id + '・' : '') + '設備（一台一台領）') + '</div><div class="list">' + es.map(function (x, i) {
+    if (es.length) h += '<div class="sec">' + esc((multi ? d.id + '・' : '') + '設備（一台一台申請）') + '</div><div class="list">' + es.map(function (x, i) {
       return claimRow(x, x.cat + ' ' + x.object + (x.objectName ? '（' + x.objectName + '）' : ''),
         '用到：' + x.forms.join('、') + '・' + (x.users.length ? '目前負責：' + x.users.join('、') : '目前沒有負責人'), 'e' + i + d.id);
     }).join('') + '</div>';
@@ -145,14 +145,14 @@ var CLAIMS = {};
 function claimRow(x, title, meta, k) {
   CLAIMS[k] = x;
   return '<div class="li"><span class="mn"><span class="nm">' + esc(title) + '</span><span class="mt">' + esc(meta) + '</span></span>' +
-    (x.pending ? pill('warn', 'clock', '待單位負責人核准') : '<button class="btn sm" onclick="claimGo(' + jsq(k) + ')">領取</button>') + '</div>';
+    (x.pending ? pill('warn', 'clock', '待單位負責人核准') : '<button class="btn sm" onclick="claimGo(' + jsq(k) + ')">申請</button>') + '</div>';
 }
 function claimGo(k) {
   var x = CLAIMS[k]; if (!x) return;
   var what = x.kind === 'equip' ? x.cat + ' ' + x.object : x.name;
-  if (!confirm('申請領取「' + what + '」？\n送出後要單位負責人核准，核准了首頁才會出現' + (x.kind === 'equip' ? '這台設備的檢查表' : '這張表') + '。')) return;
-  if (!navigator.onLine) return toast('沒有網路，領取要連上網路才能做', 'err', 3500);
-  busyOn('領取中…');
+  if (!confirm('申請負責「' + what + '」？\n送出後要單位負責人核准，核准了首頁才會出現' + (x.kind === 'equip' ? '這台設備的檢查表' : '這張表') + '。')) return;
+  if (!navigator.onLine) return toast('沒有網路，申請要連上網路才能做', 'err', 3500);
+  busyOn('送出申請中…');
   api('claim', x.kind === 'equip' ? { deptId: x.dept, kind: 'equip', cat: x.cat, object: x.object } : { deptId: x.dept, kind: 'form', formId: x.form }).then(function (r) {
     busyOff(); S.me = normMe(r.me); lsSet(LS.ME, r.me);
     toast('已送出申請：' + what + '，等單位負責人核准', 'ok', 3500); render();
@@ -160,12 +160,12 @@ function claimGo(k) {
 }
 // ───────────── 領取申請（單位負責人核准）─────────────
 PAGES.claimReview = function () {
-  setTitle('領取申請');
+  setTitle('表單申請');
   var cr = S.cr;
   if (!cr) {
-    $('app').innerHTML = loading('讀取領取申請…');
+    $('app').innerHTML = loading('讀取表單申請…');
     api('claimList', {}).then(function (r) { S.cr = r; if (S.page === 'claimReview') render(); })
-      .catch(function (e) { $('app').innerHTML = errBox('讀不到領取申請', e.message); });
+      .catch(function (e) { $('app').innerHTML = errBox('讀不到表單申請', e.message); });
     return;
   }
   var h = '<div class="muted upnote">同仁申請負責的表或設備。核准後馬上出現在他的手機上，環安衛中心會收到異動通知；退回請寫原因。</div>';
@@ -173,7 +173,7 @@ PAGES.claimReview = function () {
     return '<div class="li"><span class="mn"><span class="nm">' + esc(x.name + '：' + x.what) + '</span><span class="mt">' + esc(x.dept + '・' + x.time.slice(5) + ' 申請') + '</span>' +
       '<span class="mt">' + esc(x.users.length ? '目前負責：' + x.users.join('、') : '目前沒有人負責') + '</span>' +
       '<span class="btns"><button class="btn sm" onclick="claimDecide(' + jsq(x.id) + ',' + jsq('approve') + ')">核准</button><button class="btn sm ghost" onclick="claimDecide(' + jsq(x.id) + ',' + jsq('reject') + ')">退回</button></span></span></div>';
-  }).join('') + '</div>' : '<div class="empty">目前沒有待核准的領取申請</div>';
+  }).join('') + '</div>' : '<div class="empty">目前沒有待核准的表單申請</div>';
   $('app').innerHTML = h;
 };
 function claimDecide(id, d) {
@@ -640,7 +640,7 @@ PAGES.mine = function () {
   });
   if (!h) h = '<div class="empty">目前沒有指派給您的表</div>';
   else h = '<div class="box info"><div class="r">' + ic('info', 22) + '<div class="bt"><div class="m">每年、每兩年的檢查沒有規定哪一天做，在期限內安排時間到現場檢查再填。快到期（30 天內）首頁會提醒。</div></div></div></div>' + h;
-  if (m.claimable && m.claimable.length && !isMgr()) h += '<button class="btn ghost" onclick="go(\'claim\')">' + ic('plus', 20, 2.6) + '領取本課其他表或設備</button>';
+  if (m.claimable && m.claimable.length && !isMgr()) h += '<button class="btn ghost" onclick="go(\'claim\')">' + ic('plus', 20, 2.6) + '申請負責本課其他表或設備</button>';
   $('app').innerHTML = h;
 };
 

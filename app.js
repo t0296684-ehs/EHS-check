@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.26.1';
+var APP_VERSION = '0.27.0';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -501,6 +501,7 @@ function heroTop() {
 }
 function drawTop() {
   var t = $('top');
+  if (window.deskOn && deskOn()) { t.className = 'topbar dtop'; t.innerHTML = deskTop(); return; }   // 網頁版 2.0 上方工具列（plat.js）
   if (S.hero) { t.className = 'hero'; t.innerHTML = devBanner() + S.hero; return; }
   var sigBk = S.cur === 'sign' && !!S.me;             // 簽名頁每一步都能回上一步（第一次登入還沒簽完也可以，見 sigBack）
   var showBack = sigBk || (S.stack.length && ['home', 'login', 'url', 'proxy'].indexOf(S.cur) < 0);
@@ -1025,6 +1026,31 @@ function taskHtml(x, i) {
     (x.meta ? '<span class="tm">' + esc(x.meta) + '</span>' : '') + '</div>' +
     '<button class="btn ' + (i === 0 ? 'big' : 'line') + '" onclick="' + x.on + '">' + esc(x.btn) + (i === 0 ? ic('arrow', 22, 2.6) : '') + '</button></div>';
 }
+/** 網頁版工作台：要做的事一列一件（標籤｜標題與說明｜按鈕），第一件用主要按鈕 */
+function deskTask(x, i) {
+  return '<div class="dtask' + (x.red ? ' red' : '') + '"><span class="dtg">' + esc(x.tag) + '</span><div class="dtm"><b>' + esc(x.title) + '</b>' + (x.meta ? '<small>' + esc(x.meta) + '</small>' : '') + '</div>' +
+    '<button class="btn sm' + (i === 0 ? '' : ' ghost') + '" onclick="' + x.on + '">' + esc(x.btn) + '</button></div>';
+}
+/** 網頁版工作台：上方數字總覽（點了直接到那一頁） */
+function deskKpis(m, o) {
+  var ehs = isEhs(), mgr = isMgr(), k = [];
+  var od = (m.assigns || []).filter(function (a) { return a.pick && a.due && a.due.state === 'overdue'; }).length;
+  var soon = (m.assigns || []).filter(function (a) { return a.pick && a.due && a.due.state === 'soon'; }).length;
+  if (!ehs && !mgr) {
+    k.push({ n: o.done.length + '／' + o.daily.length, l: '今天每日檢點', s: o.todo.length ? '還有 ' + o.todo.length + ' 張沒做' : (o.daily.length ? '今天都做完了' : '沒有每日檢點'), tone: o.todo.length ? 'warn' : 'ok', on: o.todo.length ? 'openFill(' + jsq(o.todo[0].key) + ')' : "go('mine')" });
+    k.push({ n: od, l: '定期檢查已到期', s: soon ? soon + ' 張快到期' : '期限內', tone: od ? 'ng' : soon ? 'warn' : 'ok', on: "go('mine')" });
+  } else {
+    k.push({ n: m.pendingReview || 0, l: ehs ? '等您歸檔' : '等您審核', s: ehs ? '單位負責人已核准' : '檢點人員已送審', tone: m.pendingReview ? 'warn' : 'ok', on: "go('packages')" });
+    var un = 0; (m.depts || []).forEach(function (d) { un += (d.unowned || []).length; });
+    if (mgr && !ehs) k.push({ n: un, l: '還沒指派負責人', s: un ? '指派後直接出現在同仁手機' : '本課都有人負責', tone: un ? 'warn' : 'ok', on: "S.team=null;go('team')" });
+    if (ehs) k.push({ n: (m.archPending || []).length, l: '歸檔收尾未完成', s: '每天 12:15 自動補做', tone: (m.archPending || []).length ? 'warn' : 'ok', on: "go('packages')" });
+  }
+  k.push({ n: m.tracksOpen || 0, l: '異常待改善', s: '異常追蹤', tone: m.tracksOpen ? 'ng' : 'ok', on: "S.tk=null;go('track')" });
+  k.push({ n: m.unread || 0, l: '未讀通知', s: '通知', tone: m.unread ? 'info' : 'ok', on: "go('notice')" });
+  return '<div class="kpis">' + k.map(function (x) {
+    return '<button class="kpi ' + x.tone + '" onclick="' + x.on + '"><span class="kl">' + esc(x.l) + '</span><span class="kn" data-raw>' + esc(String(x.n)) + '</span><span class="ks">' + esc(x.s) + '</span></button>';
+  }).join('') + '</div>';
+}
 function tile(icon, label, on, extra, sub) {
   return '<button class="tile" onclick="' + on + '"><span class="tr">' + ic(icon, 24, 2.2) + (extra || '') + '</span><b>' + esc(label) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</b></button>';
 }
@@ -1069,7 +1095,7 @@ PAGES.home = function () {
   // 2. 待審核（主管／環安衛）
   // v0.13.15：同仁的領取申請要單位負責人核准
   var nReq = 0; (m.depts || []).forEach(function (d) { nReq += d.claimReq || 0; });
-  if (nReq) tasks.push({ red: true, tag: '領取申請', title: '有 ' + nReq + ' 件領取申請待您核准', meta: '同仁要負責的表或設備，核准後才會出現在他的手機上', btn: '去核准', on: "go('claimReview')" });
+  if (nReq) tasks.push({ red: true, tag: '表單申請', title: '有 ' + nReq + ' 件表單申請待您核准', meta: '同仁要負責的表或設備，核准後才會出現在他的手機上', btn: '去核准', on: "go('claimReview')" });
   if (m.pendingReview) {
     var want = ehs ? '待環安衛審核' : '待主管審核';
     var mine = (S.pkgs || []).filter(function (x) { return x.status === want; });
@@ -1094,15 +1120,15 @@ PAGES.home = function () {
     var od = m.assigns.filter(function (a) { return a.dept === d.id && a.pick && a.due && a.due.state === 'overdue'; });
     if (od.length) tasks.push({ tag: dn(d.id) + '定期檢查', title: od.length + ' 張已到期', meta: od.slice(0, 2).map(pickName).join('、') + (od.length > 2 ? '…' : ''), btn: '去看看', on: "go('mine')" });
   });
-  // 4.5 還沒有任何表（檢點人員）：去領取
+  // 4.5 還沒有任何表（檢點人員）：10/30 Jason：指派了就直接出現，不用同仁自己去領 → 只告知、不催
   if (!ehs && !mgr && !m.assigns.some(function (a) { return a.daily || a.pick; }))
-    tasks.push({ tag: '還沒有指派給您的檢查表', title: '先領取您負責的表或設備', meta: m.claimable.length ? '本課開放 ' + m.claimable.length + ' 項可以領取；領了才會出現在手機上' : '目前沒有可領取的表，請洽環安衛中心',
-      btn: '去領取', on: "go('claim')" });
-  // 4.6（10/15 Jason）：本課還有沒人負責的表或設備 → 提醒去領取（已經有負責項目的人也要看到；申請中的不算）
-  if (!ehs && !mgr && m.assigns.some(function (a) { return a.daily || a.pick; })) {
-    var open = (m.claimable || []).filter(function (x) { return !(x.users || []).length && !x.pending; });
-    if (open.length) tasks.push({ tag: '本課還有沒人負責的檢查', title: open.length + ' 項等人領取', meta: open.slice(0, 2).map(function (x) { return x.kind === 'equip' ? x.cat + ' ' + x.object : x.name; }).join('、') + (open.length > 2 ? '…' : '') + '；領取後由單位負責人核准',
-      btn: '去領取', on: "go('claim')" });
+    tasks.push({ tag: '還沒有指派給您的檢查表', title: '單位負責人指派後，會自動出現在這裡', meta: '不用自己領取；要負責某張表或某台設備，可以送申請給單位負責人',
+      btn: '申請表單', on: "go('claim')" });
+  // 4.6 本課還有沒人負責的表或設備 → 提醒單位負責人指派（10/30 起不再叫同仁去領）
+  if (mgr && !ehs) {
+    var un = []; (m.depts || []).forEach(function (d) { (d.unowned || []).forEach(function (n) { un.push(dn(d.id) + n); }); });
+    if (un.length) tasks.push({ tag: '本課還有沒人負責的檢查', title: un.length + ' 項還沒指派負責人', meta: un.slice(0, 2).join('、') + (un.length > 2 ? '…' : '') + '；指派後會直接出現在同仁手機',
+      btn: '去指派', on: "S.team=null;go('team')" });
   }
   // 5. 上個月還沒送審：送審期限（預設每月 5 日）前放在下方「月結送審」，過了期限才變成要做的事
   var sDay = m.submitDay || 5, dueTxt = function (p) { var d = new Date(Number(p.slice(0, 4)), Number(p.slice(5)), sDay); return (d.getMonth() + 1) + '/' + d.getDate(); };
@@ -1169,7 +1195,7 @@ PAGES.home = function () {
   }
   if (!ehs && m.depts.some(function (d) { return m.assigns.some(function (a) { return a.dept === d.id && a.daily; }); }))
     tl += tile('chat', '請人代填', "go('shareMake')", '', '休假時給同事限時連結');
-  if (!ehs && !mgr && m.claimable.length) tl += tile('plus', '領取表單', "go('claim')", '', '本課其他表、其他設備');
+  if (!ehs && !mgr && m.claimable.length) tl += tile('plus', '申請表單', "go('claim')", '', '想多負責本課其他表或設備');
   if (mgr || ehs) tl += tile('review', '審核紀錄', "go('packages')");
   if (mgr || ehs) tl += tile('swap', '部門管理', "S.team=null;go('team')", '', '人員、表單、設備與負責人');
   if (ehs) tl += tile('bell', '廣播', "S.bc=null;go('bc')", '', '發通知給指定的人');
@@ -1181,7 +1207,13 @@ PAGES.home = function () {
   tl += tile('review', '月結紀錄', "go('months')");
   tl += tile('clock', '提醒設定', "go('remind')");
   tl += tile('chat', '問題回報', "go('support')", '', '問環安衛（可附截圖）');      // 10/29：只用日常檢點的同仁在這頁也找得到
-  if (isDesk()) h = top + '<div class="desk2"><div class="dcol">' + main + '</div><div class="dcol">' + (window.deskDaily ? deskDaily(m) : '') + h + '</div></div><div class="ver">v' + APP_VERSION + '</div>';
+  if (isDesk()) {                                                   // 網頁版 2.0：問候列 → 數字總覽 → 左「要做的事」表格、右每日檢點／送審／各課狀況
+    var kp = deskKpis(m, { daily: daily, done: done, todo: todo, tasks: tasks });
+    var dt = tasks.length ? '<div class="dcard"><div class="dch"><b>要做的事</b><span class="cnt">' + tasks.length + '</span></div><div class="dtl">' + tasks.map(deskTask).join('') + '</div></div>'
+      : '<div class="dcard calmd">' + ic('check', 22, 3) + '<b>目前沒有要做的事</b></div>';
+    h = top + '<div class="dhead"><div><div class="dh1">' + greet() + '，' + esc(m.person.name) + '</div><div class="dhsub">' + esc(sub) + '</div></div><div class="dsay">' + say + '</div></div>' + kp +
+      '<div class="desk2"><div class="dcol">' + dt + '</div><div class="dcol">' + (window.deskDaily ? deskDaily(m) : '') + h + '</div></div>';
+  }
   else h = top + main + h + '<div class="tiles">' + tl + '</div><div class="ver">v' + APP_VERSION + '</div>';
   $('app').innerHTML = h;
 };

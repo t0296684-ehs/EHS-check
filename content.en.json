@@ -1,5 +1,5 @@
 {
- "version": "0.26.1",
+ "version": "0.27.0",
  "chapters": [
   {
    "no": 1,
@@ -131,12 +131,14 @@
      "shots": [],
      "steps": [
       "On the computer, open the App address in Chrome or Edge and log in (bookmark it). On a wide enough screen it switches to the web version automatically.",
-      "The menu on the left is always there: Workbench, Table entry, My forms, Calendar, Review, Abnormality tracking, other functions, plus Issue reports, Notices, User guide and Settings. Click to switch pages.",
-      "<b>Workbench</b>: the left side lists what to do; the right side shows today's status of each daily checklist and periodic inspections due soon. Supervisors and EHS also see how each unit is doing.",
+      "The menu is fixed on the left: Workbench, Table entry, My forms, Calendar, Review, Issue tracking, other functions, plus Report a problem, Notices, User guide and Settings; click to switch pages. Click <b>\"Collapse menu\"</b> at the bottom to shrink it to icons and widen the content.",
+      "The toolbar is at the top: in <b>Quick search</b> (or press <b>Ctrl+K</b>) type a form or function name, e.g. \"forklift\" or \"calendar\", and press Enter to open it; on the right you can switch language, see notices and open Settings.",
+      "<b>Workbench</b>: the row of numbers at the top (today's daily checks, periodic checks due, issues to fix, unread notices; supervisors see awaiting review and no one assigned) takes you straight to that page. Below, the left side lists your to-dos, one per row; click the button on the right to start. The right side shows today's status for each daily check and periodic checks coming due; supervisors and EHS also see each section's progress.",
       "<b>Daily checks</b>: use \"Table entry\" to fill a whole month at once (see 2-10). If today is fine, click \"Today: all normal\" and save.",
       "<b>Periodic inspections that need photos</b> use two columns: tick items on the left; write the summary and upload photos from the computer on the right.",
       "<b>Supervisor review</b>: use \"Review as a table\" to see the whole month at once (see 3-4).",
-      "<b>Calendar</b>: the calendar on the left, that day's record and the month status on the right. <b>Unit management</b> uses the \"Assignment table\": one row per inspector, one column per form or piece of equipment; tick and save everything at once (from today or from next month)."
+      "<b>Calendar</b>: the calendar on the left, that day's record and the month status on the right. <b>Unit management</b> uses the \"Assignment table\": one row per inspector, one column per form or piece of equipment; tick and save everything at once (from today or from next month).",
+      "Keyboard: <b>Esc</b> goes back; <b>Alt+number</b> jumps to that item in the left menu."
      ],
      "tip": "On a narrower screen (for example a tablet held upright) it switches back to the phone layout automatically; the functions stay the same.",
      "warn": false
@@ -275,18 +277,18 @@
     },
     {
      "no": "2-6",
-     "title": "Claim forms",
-     "lead": "You can claim forms or equipment that are open for your section but not yet assigned to you.",
+     "title": "Request forms",
+     "lead": "Forms or machines your supervisor assigns to you appear on your home page automatically; no need to claim them. To take on other forms or machines in your section, send a request.",
      "shots": [
       [
        "15_領取表單",
-       "Claim forms"
+       "Request forms"
       ]
      ],
      "steps": [
-      "At the bottom of \"My forms\" tap <b>\"Claim other forms or equipment in this section\"</b>.",
-      "Find the form or equipment and tap <b>\"Claim\"</b>.",
-      "It then appears on Home. To cancel, ask your supervisor or the EHS Center."
+      "On the home page, at the bottom of \"My forms\", tap <b>\"Request other forms or equipment in this section\"</b>.",
+      "Find the form or machine you want and tap <b>\"Request\"</b> to send it to your supervisor.",
+      "Once your supervisor approves, it appears on your home page; to cancel, ask your supervisor or the EHS Center."
      ],
      "tip": "",
      "warn": false

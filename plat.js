@@ -1,7 +1,7 @@
 /* 員和環安衛系統：平台層——主選單、功能權限、環保抄表、施工申請、環安衛教育訓練。
    app.js 是「日常檢點」這個功能；本檔在 app.js 之前載入，頁面與圖示在 app.js 建 PAGES／ICON 時併進去。
    新增功能的做法：MODS 加一筆（key、名稱、圖示、頁面）→ 後端 MODS／功能權限頁加一欄 → 這裡寫頁面。 */
-var PLAT_VER = '0.26.1';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
+var PLAT_VER = '0.27.0';                                   // 要跟 app.js 的 APP_VERSION 一樣（打包時會檢查）
 /** 新舊檔混用自救：App 開啟時網路慢，Service Worker 會拿手機裡的舊檔頂上，可能 app.js、plat.js 一新一舊而卡在載入中。
  *  兩支檔各帶版本號，對不上就清掉手機裡存的程式檔、重新載入一次（60 秒內只做一次，不會一直重整）。 */
 function platHeal() {
@@ -1550,7 +1550,7 @@ function devEnd() {
   S.stack = []; go('menu', {}, true); refreshMe();
 }
 var PAGE_NAME = { home: '日常檢點首頁', menu: '主選單', fill: '填寫檢點表', month: '月份紀錄', smConfirm: '月結送審確認', sign: '簽名', login: '登入', mine: '我的表單',
-  claim: '領取表單', track: '異常追蹤', trackFix: '填寫改善', notice: '通知', guide: '使用教學', settings: '設定', shareMake: '請人代填', packages: '審核紀錄',
+  claim: '申請表單', track: '異常追蹤', trackFix: '填寫改善', notice: '通知', guide: '使用教學', settings: '設定', shareMake: '請人代填', packages: '審核紀錄',
   team: '部門管理', edu: '教育訓練', eduItem: '教育訓練內容', eduPost: '發布教育訓練', cons: '施工申請', env: '環保抄表', months: '月結紀錄', pick: '其他檢查表',
   remind: '提醒設定', bc: '廣播', proxy: '代填', psign: '代填簽名', nextOwners: '下月負責人', teamEdit: '部門管理', teamPerson: '部門管理', devPick: '開發者模式', devPerson: '開發者模式',
   support: '問題回報', supportNew: '問題回報・新問題', supAdmin: '全部問題回報', supAdminItem: '問題回報（環安衛）', xiaoen: '問小恩', supportItem: '問題回報・對話', agent: '小恩助理團隊' };
@@ -1707,8 +1707,10 @@ function sideKey(p, a) {
   return k || '';
 }
 function sideReset() { S.stack = []; S.sf = null; }
+var SIDE_REG = [];                                       // 這次畫出來的選單項目（快速搜尋 Ctrl+K 用）
 function sItem(key, icon, label, js, badge, locked) {
   var on = sideKey(S.cur, S.arg) === key;
+  if (!locked) SIDE_REG.push({ icon: icon, label: label, js: 'sideReset();' + js });
   return '<button class="sitem' + (on ? ' on' : '') + (locked ? ' lk' : '') + '"' + (on ? ' aria-current="page"' : '') + ' onclick="' + esc('sideReset();' + js) + '">' + ic(icon, 20, 2.3) +
     '<span>' + esc(label) + '</span>' + (badge ? '<i class="sb">' + esc(String(badge)) + '</i>' : locked ? ic('lock', 16, 2.4) : '') + '</button>';
 }
@@ -1718,9 +1720,11 @@ function drawSide() {
   document.body.classList.toggle('desk', desk);
   document.body.classList.toggle('hasside', !!on);
   document.body.setAttribute('data-page', S.cur || '');
+  document.body.classList.toggle('sidemin', !!on && sideMin());
   if (!on) { el.innerHTML = ''; return; }
+  SIDE_REG = [];
   var m = S.me, p = plat() || { mods: { check: true, edu: true } }, ehs = isEhs(), mgr = isMgr(), t = today();
-  var h = '<div class="sbrand">' + ic('logo', 26, 2) + '<b>員和環安衛系統</b></div><div class="swho"><b>' + esc(m.person.name) + '</b><small>' + esc(whoLine().split('・').slice(1).join('・') || m.person.role) + '</small></div>';
+  var h = '<div class="sbrand"><span class="slogo">' + ic('logo', 22, 2.2) + '</span><b>員和環安衛系統</b></div>';
   h += sItem('home', 'grid', modOn('check') ? '工作台' : '主選單', modOn('check') ? "go('home',{},true)" : "go('menu',{},true)");
   if (modOn('check')) {
     h += '<div class="ssec">日常檢點</div>';
@@ -1732,7 +1736,7 @@ function drawSide() {
     else h += sItem('month', 'cal', '月結紀錄', "go('months',{},true)");
     if (mgr || ehs) h += sItem('review', 'review', '審核', "go('packages',{},true)", m.pendingReview || 0);
     if (mgr || ehs) h += sItem('team', 'swap', '部門管理', "S.team=null;go('team',{},true)");
-    if (!ehs && !mgr && (m.claimable || []).length) h += sItem('claim', 'plus', '領取表單', "go('claim',{},true)");
+    if (!ehs && !mgr && (m.claimable || []).length) h += sItem('claim', 'plus', '申請表單', "go('claim',{},true)");
     if (!ehs && dd.length) h += sItem('share', 'chat', '請人代填', "go('shareMake',{},true)");
     h += sItem('track', 'warn', '異常追蹤', "S.tk=null;go('track',{},true)", m.tracksOpen || 0);
     if (ehs) h += sItem('bc', 'bell', '廣播', "S.bc=null;go('bc',{},true)");
@@ -1741,16 +1745,94 @@ function drawSide() {
   if (others.length) {
     h += '<div class="ssec">其他功能</div>';
     var bd = { cons: p.consTodo || 0, edu: p.eduReady ? '!' : p.eduUnread || 0 };
-    others.forEach(function (x) { h += sItem(x.key, x.icon, x.name, modOn(x.key) ? 'goMod(' + JSON.stringify(x.key) + ')' : 'permAsk(' + JSON.stringify(x.key) + ')', modOn(x.key) ? bd[x.key] : 0, !modOn(x.key)); });
+    others.forEach(function (x) { h += sItem(x.key, x.icon, x.name, modOn(x.key) ? 'goMod(' + JSON.stringify(x.key) + ');S.stack=[];drawTop()' : 'permAsk(' + JSON.stringify(x.key) + ')', modOn(x.key) ? bd[x.key] : 0, !modOn(x.key)); });
   }
   if (ehs) { h += '<div class="ssec">環安衛</div>';
     if (window.agentOwner && agentOwner()) h += sItem('agent', 'spark', '小恩助理團隊', "S.agt=null;go('agent',{},true)");
     h += sItem('dev', 'sliders', '開發者模式', "S.dp=null;go('devPick',{},true)"); }
   h += '<div class="sfill"></div><div class="ssec">說明與設定</div>' + sItem('support', 'chat', '問題回報', "go('support',{},true)") +
     sItem('notice', 'bell', '通知', "go('notice',{},true)", m.unread || 0) + sItem('guide', 'info', '使用教學', "go('guide',{},true)") + sItem('settings', 'sliders', '設定', "go('settings',{},true)") +
+    '<button class="sitem smin" onclick="sideToggle()" title="' + (sideMin() ? '展開選單' : '收合選單') + '">' + ic(sideMin() ? 'right' : 'back', 20, 2.3) + '<span>收合選單</span></button>' +
     '<div class="sver">' + netTag() + '<span>v' + APP_VERSION + '</span></div>';
   el.innerHTML = h;
+  if (sideMin()) [].forEach.call(el.querySelectorAll('.sitem'), function (b) { var sp = b.querySelector('span'); if (sp && !b.title) b.title = sp.textContent; });
 }
+
+// ───────────── 網頁版 2.0（10/30 Jason：重新設計成真正適合電腦用的 App，不是手機放大）─────────────
+// ① 上方工具列：頁名、快速搜尋（Ctrl+K）、語言、通知、使用者；② 左側選單可收合成圖示；③ 鍵盤：Ctrl+K 找功能／表單、Esc 返回、Alt+1～9 跳選單
+// 手機完全照舊；這一段只在 body.hasside（電腦、已登入）時作用。
+function sideMin() { return lsGet('chk.sidemin', false) === true; }
+function sideToggle() { lsSet('chk.sidemin', !sideMin()); drawSide(); }
+function deskOn() { return isDesk() && !!S.me && !!lsGet(LS.TOKEN, '') && ['login', 'url', 'sign', 'proxy', 'psign'].indexOf(S.cur) < 0; }
+/** 網頁版上方工具列（取代手機的深藍標題列與首頁大標題）。 */
+function deskTop() {
+  var showBack = S.stack.length && ['home', 'login', 'url', 'proxy'].indexOf(S.cur) < 0, n = (S.me && S.me.unread) || 0;
+  var L = window.I18N ? I18N.lang() : 'zh', LN = { zh: '中文', en: 'English', th: 'ไทย' };
+  return devBanner() + '<div class="dtb">' +
+    (showBack ? '<button class="dtb-back" id="back" aria-label="返回" title="返回（Esc）" onclick="back()">' + ic('back', 20, 2.6) + '</button>' : '') +
+    '<div class="dtb-t"><div class="tb-ttl" id="ttl">' + esc(S.cur === 'home' ? '工作台' : S.title) + '</div><div class="dtb-sub">' + esc(whoLine()) + '</div></div>' +
+    '<button class="dtb-search" onclick="palOpen()" aria-label="快速搜尋">' + ic('search', 18, 2.4) + '<span>找功能、表單…</span><kbd data-raw>Ctrl K</kbd></button>' +
+    '<div class="dtb-r">' + netTag() +
+    '<select class="dtb-lang" aria-label="語言" data-raw onchange="I18N.set(this.value)">' + ['zh', 'en', 'th'].map(function (k) { return '<option value="' + k + '"' + (k === L ? ' selected' : '') + '>' + LN[k] + '</option>'; }).join('') + '</select>' +
+    '<button class="dtb-ic" aria-label="通知" title="通知" onclick="sideReset();go(\'notice\',{},true)">' + ic('bell', 20, 2.3) + (n ? '<i class="tbadge">' + (n > 99 ? '99+' : n) + '</i>' : '') + '</button>' +
+    '<button class="dtb-me" onclick="sideReset();go(\'settings\',{},true)" title="設定"><span class="av" data-raw>' + esc(String(S.me.person.name || '').slice(-2)) + '</span><span class="nm">' + esc(S.me.person.name) + '<small>' + esc(S.me.person.role || '') + '</small></span></button>' +
+    '</div></div>' + (S.topExtra || '');
+}
+// ── 快速搜尋（Ctrl+K）：選單裡的功能＋自己的每張表（每日、定期）＋各課月曆 ──
+var PAL = null;
+function palItems() {
+  var out = SIDE_REG.map(function (x) { return { icon: x.icon, label: x.label, sub: '功能', js: x.js }; }), m = S.me, t = today();
+  if (m && !isEhs()) (m.assigns || []).forEach(function (a) {
+    var f = window.F && F(a.form); if (!f || !(a.daily || a.pick)) return;
+    out.push({ icon: a.daily ? 'pen' : 'clip', label: a.daily ? f.name + (a.object ? ' ' + a.object : '') : (window.pickName ? pickName(a) : f.name), sub: (a.daily ? '每日檢點' : '定期檢查') + '・' + a.dept, js: 'openFill(' + jsq(a.key) + ')' });
+  });
+  if (m && !isEhs()) (m.depts || []).forEach(function (d) { out.push({ icon: 'cal', label: d.id + ' 月曆', sub: '月曆', js: "go('month',{dept:" + jsq(d.id) + ',period:' + jsq(t.slice(0, 7)) + "})" }); });
+  return out;
+}
+function palOpen() {
+  if (!deskOn() || PAL) return;
+  PAL = { all: palItems(), sel: 0, hits: [] };
+  var el = document.createElement('div'); el.id = 'pal'; el.className = 'pal';
+  el.innerHTML = '<div class="palbg" onclick="palClose()"></div><div class="palbox" role="dialog" aria-label="快速搜尋"><div class="palin">' + ic('search', 20, 2.4) +
+    '<input id="palq" placeholder="輸入功能或表單名稱，例：堆高機、月曆、審核" autocomplete="off" oninput="PAL.sel=0;palDraw()"></div><div class="pall" id="pall"></div>' +
+    '<div class="palft"><span><kbd data-raw>↑↓</kbd> 選擇</span><span><kbd data-raw>Enter</kbd> 開啟</span><span><kbd data-raw>Esc</kbd> 關閉</span></div></div>';
+  document.body.appendChild(el); palDraw(); $('palq').focus();
+}
+function palClose() { var el = $('pal'); if (el) el.parentNode.removeChild(el); PAL = null; }
+function palHits() {
+  var q = (($('palq') || {}).value || '').trim().toLowerCase(), words = q.split(/\s+/).filter(String);
+  return PAL.all.filter(function (x) { var s = (x.label + ' ' + x.sub + ' ' + (window.I18N ? I18N.tr(x.label) : '')).toLowerCase(); return words.every(function (w) { return s.indexOf(w) >= 0; }); }).slice(0, 12);
+}
+function palDraw() {
+  if (!PAL) return; var hits = palHits(); PAL.sel = Math.min(PAL.sel, Math.max(0, hits.length - 1)); PAL.hits = hits;
+  $('pall').innerHTML = hits.length ? hits.map(function (x, i) {
+    return '<button class="palit' + (i === PAL.sel ? ' on' : '') + '" onmousemove="if(PAL.sel!==' + i + '){PAL.sel=' + i + ';palMark()}" onclick="palGo(' + i + ')">' + ic(x.icon, 18, 2.3) + '<span class="pn">' + esc(x.label) + '</span><small>' + esc(x.sub) + '</small></button>';
+  }).join('') : '<div class="palno">找不到符合的功能或表單</div>';
+}
+function palMark() { [].forEach.call(document.querySelectorAll('#pall .palit'), function (b, i) { b.classList.toggle('on', i === PAL.sel); }); }
+function palGo(i) {
+  var x = PAL && PAL.hits[i]; palClose(); if (!x) return;
+  var t = document.createElement('textarea'); t.innerHTML = x.js;   // jsq() 給 onclick 用，引號是 &quot;，執行前還原
+  (new Function(t.value))();
+}
+document.addEventListener('keydown', function (e) {
+  if (PAL) {
+    if (e.key === 'Escape') { e.preventDefault(); palClose(); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault(); var n = PAL.hits.length; if (!n) return;
+      PAL.sel = (PAL.sel + (e.key === 'ArrowDown' ? 1 : n - 1)) % n; palMark();
+      var on = document.querySelector('#pall .palit.on'); if (on) on.scrollIntoView({ block: 'nearest' }); return;
+    }
+    if (e.key === 'Enter') { e.preventDefault(); palGo(PAL.sel); }
+    return;
+  }
+  if (!deskOn()) return;
+  var ae = document.activeElement || {}, typing = /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName || '') || ae.isContentEditable;
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); palOpen(); return; }
+  if (typing || document.querySelector('.xepanel') || S.cur === 'sheetFill') return;           // 表格頁 Esc、方向鍵是表格自己的
+  if (e.key === 'Escape' && $('back')) { e.preventDefault(); $('back').click(); return; }
+  if (e.altKey && /^[1-9]$/.test(e.key)) { var it = document.querySelectorAll('#side .sitem:not(.lk):not(.smin)')[Number(e.key) - 1]; if (it) { e.preventDefault(); it.click(); } }
+});
 var DESK_WAS = null;
 window.addEventListener('resize', function () {
   var d = isDesk(); if (DESK_WAS === null) { DESK_WAS = d; return; }
