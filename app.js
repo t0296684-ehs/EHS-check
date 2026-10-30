@@ -6,7 +6,7 @@
  *         後端呼叫加 rid 比對。後端 API、手機存的資料名稱、送出流程、簽名邏輯都沒有改。
  */
 'use strict';
-var APP_VERSION = '0.29.0';
+var APP_VERSION = '0.29.1';
 // plat.js 跟本檔版本對不上＝新舊檔混用（網路慢時 Service Worker 拿舊檔頂上）：清掉手機裡的程式檔重新載入一次
 if (typeof PLAT_VER === 'string' && PLAT_VER !== APP_VERSION) window.addEventListener('load', function () { if (window.platHeal) platHeal(); else location.reload(); });
 // 部署後把網址填在這裡，現場人員就不用自己設定；空白時第一次開會請使用者貼上
@@ -1044,12 +1044,12 @@ function goMonth(dept, period) { return "go('month',{dept:" + jsq(dept) + ',peri
 function pickName(a) { var f = F(a.form); return (f ? f.name : '') + (a.object ? ' ' + a.object : ''); }
 function taskHtml(x, i) {
   return '<div class="task' + (i === 0 ? ' first' : '') + (x.red ? ' red' : '') + '"><div class="tx"><span class="tg">' + esc(x.tag) + '</span><span class="tt">' + esc(x.title) + '</span>' +
-    (x.meta ? '<span class="tm">' + esc(x.meta) + '</span>' : '') + '</div>' +
+    (x.loc ? '<span class="tloc">' + esc(x.loc) + '</span>' : '') + (x.meta ? '<span class="tm">' + esc(x.meta) + '</span>' : '') + '</div>' +
     '<button class="btn ' + (i === 0 ? 'big' : 'line') + '" onclick="' + x.on + '">' + esc(x.btn) + (i === 0 ? ic('arrow', 22, 2.6) : '') + '</button></div>';
 }
 /** 網頁版工作台：要做的事一列一件（標籤｜標題與說明｜按鈕），第一件用主要按鈕 */
 function deskTask(x, i) {
-  return '<div class="dtask' + (x.red ? ' red' : '') + '"><span class="dtg">' + esc(x.tag) + '</span><div class="dtm"><b>' + esc(x.title) + '</b>' + (x.meta ? '<small>' + esc(x.meta) + '</small>' : '') + '</div>' +
+  return '<div class="dtask' + (x.red ? ' red' : '') + '"><span class="dtg">' + esc(x.tag) + '</span><div class="dtm"><b>' + esc(x.title) + '</b>' + (x.loc ? '<span class="tloc">' + esc(x.loc) + '</span>' : '') + (x.meta ? '<small>' + esc(x.meta) + '</small>' : '') + '</div>' +
     '<button class="btn sm' + (i === 0 ? '' : ' ghost') + '" onclick="' + x.on + '">' + esc(x.btn) + '</button></div>';
 }
 /** 網頁版工作台：上方數字總覽（點了直接到那一頁） */
@@ -1136,7 +1136,7 @@ PAGES.home = function () {
   daily.forEach(function (a) { if (pendingFor(a, t) || a.due.todayDone) done.push(a); else todo.push(a); });
   if (!ehs && !mgr) todo.forEach(function (a) {
     var f = F(a.form);
-    tasks.push({ tag: dn(a.dept) + '今天的每日檢點', title: f.name, meta: '共 ' + f.items.length + ' 項・沒問題按「全部正常」就好', btn: '開始檢點', on: 'openFill(' + jsq(a.key) + ')' });
+    tasks.push({ tag: dn(a.dept) + '今天的每日檢點', title: f.name, loc: f.loc, meta: '共 ' + f.items.length + ' 項・沒問題按「全部正常」就好', btn: '開始檢點', on: 'openFill(' + jsq(a.key) + ')' });
   });
   // 4. 定期檢查：逾時的紅色置頂、快到期的寫出日期與剩幾天（10/30：每月定期檢查每月 N 號前完成）
   if (!ehs && !mgr) m.depts.forEach(function (d) {
