@@ -1,5 +1,5 @@
 {
- "version": "0.28.0",
+ "version": "0.28.1",
  "chapters": [
   {
    "no": 1,
@@ -474,6 +474,22 @@
       "When done, write a comment at the bottom and click <b>\"Approve and sign\"</b> or <b>\"Return\"</b> (when returning, say which day and which item to fix)."
      ],
      "tip": "The review screen is view-only; to correct something, return it to the unit.",
+     "warn": false
+    },
+    {
+     "no": "3-5",
+     "title": "Section overview (computer): all equipment, forms and owners at a glance",
+     "lead": "Open \"Department\" on a computer and the first page is the overview: which machines your section has (or \"All\" if you manage several), which checklists each uses, who is responsible, and whether periodic checks are due, all in one table.",
+     "shots": [],
+     "steps": [
+      "Click <b>\"Department\"</b> in the left menu. The numbers at the top: inspectors, equipment, area checklists, not assigned, periodic checks overdue.",
+      "<b>By equipment</b>: grouped by section and equipment type; columns are <b>daily / monthly / yearly / other intervals</b>, each cell is that form; periodic checks have a colored dot: red = overdue, orange = due soon, gray = no records yet. The right column is the owner; with no one assigned it shows \"Not assigned\" in red.",
+      "<b>By person</b>: one row per person showing how many machines they handle and how many daily, monthly and yearly forms; click the row to expand the details, or \"Edit\" to change their forms and machines.",
+      "Click <b>\"Not assigned\", \"Overdue\", \"No records yet\" or \"Due soon\"</b> at the top to see only those (each button shows a count); type equipment, form or a name in the search box to keep only matches. Click a group title to collapse it.",
+      "Click any machine or form to open the owner screen; changes can start today or next month.",
+      "<b>\"Export to Excel\"</b> saves what you see as an Excel file for meetings or printing."
+     ],
+     "tip": "The \"Assignment table\" tab is the person × form checkbox grid, handy for changing many people at once; the overview is for seeing the whole picture and spotting problems.",
      "warn": false
     }
    ]
