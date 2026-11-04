@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.32.6";
+var APP_VERSION = "0.32.7";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -601,6 +601,16 @@ function flush() {
   })).map((function(j) {
    j.status = "pending";
    j.requeued = true;
+   return obPut(j);
+  }))).then((function() {
+   return jobs;
+  }));
+ })).then((function(jobs) {
+  return Promise.all(jobs.filter((function(j) {
+   return j.status === "error" && !j.rqRev && /項還沒勾/.test(j.message || "");
+  })).map((function(j) {
+   j.status = "pending";
+   j.rqRev = true;
    return obPut(j);
   }))).then((function() {
    return jobs;
