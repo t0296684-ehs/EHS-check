@@ -1,0 +1,1127 @@
+{
+ "version": "0.32.6",
+ "chapters": [
+  {
+   "no": 1,
+   "title": "Getting started",
+   "who": "Everyone",
+   "color": "#F47B20",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "1-1",
+     "title": "First sign-in",
+     "lead": "Open the link from the EHS Center in your phone browser. We suggest \"Add to Home screen\" so it opens like an app.",
+     "shots": [
+      [
+       "01_選部門",
+       "Choose department"
+      ],
+      [
+       "02_選姓名輸碼",
+       "Choose name, enter PIN"
+      ]
+     ],
+     "steps": [
+      "Tap <b>your department</b>.",
+      "Tap <b>your name</b> in the list.",
+      "Enter the <b>4-digit PIN</b> from the EHS Center.",
+      "Tap <b>\"Confirm, I am ○○○\"</b> at the bottom. You sign in only once; afterwards it opens straight to Home."
+     ],
+     "tip": "Keep your PIN to yourself. If you forget it, ask the EHS Center to reset it.",
+     "warn": true
+    },
+    {
+     "no": "1-2",
+     "title": "Signature (only once)",
+     "lead": "Your signature is saved and added automatically each time you submit — no daily signing.",
+     "shots": [
+      [
+       "03_簽名頁",
+       "Horizontal signature"
+      ],
+      [
+       "04_簽名上傳",
+       "You can also upload a photo"
+      ],
+      [
+       "05_直式預覽",
+       "Check the vertical signature"
+      ]
+     ],
+     "steps": [
+      "In the box, <b>sign your full name horizontally</b> with your finger; or sign with a black pen on white paper, take a photo and tap <b>\"Upload signature photo\"</b> — the background is removed automatically.",
+      "Tap <b>\"Next: vertical signature\"</b>; the system turns it vertical and shows you.",
+      "If every character is complete and in order, tap <b>\"Use this vertical one\"</b>. If not, tap <b>\"I will sign myself\"</b> and sign top to bottom in the box."
+     ],
+     "tip": "To change your signature later: Home → \"Settings\" → \"My signature\". Every step has a \"Back\" button at the bottom. Picked the wrong name? On the first signature step tap \"Choose again\" to return to \"Who are you?\"; you will need to enter your PIN again.",
+     "warn": false
+    },
+    {
+     "no": "1-3",
+     "title": "Understanding Home",
+     "lead": "The top of Home tells you how many things are left today. Just work through \"To do\" from top to bottom.",
+     "shots": [
+      [
+       "06_首頁",
+       "Inspector Home"
+      ]
+     ],
+     "steps": [
+      "<b>Dark blue box</b>: how many things are left today and the daily-check progress bar.",
+      "<b>To do</b>: today's forms, returned items to fix, periodic inspections due soon, monthly submission — <b>work from top to bottom</b>.",
+      "<b>Tiles below</b>: My forms, Ask a coworker, Notices, Calendar, Monthly records, Reminders, Settings.",
+      "<b>\"Online / Offline\"</b> at top right: you can still fill in offline; it uploads when the network is back."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "1-4",
+     "title": "Android: put the App on your home screen",
+     "lead": "Once it is on your home screen you open it from the icon like any other app, without hunting for the link — and you need this to get reminder notifications later.",
+     "shots": [],
+     "steps": [
+      "Open the App link in <b>Chrome</b>. If you opened it inside LINE, first tap <b>⋮</b> at the top right → <b>Open in Chrome</b> (LINE's built-in browser cannot add to the home screen).",
+      "Tap the three dots <b>⋮</b> at the top right of Chrome.",
+      "Choose <b>Add to Home screen</b> or <b>Install app</b> (the wording differs by phone — tap whichever you see).",
+      "In the pop-up tap <b>Install</b> or <b>Add</b>; some phones ask again — tap <b>Add to Home screen</b>.",
+      "Go back to your home screen and find the App icon; always open the App from there. If it is not on the home screen, swipe up to the list of all apps."
+     ],
+     "tip": "On Samsung phones using the built-in Internet browser: tap <b>≡</b> at the bottom → <b>Add page to</b> → <b>Home screen</b>.",
+     "warn": false
+    },
+    {
+     "no": "1-5",
+     "title": "iPhone: put the App on your home screen",
+     "lead": "On iPhone you must use Safari to add it to the home screen.",
+     "shots": [],
+     "steps": [
+      "Open the App link in <b>Safari</b>. If you opened it inside LINE, tap <b>⋯</b> at the bottom right → <b>Open in Safari</b>.",
+      "Tap the <b>Share</b> button at the bottom centre (a square with an up arrow).",
+      "Scroll down and choose <b>Add to Home Screen</b>.",
+      "Tap <b>Add</b> at the top right.",
+      "Go back to the home screen and open the App from its icon."
+     ],
+     "tip": "On iPhone the home-screen App and Safari are separate: if you signed in in Safari, sign in once more after adding it (only once). Phone notifications need iOS 16.4 or later; see 1-6 to turn them on.",
+     "warn": false
+    },
+    {
+     "no": "1-6",
+     "title": "Phone notifications (pop up on your phone)",
+     "lead": "Once on, notices such as reviews, assignments and replies pop up on your phone like LINE, so you do not have to keep opening the App.",
+     "shots": [],
+     "steps": [
+      "On iPhone, first add the App to the Home Screen as in <b>1-5</b> and open it <b>from the Home Screen icon</b> (it does not work inside Safari). Android phones can use it directly.",
+      "Tap \"<b>Notices</b>\" at the top right, then \"<b>Turn on phone notifications</b>\" at the top (also on the main menu).",
+      "When the phone asks whether to allow notifications, tap <b>Allow</b>.",
+      "Shortly you will get \"<b>Phone notifications are on</b>\" — then you are done. Tapping a notice opens the App."
+     ],
+     "tip": "Once on, the top of the \"Notices\" page shows \"Phone notifications are on\"; tap \"Send a test notice\" to try it. After changing phones, clearing browser data, or deleting the Home Screen App, turn it on again. If you tapped \"Don't Allow\" by mistake, turn it on in phone Settings → Notifications.",
+     "warn": false
+    },
+    {
+     "no": "1-7",
+     "title": "Using it on a computer (web version)",
+     "lead": "Open the same address in a browser on a computer to get the web version: the data, permissions and steps are exactly the same as on the phone, with a layout made for computers. Use whichever you prefer.",
+     "shots": [],
+     "steps": [
+      "On the computer, open the App address in Chrome or Edge and log in (bookmark it). On a wide enough screen it switches to the web version automatically.",
+      "The menu is fixed on the left: Workbench, Table entry, My forms, Calendar, Review, Issue tracking, other functions, plus Report a problem, Notices, User guide and Settings; click to switch pages. Click <b>\"Collapse menu\"</b> at the bottom to shrink it to icons and widen the content.",
+      "The toolbar is at the top: in <b>Quick search</b> (or press <b>Ctrl+K</b>) type a form or function name, e.g. \"forklift\" or \"calendar\", and press Enter to open it; on the right you can switch language, see notices and open Settings.",
+      "<b>Workbench</b>: the row of numbers at the top (today's daily checks, periodic checks due, issues to fix, unread notices; supervisors see awaiting review and no one assigned) takes you straight to that page. Below, the left side lists your to-dos, one per row; click the button on the right to start. The right side shows today's status for each daily check and periodic checks coming due; supervisors and EHS also see each section's progress.",
+      "<b>Daily checks</b>: use \"Table entry\" to fill a whole month at once (see 2-10). If today is fine, click \"Today: all normal\" and save.",
+      "<b>Periodic inspections that need photos</b> use two columns: tick items on the left; write the summary and upload photos from the computer on the right.",
+      "<b>Supervisor review</b>: use \"Review as a table\" to see the whole month at once (see 3-4).",
+      "<b>Calendar</b>: the calendar on the left, that day's record and the month status on the right. <b>Unit management</b> uses the \"Assignment table\": one row per inspector, one column per form or piece of equipment; tick and save everything at once (from today or from next month).",
+      "Keyboard: <b>Esc</b> goes back; <b>Alt+number</b> jumps to that item in the left menu."
+     ],
+     "tip": "On a narrower screen (for example a tablet held upright) it switches back to the phone layout automatically; the functions stay the same.",
+     "warn": false
+    },
+    {
+     "no": "1-8",
+     "title": "Monthly deadlines: the 5th and the 15th",
+     "lead": "There are three deadlines each month. As they approach, the home page counts down the days left; once passed, it turns red and shows how many days overdue.",
+     "shots": [],
+     "steps": [
+      "<b>Monthly periodic checks</b> (e.g. monthly forklift or crane checks): finish this month's check <b>by the 5th</b>.",
+      "<b>Submit last month's checks</b>: by the <b>5th</b> of each month, <b>each person sends the forms they signed</b>; others send their own.",
+      "<b>Supervisor approval and sending to EHS</b>: <b>by the 15th</b> of each month.",
+      "<b>Yearly and two-yearly periodic checks</b>: counted from the last check date; reminders start 30 days before.",
+      "\"To do\" on the home page shows the date and days left; overdue items go to the top in red. Supervisors and EHS can see which sections are overdue."
+     ],
+     "tip": "The EHS Center can change these dates (back office \"Settings\").",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 2,
+   "title": "Inspector",
+   "who": "Check before work every day, submit once a month",
+   "color": "#2E7D5B",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "2-1",
+     "title": "Daily checks",
+     "lead": "Before work, open today's form, check each item and submit.",
+     "shots": [
+      [
+       "07_填寫",
+       "Open today's form"
+      ],
+      [
+       "08_異常說明",
+       "Abnormal items need a note"
+      ],
+      [
+       "09_送出後",
+       "Back to Home after submitting"
+      ]
+     ],
+     "steps": [
+      "On Home, under \"To do\", tap <b>\"Start checking\"</b>.",
+      "If everything is fine, tap <b>\"All OK\"</b> to tick all at once. For a problem item tap <b>\"Abnormal\"</b>; a note box appears — <b>describe the problem and what you did</b> (required).",
+      "If there is no work that day, tap <b>\"No work today\"</b>.",
+      "The bottom button shows the next step: items left, items needing a note. When all is done it becomes <b>\"Submit this form\"</b>.",
+      "Your signature is added when you submit. To change it the same day, open the same form, edit and submit again."
+     ],
+     "tip": "Use \"Not ticked\" / \"Abnormal\" at the top to show only those items — handy for long forms.",
+     "warn": false
+    },
+    {
+     "no": "2-2",
+     "title": "Calendar · Fill in missed days",
+     "lead": "Tap a missed day on the calendar to fill it in.",
+     "shots": [
+      [
+       "10_月曆",
+       "This month's calendar"
+      ],
+      [
+       "b01_一次補填",
+       "Fill in all at once"
+      ],
+      [
+       "b02_補填中",
+       "Filling in"
+      ]
+     ],
+     "steps": [
+      "On Home tap <b>\"Calendar · Fill in missed days\"</b>.",
+      "Green = checked, red = abnormal, grey dashed = weekday with no record.",
+      "Use <b>\"‹ previous month\" / \"next month ›\"</b> at the top, or <b>swipe left or right</b> on the calendar to change month (swipe right for the previous month).",
+      "Tap a <b>missed day</b> to fill it in (months not yet submitted, back to the 1st of the month 3 months ago).",
+      "Switch forms at the top. \"Table (by item)\" shows every item for the whole month.",
+      "Missed several days: on the month page tap <b>\"Fill in all\"</b>. Forms open one by one and <b>jump to the next</b> after you send.",
+      "The orange box shows your progress. You can <b>skip</b> a form or <b>stop</b>; if you leave, Home shows <b>\"Continue\"</b>."
+     ],
+     "tip": "Please check and fill in on the same day. Late entries record the time and are visible to supervisors and EHS.",
+     "warn": true
+    },
+    {
+     "no": "2-3",
+     "title": "My forms",
+     "lead": "Every form assigned to you and periodic inspection deadlines, on one page.",
+     "shots": [
+      [
+       "11_我的表單",
+       "My forms"
+      ]
+     ],
+     "steps": [
+      "On Home tap <b>\"My forms\"</b>.",
+      "<b>Daily checks</b>: whether today's is done.",
+      "<b>Periodic inspections</b>: monthly, yearly and 2-yearly forms with last date and next deadline; Home reminds you 30 days before.",
+      "Tap any form to start."
+     ],
+     "tip": "Yearly and 2-yearly inspections have no fixed day — inspect on site before the deadline, then fill in.",
+     "warn": false
+    },
+    {
+     "no": "2-4",
+     "title": "Yearly and 2-yearly inspections (photos and notes required)",
+     "lead": "Forms that need a detailed on-site inspection — local exhaust, chemical equipment, ovens, boilers, elevators — must include evidence.",
+     "shots": [
+      [
+       "12_每年表",
+       "Tick each item"
+      ],
+      [
+       "13_佐證",
+       "Photos + inspection notes"
+      ]
+     ],
+     "steps": [
+      "These forms have <b>no \"All OK\"</b> — <b>inspect each item on site and tick them one by one</b>.",
+      "Scroll to <b>\"Inspection evidence\"</b> at the bottom and write <b>inspection notes</b> (at least 15 characters: what you checked, how, and the readings).",
+      "Tap <b>\"Take / choose photo\"</b> and take at least 2: the parts checked, meter readings or the nameplate. They upload right away (network needed); tap × at top right to remove a wrong one.",
+      "When everything is in, the bottom button becomes \"Submit this form\". Supervisors see the notes and photos, and they are printed in the monthly PDF."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "2-5",
+     "title": "Ask a coworker to fill in (on leave)",
+     "lead": "When you're on leave, a coworker can fill in that day's daily check.",
+     "shots": [
+      [
+       "14_請人代填",
+       "Create a fill-in link"
+      ]
+     ],
+     "steps": [
+      "On Home tap <b>\"Ask a coworker to fill in\"</b> and choose the day (up to 7 days ahead).",
+      "Tap <b>\"Create fill-in link\"</b> and send it to your coworker on LINE.",
+      "The coworker doesn't sign in; they open the link, fill in the day's form, and <b>sign by hand on the spot</b> when sending.",
+      "The link only works on that day and expires at 23:59."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "2-6",
+     "title": "Request forms",
+     "lead": "Forms or machines your supervisor assigns to you appear on your home page automatically; no need to claim them. To take on other forms or machines in your section, send a request.",
+     "shots": [
+      [
+       "15_領取表單",
+       "Request forms"
+      ]
+     ],
+     "steps": [
+      "On the home page, at the bottom of \"My forms\", tap <b>\"Request other forms or equipment in this section\"</b>.",
+      "Find the form or machine you want and tap <b>\"Request\"</b> to send it to your supervisor.",
+      "Once your supervisor approves, it appears on your home page; to cancel, ask your supervisor or the EHS Center."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "2-7",
+     "title": "Monthly submission (once a month)",
+     "lead": "After each month, each person sends <b>the forms they signed</b> to the supervisor (other people's forms are not sent). The section's PDF is filed only after everyone is approved by EHS.",
+     "shots": [
+      [
+       "16_月份頁",
+       "Check the whole month"
+      ],
+      [
+       "17_送審確認",
+       "Check before sending"
+      ],
+      [
+       "18_已送審",
+       "Sent to the supervisor"
+      ]
+     ],
+     "steps": [
+      "From the 1st of the next month, Home shows <b>\"Submit the records for month ○\"</b> (due by the 5th).",
+      "Check the calendar for missed days and tap a day to fill it in; then tap <b>\"Send my ○ forms to the supervisor\"</b>.",
+      "The check page lists how many days each form was done. Tick <b>\"I have checked nothing is missing\"</b> and tap <b>\"Confirm and submit\"</b>.",
+      "After sending it is locked and <b>cannot be changed</b>; to change it, the supervisor must <b>return</b> it. Before the supervisor reviews it, the sender can withdraw it."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "2-8",
+     "title": "Notices and announcements",
+     "lead": "Assignment changes, returns and EHS Center announcements all appear in the app.",
+     "shots": [
+      [
+       "20_收到廣播",
+       "Announcement at the top of Home"
+      ],
+      [
+       "21_通知",
+       "Read full text on the Notices page"
+      ]
+     ],
+     "steps": [
+      "EHS Center <b>announcements</b> appear in a red box at the top of Home. Tap <b>\"Read full text\"</b>.",
+      "After you read it, it leaves Home; you can see it again in <b>\"Notices\"</b>.",
+      "Changes to your forms or equipment and returned months are also explained in Notices.",
+      "Do not want some emails (for example the filed-record email with PDFs)? <b>\"Settings\" → \"Email settings\"</b>, uncheck it and save; you still get the notices in the app."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "2-9",
+     "title": "Issue tracking (corrective actions)",
+     "lead": "Items marked \"Abnormal\" move to \"Issue tracking\" automatically. An issue closes only when you record how it was fixed.",
+     "shots": [
+      [
+       "30_異常附照片",
+       "You can attach photos of issues"
+      ],
+      [
+       "31_異常追蹤",
+       "Issue list"
+      ],
+      [
+       "32_填寫改善",
+       "Record the fix and close"
+      ]
+     ],
+     "steps": [
+      "When an item is marked <b>\"abnormal\"</b>, besides the note you can tap <b>\"Add photo (optional)\"</b> to take a photo or pick one already on your phone.",
+      "After submitting, the item appears in <b>\"Issue tracking\"</b> (red box on Home; the supervisor is notified). If it happens again before being fixed, it is added to the same issue, not duplicated.",
+      "When fixed, tap <b>\"Record fix\"</b> in \"Issue tracking\": write the <b>corrective action</b>, choose the <b>date fixed</b>, and add a photo after the fix (required for site inspection findings).",
+      "Tap <b>\"Fixed — close\"</b>; the person who found it and the supervisor are notified."
+     ],
+     "tip": "If you marked \"Abnormal\" by mistake, change it back to OK the same day and resend; the issue is cancelled automatically.",
+     "warn": false
+    },
+    {
+     "no": "2-10",
+     "title": "Table entry on a computer (fill a whole month like a spreadsheet)",
+     "lead": "Open the App in a browser on a computer to fill in many days at once, just like a Google spreadsheet. No Google account is needed, and your e-signature is still added when you save.",
+     "shots": [],
+     "steps": [
+      "On the computer, open the App address in a browser and log in (the same address as on the phone; bookmark it). On the home page tap <b>\"Table entry (computer)\"</b>, or on the calendar page tap <b>\"Fill in as a table\"</b>.",
+      "The tabs at the top are the daily checklists you are responsible for; click one to switch. In the grid, columns are dates and rows are check items.",
+      "Click a cell and type: <b>1 or V</b> = normal, <b>2 or X</b> = abnormal, <b>3 or -</b> = not applicable; move with the arrow keys, Tab or Enter. Click a date to select the whole day, or drag to select a block, then type once to fill it all. You can also copy and paste from Excel; <b>Ctrl + Z</b> undoes.",
+      "When you enter abnormal, a note box appears on the right. Describe the problem and the action taken, then press <b>Esc</b> to go back to the table.",
+      "If there was no shift or no work all day, type 1 in the <b>\"No work\"</b> row at the bottom.",
+      "Tap <b>\"Save and sign\"</b> at the bottom: each finished day is submitted as one record with your signature. Unfinished days stay as drafts and are not lost even if you close the page."
+     ],
+     "tip": "Grey cells cannot be changed (future dates, days signed by someone else, months already submitted). For days filled in late, the time of entry is recorded and visible to the unit supervisor and EHS. At month end, still tap \"Month complete, lock and send to the unit supervisor\" on the calendar page.",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 3,
+   "title": "Unit supervisor",
+   "who": "See progress, review monthly, assign work in your department",
+   "color": "#2457A6",
+   "roles": [
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "3-1",
+     "title": "Home and section status",
+     "lead": "See at a glance which sections have not checked today, where the issues are and how many reviews are waiting.",
+     "shots": [
+      [
+       "22_主管首頁",
+       "Supervisor Home"
+      ]
+     ],
+     "steps": [
+      "<b>To do</b>: months waiting for your review are listed here. Tap <b>\"Start review\"</b>.",
+      "<b>Section status</b>: one card per section; collapsed it shows today's progress, expanded it shows who did each form and how many days this month.",
+      "Sections with issues are listed first."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "3-2",
+     "title": "Monthly review",
+     "lead": "After inspectors submit, you review, sign and approve; then it goes to EHS for archiving.",
+     "shots": [
+      [
+       "23_審核",
+       "Review the month's records"
+      ]
+     ],
+     "steps": [
+      "Switch forms at the top to see the calendar or item table; for periodic inspections open the <b>photos</b> and notes.",
+      "If all is fine tap <b>\"Approve and sign\"</b>; your signature is added and a PDF is created.",
+      "If something is wrong, tap <b>\"Return\"</b> and tell the inspector in person what to fix; they fix it and resend."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "3-3",
+     "title": "Department",
+     "lead": "Assign who handles which forms and equipment in your department; adjust here when staff change.",
+     "shots": [
+      [
+       "25_部門管理人員",
+       "People: who handles what"
+      ],
+      [
+       "26_部門管理設備",
+       "Equipment and inspection deadlines"
+      ],
+      [
+       "27_改負責人",
+       "Change owner"
+      ]
+     ],
+     "steps": [
+      "On Home tap <b>\"Department\"</b>; it has three tabs: <b>People, Forms, Equipment</b>.",
+      "<b>People</b>: whether each person has signed in and signed, and what they handle; tap a person to tick their forms and equipment.",
+      "<b>Forms / Equipment</b>: current owner, last periodic inspection and deadline; tap an item to change its owner.",
+      "Then tap <b>\"Effective today\"</b> (changes now) or <b>\"From next month\"</b> (no change this month, switches on the 1st). People involved are notified."
+     ],
+     "tip": "To add or disable people, forms or equipment, ask the EHS Center.",
+     "warn": false
+    },
+    {
+     "no": "3-4",
+     "title": "Table review on a computer (the whole month at once)",
+     "lead": "Open the App in a browser on a computer to review: the screen looks like a spreadsheet and shows the whole month at once. Reviews are always done in the App on a phone or computer, not in Google Sheets.",
+     "shots": [],
+     "steps": [
+      "On the computer, open the App in a browser and log in, go to the month to review, and click <b>\"Review as a table\"</b>.",
+      "The tabs at the top are each daily checklist of the unit; tabs with abnormal items show a red number. Above the table are the submitter and the counts of checked days, abnormal items and late entries.",
+      "<b>\"Abnormal items\"</b> on the right lists every abnormal item with its note; click one to jump to that cell. Click any cell to see that day's inspector, result, note and late-entry time on the right.",
+      "This month's periodic inspection records are below the table.",
+      "When done, write a comment at the bottom and click <b>\"Approve and sign\"</b> or <b>\"Return\"</b> (when returning, say which day and which item to fix)."
+     ],
+     "tip": "The review screen is view-only; to correct something, return it to the unit.",
+     "warn": false
+    },
+    {
+     "no": "3-5",
+     "title": "Section overview: all equipment, forms and owners at a glance",
+     "lead": "Open \"Department\" on a computer and the first page is the overview: which machines your section has (or \"All\" if you manage several), which checklists each uses, who is responsible, and whether periodic checks are due, all in one table.",
+     "shots": [],
+     "steps": [
+      "Click <b>\"Department\"</b> in the left menu. The numbers at the top: inspectors, equipment, area checklists, not assigned, periodic checks overdue.",
+      "<b>By equipment</b>: grouped by section and equipment type; columns are <b>daily / monthly / yearly / other intervals</b>, each cell is that form; periodic checks have a colored dot: red = overdue, orange = due soon, gray = no records yet. The right column is the owner; with no one assigned it shows \"Not assigned\" in red.",
+      "<b>By person</b>: one row per person showing how many machines they handle and how many daily, monthly and yearly forms; click the row to expand the details, or \"Edit\" to change their forms and machines.",
+      "Click <b>\"Not assigned\", \"Overdue\", \"No records yet\" or \"Due soon\"</b> at the top to see only those (each button shows a count); type equipment, form or a name in the search box to keep only matches. Click a group title to collapse it.",
+      "Click any machine or form to open the owner screen; changes can start today or next month.",
+      "<b>\"Export to Excel\"</b> saves what you see as an Excel file for meetings or printing."
+     ],
+     "tip": "The \"Assignment table\" tab is the person × form checkbox grid, handy for changing many people at once; the overview is for seeing the whole picture and spotting problems. The phone has the same overview: equipment as cards, one row per person, with the same filters and edits.",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 4,
+   "title": "EHS",
+   "who": "Final archive check, send announcements",
+   "color": "#6B4FA0",
+   "roles": [
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "4-1",
+     "title": "Archive",
+     "lead": "After the supervisor approves, EHS checks the PDF and archives it — the month is complete.",
+     "shots": [
+      [
+       "28_環安衛首頁",
+       "Waiting to archive"
+      ],
+      [
+       "29_歸檔",
+       "Approve and archive"
+      ]
+     ],
+     "steps": [
+      "On Home under \"To do\" tap <b>\"View PDF and archive\"</b>.",
+      "Tap <b>\"Open PDF\"</b> to check; if fine tap <b>\"Approve and archive\"</b>, otherwise return it.",
+      "PDFs are saved to Drive and the NAS automatically."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "4-2",
+     "title": "Announcements",
+     "lead": "Send notices to everyone, selected departments or people, and see who hasn't read them.",
+     "shots": [
+      [
+       "19_廣播",
+       "Send announcement"
+      ]
+     ],
+     "steps": [
+      "On Home tap <b>\"Announcements\"</b>.",
+      "Choose <b>recipients</b>: everyone, selected departments (option: \"Only to supervisors\"), or selected people.",
+      "Write a <b>title</b> (shown at the top of Home) and <b>content</b>; tick \"Also email\" if needed.",
+      "Tap <b>\"Send announcement\"</b>. Under \"Sent announcements\" see how many have read it; open one to see who has not."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "4-3",
+     "title": "Post training and see read records",
+     "lead": "Send training or health info (text + PDF/pictures + link) to staff and see who opened and confirmed it.",
+     "shots": [
+      [
+       "p07_發布文宣",
+       "Post new item"
+      ],
+      [
+       "p08_閱讀紀錄",
+       "Read records"
+      ]
+     ],
+     "steps": [
+      "Menu → <b>\"EHS training\"</b> → <b>\"Post new item\"</b>.",
+      "<b>Training</b>: hours, instructor, due date; upload Chinese and Thai versions and pick the language; add a quiz (up to 10 questions, all correct to pass). \"I have completed it\" signs staff in automatically.",
+      "<b>Health info</b>: reading only, no sign-in; you can ask staff to tap \"I have read it\".",
+      "Choose recipients and tap <b>\"Post\"</b>. <b>\"Read records\"</b> shows who has finished; remove items you no longer need."
+     ],
+     "tip": "When everyone has finished, tap \"Confirm sign-in complete · export to NAS\" in the reading record. At 12:15 the next day the computer files the sign-in sheets (P-05-01-A, BU / PU) and materials in the training archive by year and topic.",
+     "warn": false
+    },
+    {
+     "no": "4-4",
+     "title": "Developer mode (find where staff got stuck)",
+     "lead": "When someone reports a problem, go through the app with their screens to see what they see and where they got stuck. View only — nothing is sent in their name.",
+     "shots": [
+      [
+       "p09_錯誤回報",
+       "Error reports"
+      ],
+      [
+       "p10_開發者畫面",
+       "Using a colleague's screens"
+      ],
+      [
+       "p11_攔下送出",
+       "Submitting is stopped"
+      ]
+     ],
+     "steps": [
+      "At the bottom of the Menu tap <b>\"Developer mode\"</b>. People with <b>error reports in the last 30 days</b> are listed first.",
+      "Tap a person to see their error messages, which screen, and the screens they went through before.",
+      "Tap <b>\"Enter as ○○○\"</b>: an orange bar appears and you now see their screens; follow their steps.",
+      "At steps that would <b>submit, sign or approve</b>, <b>\"This step would submit\"</b> appears and nothing is sent. Tap <b>\"End\"</b> on the orange bar to go back to yourself."
+     ],
+     "tip": "Who viewed whose screens and when is logged in the back office. Phone error reports are kept for 90 days.",
+     "warn": false
+    },
+    {
+     "no": "4-5",
+     "title": "Site inspection (monthly)",
+     "lead": "Inspect at least once a month (you can rotate through areas). Findings are filled in by tapping; the system opens issue tracking and files the record as EF-00-012-B on the NAS.",
+     "shots": [
+      [
+       "p12_巡視清單",
+       "This month and the last 12 months"
+      ],
+      [
+       "p13_缺失點選",
+       "Tap the responsible unit, common findings and regulations"
+      ]
+     ],
+     "steps": [
+      "In the main menu tap <b>\"Site inspection\"</b> → <b>\"Start inspection\"</b> and tick the <b>areas</b> you visit (BU areas A–C, PU lines 1–5…).",
+      "Mark each of the 16 checkpoints <b>○ OK / × Needs fixing / － Not checked</b>; tap <b>\"Mark the rest ○ OK\"</b> for the rest.",
+      "Each \"×\" item opens a finding card: tap the <b>responsible unit</b> and the <b>common finding</b> (the regulation is filled in for you), then add notes, a due date and photos if needed.",
+      "Tap <b>\"Send inspection record\"</b>: findings go to the unit's \"Issue tracking\" and its supervisor gets an email. Units not on the App yet (e.g. areas B and C) are closed by EHS in issue tracking."
+     ],
+     "tip": "Every day at 12:15 the computer files the record as EF-00-012-B on the NAS; when all findings are fixed it saves a \"fixes complete\" copy with the after photos. If you leave halfway, the draft stays on the phone.",
+     "warn": false
+    },
+    {
+     "no": "4-6",
+     "title": "New employee training (QR sign-in)",
+     "lead": "New employees sign in with their phones; form P-05-01-A is created when the class ends.",
+     "shots": [
+      [
+       "t05_新進人員",
+       "QR code after starting the class"
+      ]
+     ],
+     "steps": [
+      "<b>EHS training</b> → <b>\"New employee training (QR sign-in)\"</b> → fill in the course name, date, start and end time, place → <b>\"Start, show QR code\"</b>.",
+      "New hires scan the QR code: <b>watch the slides first</b>, then enter name and unit and <b>sign</b> to finish. People without a phone sign on your phone via <b>\"Sign for someone without a phone\"</b>.",
+      "After you read the slides too, tap <b>\"Finish meeting\"</b>: form <b>P-05-01-A</b> is emailed to EHS and saved on the NAS under the training records folder."
+     ],
+     "tip": "General safety training for new workers is at least 3 hours; enter the real start and end times.",
+     "warn": false
+    },
+    {
+     "no": "4-7",
+     "title": "Problem reports: see questions and reply",
+     "lead": "EHS sees \"EHS: all problem reports\" at the top of \"Report a problem\", with every question, screenshot and the screen it came from, plus the Xiao-En question log.",
+     "shots": [],
+     "steps": [
+      "Main menu <b>\"Report a problem\"</b> → <b>\"EHS: all problem reports\"</b>; tabs: <b>Waiting, Replied, Closed, Xiao-En log</b>.",
+      "Open a report to see the conversation, screenshots, the screen, the steps before it, the phone and App version.",
+      "Related <b>user guide sections</b> are listed below; tap <b>\"Quote in reply\"</b> to add that section to your reply so the colleague can open it with one tap.",
+      "Tap <b>\"Reply and close\"</b> (the colleague is notified and it shows Closed); tap <b>\"Reply only (wait for them)\"</b> if you need more information. Replies are signed \"EHS Center\"; the log records who replied."
+     ],
+     "tip": "New reports are handled every workday afternoon; if a colleague writes again on a closed report, it goes back to \"Waiting\".",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 5,
+   "title": "Menu",
+   "who": "One app for all EHS work",
+   "color": "#14233C",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "5-1",
+     "title": "Menu and features",
+     "lead": "Daily checks, environmental readings, contractor work requests and training are all in one app. Open it and pick what to do.",
+     "shots": [
+      [
+       "p02_主選單",
+       "Menu"
+      ],
+      [
+       "p01_主選單按鈕",
+       "\"Menu\" at top right"
+      ]
+     ],
+     "steps": [
+      "If you have two or more features, the app opens at the <b>Menu</b>. Tap what you need.",
+      "If you only have daily checks, the app opens straight there. <b>\"Menu\" at top right</b> takes you back any time.",
+      "Each card shows how many things are left today; a <b>red number</b> means not handled yet.",
+      "A <b>red dot</b> on the Menu button means new training you have not read."
+     ],
+     "tip": "",
+     "warn": false
+    },
+    {
+     "no": "5-2",
+     "title": "Features you cannot use yet",
+     "lead": "Grey cards with a lock are features you do not have access to yet.",
+     "shots": [
+      [
+       "p03_沒有權限",
+       "No access"
+      ]
+     ],
+     "steps": [
+      "Tap a grey card and <b>\"No access\"</b> appears.",
+      "Tell your supervisor first; <b>\"Request access\"</b> notifies the EHS Center.",
+      "After the EHS Center turns it on, <b>close and reopen the app</b>."
+     ],
+     "tip": "Everyone has EHS training; no request needed.",
+     "warn": false
+    },
+    {
+     "no": "5-3",
+     "title": "Report a problem (ask EHS directly)",
+     "lead": "For an error on screen, wrong data, or anything Xiao-En cannot answer, ask EHS directly under \"Report a problem\" on the main menu. You can attach screenshots.",
+     "shots": [],
+     "steps": [
+      "On the main menu tap <b>\"Report a problem\"</b>, then <b>\"Ask a question\"</b>. In Xiao-En, tapping <b>\"Still stuck? Send to EHS\"</b> brings your question over automatically.",
+      "Choose the <b>problem type</b> and describe <b>what you were doing and what happened</b>. While you type, guide sections that may already answer it are shown; have a look first.",
+      "Tap <b>\"+\"</b> to attach screenshots (up to 3), tick the confirmation and tap <b>\"Send question\"</b>.",
+      "When EHS replies you get a notification and the question shows <b>\"Closed\"</b>. Open it to read the reply; if it is not solved, <b>write back</b> and it reopens. Tap <b>\"User guide x-x\"</b> in a reply to open that section."
+     ],
+     "tip": "Screenshot: most phones press Power + Volume down; iPhone press Side button + Volume up. EHS handles questions on workday afternoons.",
+     "warn": false
+    },
+    {
+     "no": "5-4",
+     "title": "Ask Xiao-En (App help, regulations)",
+     "lead": "Every screen has a purple \"Ask Xiao-En\" button at the bottom right. Ask Xiao-En first about using the App or about environment, safety and fire regulations. It is the same Xiao-En as on LINE.",
+     "shots": [],
+     "steps": [
+      "Tap <b>\"Ask Xiao-En\"</b> at the bottom right and look at the <b>common questions</b> first; one tap gives the answer. The guide for the screen you are on is listed first.",
+      "Not there? Type below. While you type, <b>matching guide sections</b> appear and answer at once; tap <b>Send</b> and Xiao-En answers, usually in a few seconds.",
+      "Under an answer, <b>\"Guide x-x\"</b> opens the screenshots. Still stuck? Tap <b>\"Still stuck? Send to EHS\"</b>; the question goes into a problem report where you can attach screenshots."
+     ],
+     "tip": "Xiao-En's answers are for reference only; for an official decision or company rules, ask EHS. Xiao-En answers on weekdays 6:00–18:00, 5 questions per person per day; common questions and the guide are always available.",
+     "warn": true
+    }
+   ]
+  },
+  {
+   "no": 6,
+   "title": "EHS training",
+   "who": "Read training and health info",
+   "color": "#6B4FA0",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "6-1",
+     "title": "Courses and sign-in",
+     "lead": "For training, read the material, answer the quiz and tap \"I have completed it\" to sign in automatically. Health info only needs reading.",
+     "shots": [
+      [
+       "p04_文宣",
+       "Open an item"
+      ],
+      [
+       "p05_已確認",
+       "Read confirmed"
+      ]
+     ],
+     "steps": [
+      "On the Menu tap <b>\"EHS training\"</b>; Home also reminds you of courses to finish.",
+      "Open a course and read the material (PDF, pictures). If there is a Thai version and your phone is set to Thai, you see it first.",
+      "If there is a quiz, <b>all answers must be correct</b>; wrong ones turn red — read again and retry.",
+      "Tap <b>\"I have completed it (use my signature)\"</b>; your stored signature is <b>added to the training sign-in sheet</b>.",
+      "Health info only needs reading; tap <b>\"I have read it\"</b> where asked."
+     ],
+     "tip": "You need internet to view the materials. Just opening a course does not complete it; the reminder on the home page stays until you tap \"I have completed it\". Overdue courses are marked red.",
+     "warn": false
+    },
+    {
+     "no": "6-2",
+     "title": "Library and high-risk work",
+     "lead": "Materials you have read stay in the Library so you can review them any time; High-risk work explains the main hazards and the protection you must use, with safety signs.",
+     "shots": [
+      [
+       "e11_教材庫",
+       "Library: grouped by topic"
+      ],
+      [
+       "e10_高風險作業",
+       "High-risk work: tap for key points"
+      ]
+     ],
+     "steps": [
+      "<b>EHS training</b> has tabs at the top: <b>To complete</b> (what you still need to finish, with a count; it opens first when you have any), <b>All</b>, <b>Library</b> and <b>High-risk work</b>.",
+      "<b>Library</b>: courses and notices with materials or attachments, grouped by topic. <b>Items you have read stay here</b> — open them again any time.",
+      "<b>High-risk work</b>: hot work, height, confined space, lifting, electrical, forklifts, organic solvents, dust and hazardous chemicals. Tap a card to see the <b>main hazards</b>, what you <b>must do</b> and the legal basis. In the English or Thai interface the content is shown in that language."
+     ],
+     "tip": "Materials disappear from the Library only when EHS takes them down.",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 7,
+   "title": "Contractor work requests",
+   "who": "When a contractor comes to work on site",
+   "color": "#B45309",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "mod": "cons",
+   "sections": [
+    {
+     "no": "7-1",
+     "title": "Toolbox meeting (on the work day)",
+     "lead": "Hold it on site before work starts. Workers scan the QR code with their own phones, sign, and read the slides; when you finish, the record is emailed and filed automatically.",
+     "shots": [
+      [
+       "t02_開會室QR",
+       "Meeting: QR code and attendance"
+      ],
+      [
+       "t03_掃碼簽名",
+       "Workers scan and watch the slides first"
+      ]
+     ],
+     "steps": [
+      "<b>Work application</b> → tap the case working today → <b>\"Start today's toolbox meeting\"</b> (you can also start from <b>\"Toolbox meeting\"</b> at the top). Only <b>approved</b> cases within today's work period can be started; for temporary work not in the contractor system, use <b>\"Temporary toolbox meeting\"</b> and enter the contractor, work and area yourself.",
+      "A <b>QR Code</b> appears. Workers scan it with their phone camera: <b>watch the slides first</b> to the last page, then <b>sign</b> and tap <b>\"Sign to complete check-in\"</b>. The list refreshes every 5 seconds.",
+      "People without a phone: tap <b>\"Sign for someone without a phone\"</b> below the QR and have them sign on your phone in person, one after another. People on the application list who have not signed are listed below: tap <b>\"Sign in person\"</b> to fill in the name; people who signed on the work application can also use <b>\"Use application signature\"</b>, and the system asks again to confirm they are on site today. Remove a wrong entry with the trash icon.",
+      "You also need to tap <b>\"View slides\"</b> and scroll to the last page. If you tap <b>\"Finish meeting\"</b> at the bottom without finishing the slides, the system asks whether you explained it on site, and the record notes this.",
+      "Tap <b>\"Finish meeting\"</b>: the record form (EF-45-011-A) is pre-ticked based on special work; adjust for the site and tap <b>\"Finish, create record and send\"</b>. The PDF is emailed right away to you, your section supervisor and EHS, saved to the NAS within 2 minutes, and recorded under the case's <b>\"Work records\"</b>.",
+      "Already held it on <b>paper</b> today: tap <b>\"Paper sign-in done\"</b> to keep a record, and hand the paper to EHS.",
+      "When all work is done: tap <b>\"Work completed, close case\"</b> at the bottom of the case page; the system records the actual completion date and the number of toolbox meeting days. If the work period has passed and the case is not closed, it shows <b>\"Awaiting close-out\"</b> to remind the case owner and EHS."
+     ],
+     "tip": "Scanners finish only after watching the slides and signing. For anyone on an older phone who signed but has not finished the slides, tick \"explained on site\" when you complete the meeting, or they are not counted. If the QR code is photographed and shared, tap \"New QR\"; the old one stops working at once.",
+     "warn": false
+    },
+    {
+     "no": "7-2",
+     "title": "Send the construction application link to a contractor",
+     "lead": "When a contractor is coming to work on site, send them the application link (e.g. by LINE). First-time contractors are taken to registration first.",
+     "shots": [
+      [
+       "c11_施工申請連結",
+       "Send the application link"
+      ],
+      [
+       "c12_廠商填申請",
+       "Contractor fills in the application"
+      ]
+     ],
+     "steps": [
+      "Main menu <b>Construction</b> → <b>Application link</b> → <b>Send to contractor</b> (LINE) or <b>Copy link</b>. The link is valid for <b>30 days</b>; cases sent through it are assigned to you (you are the handler).",
+      "The contractor enters their <b>tax ID</b>. New contractors register first; the system emails the <b>safety commitment</b> and a <b>login code</b>. After the owner signs and stamps it, they <b>photograph or scan it and upload it in the app</b> (or mail the original).",
+      "The contractor fills in the work and period, adds workers one per row with <b>＋ Add a worker</b> (name + last 4 ID digits), may attach files such as the work plan, and the <b>site supervisor signs</b> to submit.",
+      "If <b>hot work, lifting, confined space or work at height</b> is ticked, the screen asks them to <b>fill in the permit in the same application</b> (dates, times, every precaution confirmed) — no separate form. Ask contractors to apply <b>3 days before</b> work starts.",
+      "Need to stop halfway? Tap <b>Save draft</b>: it is kept on this phone and restored when the same link is opened within 7 days (attachments and signature must be redone). Tick <b>I have confirmed the above is correct</b> before the submit button works."
+     ],
+     "tip": "After submitting, the contractor receives <b>two QR codes</b> by email (① workers, ② handler) and the case link; under each QR they can <b>share the QR image</b> to a LINE group. If the commitment is not yet confirmed, they must tick that it was submitted or upload it.",
+     "warn": false
+    },
+    {
+     "no": "7-3",
+     "title": "Signing and submitting: what the contractor and I do",
+     "lead": "Workers sign, you sign, the case is submitted and EHS approves before the contractor may enter.",
+     "shots": [
+      [
+       "c13_申請完成QR",
+       "Two QR codes"
+      ],
+      [
+       "c14_施工人員簽名",
+       "Workers read the hazard notice and sign"
+      ],
+      [
+       "c15_承辦簽名提交",
+       "Handler signs by QR"
+      ]
+     ],
+     "steps": [
+      "Workers: scan QR ① with <b>their own phone</b>, choose their name, enter the last 4 digits of their ID, read the <b>hazard notice</b> and sign. Temporary workers not on the list tap <b>\"I am not on the list\"</b>. Poor signal is fine: the signature is saved on the phone and sent automatically. If the <b>site supervisor</b> is also on the list, they are asked whether to <b>use their application signature</b> instead of signing twice (the last 4 digits are still required). If the system is busy, the signature is also kept on the phone and resent automatically.",
+      "<b>You (handler)</b> can sign two ways: ① scan QR ② from the contractor — <b>no app needed</b> — pick your name and sign; ② in the app, open the case under <b>Construction</b> and tap <b>Sign and submit</b> (uses your saved signature). You are notified (app + email) when all workers have signed.",
+      "<b>Returned for correction</b>: the contractor edits and adds files via the case link and resubmits. If the period, area or special work changes, you must <b>sign again</b>.",
+      "The handler page has one button, <b>Sign and submit for review</b>, after ticking <b>I have confirmed the above is correct</b>. If the site supervisor has not signed or a required permit is missing, the signature is saved and the page explains what is missing; then tap <b>Submit for review</b>."
+     ],
+     "tip": "If the handler is not the person registered on the application, choose <b>I am the handler</b> when scanning and type your own name exactly as in the staff list.",
+     "warn": false
+    },
+    {
+     "no": "7-4",
+     "title": "Special work permits (hot work, lifting, confined space, height)",
+     "lead": "Permits are filled in and approved together with the application; confined space needs gas readings on site before entry.",
+     "shots": [
+      [
+       "c17_特殊作業許可",
+       "Permit filled in the application"
+      ],
+      [
+       "c19_案件頁",
+       "Contractor case page"
+      ]
+     ],
+     "steps": [
+      "Hot work and lifting permits are <b>for one day only</b>: tick every working day, one permit per day. Confined space and height cover a period. Every <b>precaution must be confirmed</b>.",
+      "<b>Confined space</b>: on the day, before entry, tap <b>Enter gas readings</b> on the case page (O2, LEL, H2S, CO). Out-of-limit readings are marked <b>Safety alert</b>, EHS and you are notified, and <b>no entry is allowed</b> until re-measured after ventilation.",
+      "When EHS <b>approves the work application, the permits are approved with it</b>. A permit is issued only once <b>the job is approved and the EHS, handler, site supervisor and worker signatures are all in</b>; it is then sent to the contractor and filed on the NAS, so no permit goes out with missing signatures. Lifting permits also include the mobile crane checklist.",
+      "To add working days later, the supervisor taps <b>Apply for another permit</b> on the case page; it is approved automatically if the case is approved and all conditions are met."
+     ],
+     "tip": "No work before approval. Permits past their date show as Expired.",
+     "warn": true
+    },
+    {
+     "no": "7-5",
+     "title": "EHS: review, commitments, permits; contractor case lookup",
+     "lead": "EHS reviews cases, records commitment originals and handles permits under Construction; contractors check progress with the 6-digit code.",
+     "shots": [
+      [
+       "c16_環安衛審核",
+       "Review a case"
+      ],
+      [
+       "c16b_環安衛修改內容",
+       "Edit contractor application"
+      ],
+      [
+       "c18_承攬商查詢",
+       "Contractor login"
+      ]
+     ],
+     "steps": [
+      "<b>Cases</b> tab: open cases marked <b>Awaiting your review</b>. <b>Check before review</b> lists unsigned workers, missing permits and the commitment status; check attachments, same-phone warnings and history, then <b>Approve</b>, <b>Return</b> or <b>Reject</b> (separate items with “；” and they are listed one by one in the contractor's email).",
+      "<b>Contractors & commitments</b> tab: open the uploaded commitment, check the owner signature and company stamps, then tap <b>Confirm commitment received</b>; held cases resume and the contractor is notified. If not actually received, tap <b>Not actually received?</b>. Use <b>Resend login code</b> if a contractor forgot it.",
+      "<b>Contractor login</b>: at the bottom of the app login page tap <b>Contractor login</b> — account = <b>tax ID</b>, login code = the <b>6 digits</b> emailed at registration; the phone remembers it. If forgotten, enter the tax ID and a new code is sent to the registered email.",
+      "<b>Wrong or missing special work</b>: on the case page tap <b>Edit contractor application</b>, change special work, conditions, hazards, area or joint work, <b>enter a reason</b> and save. It is logged and the contractor is emailed at once. Removed work cancels its unapproved permits; adding hot work, lifting, confined space or work at height <b>returns the case</b> so the contractor applies for the permit."
+     ],
+     "tip": "Save your own signature in the App before approving (it goes into the EHS box on the documents). Approval documents and permits are filed on the NAS every day at 12:15, under OSH 06 contractor management / contractor forms / records / year / month / one folder per job.",
+     "warn": false
+    },
+    {
+     "no": "7-6",
+     "title": "Contractor area: what contractors can see",
+     "lead": "After logging in, contractors can study YH rules and risks before work and see all of their own cases.",
+     "shots": [
+      [
+       "c21_承攬商專區_案件",
+       "Cases (current and history)"
+      ],
+      [
+       "c22_承攬商專區_施工前必讀",
+       "Read before work"
+      ]
+     ],
+     "steps": [
+      "<b>Cases</b>: current and past; open one to see signatures, the two QR codes, permits, <b>download approved documents</b> and the <b>high-risk work related to this case</b>.",
+      "<b>Read before work</b>: YH safety rules, site hazards (chemicals, dust, forklifts, emergencies), 9 <b>high-risk work</b> cards (safety signs, main hazards, must-do) and the permit precautions and confined-space limits.",
+      "<b>Company & commitment</b>: company data, commitment status, download the pre-filled commitment, upload the stamped copy."
+     ],
+     "tip": "Contractors only see their own company; workers' ID digits never appear on screen.",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 8,
+   "title": "Environmental readings",
+   "who": "Air and wastewater readings",
+   "color": "#0E7490",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "mod": "env",
+   "sections": [
+    {
+     "no": "8-1",
+     "title": "Daily readings",
+     "lead": "Air readings open the existing system for now; wastewater (new plant) readings are done in this app.",
+     "shots": [
+      [
+       "e01_環保抄表",
+       "Environmental readings"
+      ],
+      [
+       "e02_超出範圍",
+       "Out of range needs a note"
+      ]
+     ],
+     "steps": [
+      "On the Menu tap <b>\"Environmental readings\"</b> and choose <b>air</b> or <b>wastewater</b>.",
+      "For cumulative meters (flow meter, power meter), enter <b>the number on the meter</b>; the system works out <b>daily usage</b>.",
+      "Out of range, equipment marked <b>✕</b>, or a problem found: the card <b>turns red</b> and you must write <b>the cause and action</b> to send.",
+      "The bottom button shows how many are left; when done tap <b>\"Send\"</b>. Without internet it is saved on the phone and uploaded later. To correct the same day, open it again and resend."
+     ],
+     "tip": "Items and ranges are set in the back office and will be updated after the trial-run approval.",
+     "warn": false
+    },
+    {
+     "no": "8-2",
+     "title": "Month-end confirmation",
+     "lead": "After each month, send it for confirmation; once confirmed it is locked.",
+     "shots": [
+      [
+       "e03_本月紀錄",
+       "This month's records"
+      ]
+     ],
+     "steps": [
+      "On the readings page tap <b>\"This month's records\"</b> to see each day and any problems; tap a day to view or fill it.",
+      "From the 1st of the next month tap <b>\"Send month ○ for confirmation\"</b>.",
+      "Now two steps: <b>reader sends → EHS confirms</b>. When others take over it becomes three: reader → supervisor → EHS.",
+      "The approver can <b>\"Confirm\"</b> or <b>\"Return\"</b>; returned months can be corrected and sent again."
+     ],
+     "tip": "",
+     "warn": false
+    }
+   ]
+  },
+  {
+   "no": 9,
+   "title": "Hazardous chemicals",
+   "who": "Everyone",
+   "color": "#C62828",
+   "roles": [
+    "op",
+    "mgr",
+    "ehs"
+   ],
+   "sections": [
+    {
+     "no": "9-1",
+     "title": "Look up chemicals at your workplace",
+     "lead": "Tap \"Hazardous chemicals\" in the main menu to see every chemical on your division's list (PU or BU).",
+     "shots": [
+      [
+       "c01_化學品清單",
+       "Grouped like the list, with search"
+      ],
+      [
+       "c02_化學品明細",
+       "Tap to see the key hazards"
+      ]
+     ],
+     "steps": [
+      "Tap <b>\"Hazardous chemicals\"</b> in the main menu and scroll; you can also search by name, CAS or index code.",
+      "The red diamonds on the right are GHS hazard pictograms (flammable, corrosive, health hazard…).",
+      "Tap an item to see its <b>hazard classes</b> and basic info; the original SDS is in the binder on site — find it by the <b>index code</b>."
+     ],
+     "tip": "EHS updates the list every quarter and the App switches to the new one automatically. Before work, read SDS section 8 (protective equipment) and section 4 (first aid).",
+     "warn": false
+    }
+   ]
+  }
+ ],
+ "faq": [
+  [
+   "Not sure how to use the App or about a regulation — who do I ask?",
+   "Tap the purple \"Ask Xiao-En\" at the bottom right (also on the main menu). Common questions answer with one tap, or type your question. If Xiao-En cannot help, tap \"Still stuck? Send to EHS\" and attach a screenshot. If it gets in the way, tap the × at the top right of \"Ask Xiao-En\"; it tucks into the right edge as a small picture, and tapping the picture brings it back."
+  ],
+  [
+   "Can I fill in without a network?",
+   "Yes. It is saved on the phone and shows \"waiting to upload\"; it uploads automatically when online and will not be lost."
+  ],
+  [
+   "Made a mistake?",
+   "Open the same form the same day, edit and send again. If the month is already locked, ask your supervisor to return it first."
+  ],
+  [
+   "New phone or cleared the browser?",
+   "Just sign in again with your PIN; your signature is stored in the system, no need to sign again."
+  ],
+  [
+   "Forgot your PIN?",
+   "Ask the EHS Center to reset it. The old PIN will stop working."
+  ],
+  [
+   "Checks on your day off?",
+   "Send a link with \"Ask a coworker to fill in\", or fill it in on the calendar when you are back (marked as late entry)."
+  ],
+  [
+   "New app version?",
+   "When \"New app version\" pops up, tap \"Restart app\". Records not yet uploaded are kept."
+  ],
+  [
+   "Can't see a form?",
+   "It is not assigned to you. Go to \"My forms\" → \"Claim\", or ask your supervisor to assign it in \"Department\"."
+  ],
+  [
+   "Do yearly forms always need photos?",
+   "Yes. Yearly and 2-yearly inspections need site evidence: at least 2 photos + notes before they can be sent."
+  ],
+  [
+   "Must every issue be closed?",
+   "Yes. It stays in \"Issue tracking\" until a corrective action is recorded; supervisors and EHS see how many are open."
+  ],
+  [
+   "(EHS) Nobody can see the name list, or data suddenly will not load?",
+   "Usually the back-office spreadsheet was changed (for example a row inserted above the header, sorted, or deleted). The system fixes it when reading; you can also tap \"Settings → System refresh\" in the app, or the same item in the spreadsheet menu. No data is deleted. To view only one department, use the filter button in row 1 of the name list instead of hiding, moving or sorting rows."
+  ],
+  [
+   "(EHS) A labor inspection or audit wants records for certain months or forms?",
+   "After monthly approval the system still archives to the NAS automatically. To export some people before the whole section is done, go to \"Export & resend → By person\" and work from top to bottom: ① choose section and month ② tick the people (approved people are already ticked; people not yet approved can also be ticked, but their PDF has no supervisor signature) ③ choose NAS, Google Drive or download ④ choose whether to email. The button at the bottom states how many files will be created, where they go and who receives them."
+  ]
+ ],
+ "demoHide": {
+  "secs": [
+   "2-2"
+  ],
+  "steps": {
+   "2-7": [
+    1
+   ]
+  },
+  "faq": [
+   4
+  ]
+ }
+}
