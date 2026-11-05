@@ -1,4 +1,4 @@
-var PLAT_VER = "0.33.1";
+var PLAT_VER = "0.33.2";
 
 function platHeal() {
  try {
@@ -3263,7 +3263,7 @@ PLAT_PAGES.meet = function() {
   }));
   return;
  }
- var h = '<div class="box info"><div class="r">' + ic("helmet", 22) + '<div class="bt"><b>施工當天、開工前在現場開</b><div class="m">按「開始」手機會出現 QR Code，施工人員用手機掃描：先簽名、看完簡報按完成，就算簽到。沒有手機的人可以用您的手機當面簽。</div></div></div></div>';
+ var h = '<div class="box info"><div class="r">' + ic("helmet", 22) + '<div class="bt"><b>施工當天開工前，在現場開</b><div class="m">按「開始工具箱會議」，畫面會出現 QR Code。施工人員用自己的手機掃描：先看完簡報，再簽名，就完成簽到。沒帶手機的人，用您的手機當面簽。</div></div></div></div>';
  var tbl = h0.list.filter((function(x) {
   return x.kind === "toolbox";
  }));
@@ -3334,7 +3334,7 @@ function meetPaper(caseId, vendor) {
 PLAT_PAGES.meetTemp = function() {
  setTitle("臨時工具箱會議");
  var sp = S.mh && S.mh.specList || [ "動火", "高架", "局限", "吊掛" ];
- var h = '<div class="lead">承攬商系統裡沒有的臨時施工（例：臨時叫修）。填好就可以開會。</div>' + '<label class="nl req" for="mtV">廠商名稱</label><input class="field" id="mtV" maxlength="40" placeholder="公司全名">' + '<label class="nl req" for="mtW">工程名稱（主要工作）</label><input class="field" id="mtW" maxlength="60" placeholder="例：冷卻水塔馬達更換">' + '<label class="nl req" for="mtA">施工區域</label><input class="field" id="mtA" maxlength="40" placeholder="例：PU 部一廠 2F">' + '<div class="nl">今天有沒有特殊作業（有勾的會加入那一種的安全簡報）</div><div class="chk">' + sp.map((function(s) {
+ var h = '<div class="lead">承攬商系統裡沒有的臨時施工（例：臨時叫修）。填好就可以開會。</div>' + '<label class="nl req" for="mtV">廠商名稱</label><input class="field" id="mtV" maxlength="40" placeholder="公司全名">' + '<label class="nl req" for="mtW">工程名稱（主要工作）</label><input class="field" id="mtW" maxlength="60" placeholder="例：冷卻水塔馬達更換">' + '<label class="nl req" for="mtA">施工區域</label><input class="field" id="mtA" maxlength="40" placeholder="例：PU 部一廠 2F">' + '<div class="nl">今天的特殊作業（勾選的會自動加入那一種的安全簡報）</div><div class="chk">' + sp.map((function(s) {
   return '<label><input type="checkbox" value="' + esc(s) + '" class="mtS"> ' + esc(s) + "作業</label>";
  })).join("") + "</div>" + '<label class="nl" for="mtE">其他潛在風險（選填）</label><input class="field" id="mtE" maxlength="100" placeholder="例：鄰近有機溶劑儲槽">' + '<div id="mtErr"></div>';
  $("app").innerHTML = h;
@@ -3390,7 +3390,7 @@ PLAT_PAGES.meetNew = function() {
   return '<button class="li" onclick="go(\'meetRoom\',{id:' + jsq(x.id) + '})"><span class="mn"><span class="nm">' + esc(x.topic) + '</span><span class="mt">' + esc(md(x.date) + " " + x.start + "～" + x.end + "・已簽 " + x.signed + " 人、完成 " + x.finished + " 人") + "</span></span>" + pill("warn", "clock", "回到會議") + "</button>";
  })).join("") + "</div>" : "";
  top += '<button class="btn ghost" style="margin:6px 0 4px" onclick="S.mhist=null;go(\'meetHist\',{kind:\'newhire\'})">' + ic("review", 18, 2.4) + "新進人員簽到紀錄</button>";
- var h = top + '<div class="sec">開新的一堂課</div><div class="lead">新人用手機掃 QR Code：先簽名、看完簡報按完成，就簽到。課程結束您按「完成會議」，系統產生 P-05-01-A 內訓簽到表寄給環安衛並存 NAS。</div>' + '<label class="nl req" for="mnT">課程名稱</label><input class="field" id="mnT" maxlength="40" value="新進人員一般安全衛生教育訓練">' + '<label class="nl req" for="mnD">上課日期</label><input class="field" id="mnD" type="date" max="' + t + '" value="' + t + '">' + '<div class="mr2"><div><label class="nl req" for="mnS">開始</label><input class="field" id="mnS" type="time" value="13:00"></div>' + '<div><label class="nl req" for="mnE">結束</label><input class="field" id="mnE" type="time" value="16:00"></div></div>' + '<div class="muted">一般安全衛生教育訓練新僱勞工至少 3 小時。</div>' + '<label class="nl" for="mnP">地點</label><input class="field" id="mnP" maxlength="30" value="會議室"><div id="mnErr"></div>';
+ var h = top + '<div class="sec">開新的一堂課</div><div class="lead">新人用手機掃 QR Code：先看完簡報，再簽名，就完成簽到。課程結束按「完成會議」，系統產生 P-05-01-A 內訓簽到表，寄給環安衛並存 NAS。</div>' + '<label class="nl req" for="mnT">課程名稱</label><input class="field" id="mnT" maxlength="40" value="新進人員一般安全衛生教育訓練">' + '<label class="nl req" for="mnD">上課日期</label><input class="field" id="mnD" type="date" max="' + t + '" value="' + t + '">' + '<div class="mr2"><div><label class="nl req" for="mnS">開始</label><input class="field" id="mnS" type="time" value="13:00"></div>' + '<div><label class="nl req" for="mnE">結束</label><input class="field" id="mnE" type="time" value="16:00"></div></div>' + '<div class="muted">一般安全衛生教育訓練新僱勞工至少 3 小時。</div>' + '<label class="nl" for="mnP">地點</label><input class="field" id="mnP" maxlength="30" value="會議室"><div id="mnErr"></div>';
  $("app").innerHTML = h;
  bar('<button class="btn" id="mnBtn" onclick="meetNewGo()">' + ic("check", 22, 2.6) + "開始，顯示 QR Code</button>");
 };
@@ -3437,7 +3437,7 @@ PLAT_PAGES.meetRoom = function() {
   h += '<div class="sec">①　' + (m.kind === "newhire" ? "新進同仁" : "施工人員") + "掃 QR 簽到</div>";
   h += '<div class="card qrcard"><div class="qr">' + meetQrSvg(url, 260) + '</div><div class="muted" style="text-align:center">請' + (m.kind === "newhire" ? "新進同仁" : "施工人員") + "用手機相機掃描</div>" + '<div class="btns r3"><button class="btn ghost" onclick="shareLink(' + jsq("員和工業" + MEET_KIND_NAME[m.kind] + "簽到（打開後先看完簡報，再簽名完成）") + "," + jsq(url) + ')">' + ic("share", 18, 2.4) + "傳連結</button>" + '<button class="btn ghost" onclick="copyText(' + jsq(url) + ",'連結已複製')\">" + ic("copy", 18, 2.2) + "複製</button>" + '<button class="btn ghost" onclick="meetNewQr()">' + ic("refresh", 18, 2.2) + "換新 QR</button></div></div>";
  } else {
-  h += '<div class="sec">①　' + (m.kind === "newhire" ? "新進同仁" : "施工人員") + '掃 QR 簽到</div><div class="card"><div class="muted">這支手機沒有這場會議的 QR Code（可能重新開過 App）。按下面產生新的，舊的會失效。</div><button class="btn" onclick="meetNewQr()">' + ic("refresh", 18, 2.4) + "顯示 QR Code</button></div>";
+  h += '<div class="sec">①　' + (m.kind === "newhire" ? "新進同仁" : "施工人員") + '掃 QR 簽到</div><div class="card"><div class="muted">這支手機找不到這場會議的 QR Code。按「顯示 QR Code」產生新的（舊的會失效，已掃過還沒完成的人要重掃）。</div><button class="btn" onclick="meetNewQr()">' + ic("refresh", 18, 2.4) + "顯示 QR Code</button></div>";
  }
  var done = st.atts.filter((function(a) {
   return a.done;
@@ -3482,7 +3482,7 @@ function meetFinishAsk(id) {
 }
 
 function meetRosterAsk(seq, name) {
- dlg("<b>用 " + esc(name) + " 施工申請時的簽名？</b><p>這會把他在施工申請時本人簽的名，直接當作今天的出席簽名，紀錄上會加註「＊沿用施工申請簽名、主持人點名」。</p>" + '<p class="sm">請確認本人今天真的在現場、也聽過宣導。人在旁邊的話，建議請他「當面簽」，證明力比較強。</p>', [ [ "確認本人在場，用申請簽名", function() {
+ dlg("<b>用 " + esc(name) + " 施工申請時的簽名？</b><p>這會把他在施工申請時本人簽的名，直接當作今天的出席簽名，紀錄上會加註「＊沿用施工申請簽名、主持人點名」。</p>" + '<p class="sm">請確認本人今天真的在現場、也聽過宣導。人就在旁邊的話，請他「當面簽」，紀錄比較有證明力。</p>', [ [ "確認本人在場，用申請簽名", function() {
   meetRosterGo([ seq ]);
  }, "" ], [ "改成當面簽", function() {
   go("meetSign", {
@@ -3751,7 +3751,7 @@ PLAT_PAGES.meetFinish = function() {
  var h = '<div class="box info"><div class="r">' + ic("check", 22) + '<div class="bt"><b>' + done.length + ' 人已完成簽到</b><div class="m">' + esc(done.map((function(a) {
   return a.name;
  })).join("、") || "—") + "</div></div></div></div>";
- if (wait.length) h += '<div class="sec">簽了名、還沒看完簡報<small>現場已經聽您說明的請勾選列入；沒勾的不算出席</small></div><div class="chk col">' + wait.map((function(a) {
+ if (wait.length) h += '<div class="sec">簽了名、還沒看完簡報<small>在現場聽過您說明的請勾選，才算出席；沒勾的不列入紀錄</small></div><div class="chk col">' + wait.map((function(a) {
   return '<label><input type="checkbox" class="mfI" value="' + a.seq + '"> ' + esc(a.name) + "（" + esc(a.unit) + "）</label>";
  })).join("") + "</div>";
  if (m.kind === "toolbox") {
