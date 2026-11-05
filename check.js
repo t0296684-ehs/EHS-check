@@ -478,6 +478,29 @@ function tkLoad() {
  }));
 }
 
+function prevDefects(a) {
+ if (!S.me || !S.me.tracksOpen) return "";
+ if (!S.tk) {
+  if (!S.tkBusy) {
+   S.tkBusy = true;
+   tkLoad().then((function() {
+    S.tkBusy = false;
+    if (S.page === "fill") keepY(render);
+   }), (function() {
+    S.tkBusy = false;
+   }));
+  }
+  return "";
+ }
+ var list = (S.tk.open || []).filter((function(x) {
+  return x.dept === a.dept && x.form === a.form && String(x.object || "") === String(a.object || "");
+ }));
+ if (!list.length) return "";
+ return '<div class="box warn"><div class="r">' + ic("warn", 22) + '<div class="bt"><b>上次檢查還有 ' + list.length + ' 項缺失沒結案</b><div class="m">' + list.slice(0, 4).map((function(x) {
+  return esc(tkDates(x) + " 第 " + x.seq + " 項：" + (x.note || x.item));
+ })).join("<br>") + (list.length > 4 ? "<br>…另有 " + (list.length - 4) + " 項" : "") + "<br>這次檢查請一併確認；改善好了到「異常追蹤」填寫改善措施結案。</div></div></div>" + '<button class="btn ghost" onclick="S.tk=null;go(\'track\')">' + ic("warn", 20, 2.2) + "到異常追蹤填寫改善</button></div>";
+}
+
 function tkDates(x) {
  var d = x.dates.map(md);
  return (d.length > 3 ? d.slice(0, 2).join("、") + "…" + d[d.length - 1] : d.join("、")) + (d.length > 1 ? "（" + d.length + " 天）" : "");
@@ -1974,7 +1997,10 @@ PAGES.fill = function() {
  var h = bfBanner() + '<div class="meta">' + esc(metaTxt) + "</div>" + (S.share || demoDept(a.dept) || bfCur() ? '<div class="dwrap"><div class="lbl">檢查日期 ' + pill("ok", "", md(fm.date) + "（" + wk(fm.date) + "）") + "</div></div>" : '<div class="dwrap"><div class="lbl"><label for="dt">檢查日期</label>' + (fm.date === t ? pill("ok", "", "今天") : pill("warn", "", "補登")) + "</div>" + '<input type="date" class="field" id="dt" value="' + esc(fm.date) + '" max="' + t + '" min="' + minD + '" onchange="fillDate(this.value)">' + '<div class="hint">補填其他天：回首頁按「月曆・補填」，再點日期（最早可補到 ' + md(minD) + "）</div></div>" + (fm.date !== t ? '<div class="box warn"><div class="r">' + ic("warn", 22) + '<div class="bt"><b>補填 ' + md(fm.date) + "（" + wk(fm.date) + "）的紀錄</b>" + '<div class="m">請確認這天確實有做檢查。建議當天檢查、當天填寫，檢查表才有實際作用；補填會記下填寫時間，單位負責人與環安衛看得到。</div></div></div></div>' : ""));
  if (a.daily) {
   h += '<div class="btns r21"><button class="btn navy" onclick="allOk()">' + ic("check", 22, 3) + "全部正常</button>" + '<button class="btn ghost" onclick="noWork()">' + (fm.noWork ? "↺ 取消無作業" : "今日無作業") + "</button></div>";
- } else if (f.evidence) {
+ } else {
+  h += prevDefects(a);
+ }
+ if (a.daily) {} else if (f.evidence) {
   h += '<div class="box info"><div class="r">' + ic("info", 22) + '<div class="bt"><b>請到現場逐項檢查後再勾</b><div class="m">這張表沒有「全部正常」，每一項都要自己勾；送出前要' + (f.evidence.photos ? "附 " + f.evidence.photos + " 張以上現場照片" : "") + (f.evidence.summary ? (f.evidence.photos ? "、" : "") + "寫檢查過程紀要" : "") + "，單位負責人與環安衛審核時看得到。</div></div></div></div>";
  } else {
   h += '<button class="btn navy" onclick="allOk()">' + ic("check", 22, 3) + "全部正常</button>";
