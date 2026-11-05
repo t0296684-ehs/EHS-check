@@ -1971,7 +1971,7 @@ PAGES.fill = function() {
   S.topExtra = '<div class="prog"><div class="prog-in"><div class="pt"><span>已勾 <b>' + st.cnt + "</b> / " + st.total + " 項</span>" + (st.todo.length ? '<span class="pr">還有 ' + st.todo.length + " 項</span>" : '<span class="pr okt">全部勾完了</span>') + "</div>" + '<div class="pbar" role="progressbar" aria-valuemin="0" aria-valuemax="' + st.total + '" aria-valuenow="' + st.cnt + '"><i class="' + (st.todo.length ? "" : "full") + '" style="width:' + pct + '%"></i></div>' + '<div class="seg" role="tablist"><button role="tab" aria-selected="' + (ff === "all") + '" class="' + (ff === "all" ? "on" : "") + '" onclick="fillFilter(\'all\')">全部 ' + st.total + "</button>" + '<button role="tab" aria-selected="' + (ff === "todo") + '" class="' + (ff === "todo" ? "on" : "") + '" onclick="fillFilter(\'todo\')">未勾 ' + st.todo.length + "</button>" + '<button role="tab" aria-selected="' + (ff === "bad") + '" class="ngc' + (ff === "bad" ? " on" : "") + '" onclick="fillFilter(\'bad\')">異常 ' + st.bad.length + "</button></div></div></div>";
  }
  var metaTxt = [ deptOf(a.dept), a.object, a.kind ].filter(String).join("｜");
- var h = bfBanner() + '<div class="meta">' + esc(metaTxt) + "</div>" + (S.share || demoDept(a.dept) || bfCur() ? '<div class="dwrap"><div class="lbl">檢查日期 ' + pill("ok", "", md(fm.date) + "（" + wk(fm.date) + "）") + "</div></div>" : '<div class="dwrap"><div class="lbl"><label for="dt">檢查日期</label>' + (fm.date === t ? pill("ok", "", "今天") : pill("warn", "", "補登")) + "</div>" + '<input type="date" class="field" id="dt" value="' + esc(fm.date) + '" max="' + t + '" min="' + minD + '" onchange="fillDate(this.value)">' + '<div class="hint">要補填其他天，建議從「月曆・補填」點日期；最早到 ' + md(minD) + "</div></div>" + (fm.date !== t ? '<div class="box warn"><div class="r">' + ic("warn", 22) + '<div class="bt"><b>補填 ' + md(fm.date) + "（" + wk(fm.date) + "）的紀錄</b>" + '<div class="m">請確認這天確實有做檢查。建議當天檢查、當天填寫，檢查表才有實際作用；補填會記下填寫時間，單位負責人與環安衛看得到。</div></div></div></div>' : ""));
+ var h = bfBanner() + '<div class="meta">' + esc(metaTxt) + "</div>" + (S.share || demoDept(a.dept) || bfCur() ? '<div class="dwrap"><div class="lbl">檢查日期 ' + pill("ok", "", md(fm.date) + "（" + wk(fm.date) + "）") + "</div></div>" : '<div class="dwrap"><div class="lbl"><label for="dt">檢查日期</label>' + (fm.date === t ? pill("ok", "", "今天") : pill("warn", "", "補登")) + "</div>" + '<input type="date" class="field" id="dt" value="' + esc(fm.date) + '" max="' + t + '" min="' + minD + '" onchange="fillDate(this.value)">' + '<div class="hint">補填其他天：回首頁按「月曆・補填」，再點日期（最早可補到 ' + md(minD) + "）</div></div>" + (fm.date !== t ? '<div class="box warn"><div class="r">' + ic("warn", 22) + '<div class="bt"><b>補填 ' + md(fm.date) + "（" + wk(fm.date) + "）的紀錄</b>" + '<div class="m">請確認這天確實有做檢查。建議當天檢查、當天填寫，檢查表才有實際作用；補填會記下填寫時間，單位負責人與環安衛看得到。</div></div></div></div>' : ""));
  if (a.daily) {
   h += '<div class="btns r21"><button class="btn navy" onclick="allOk()">' + ic("check", 22, 3) + "全部正常</button>" + '<button class="btn ghost" onclick="noWork()">' + (fm.noWork ? "↺ 取消無作業" : "今日無作業") + "</button></div>";
  } else if (f.evidence) {
@@ -1980,7 +1980,7 @@ PAGES.fill = function() {
   h += '<button class="btn navy" onclick="allOk()">' + ic("check", 22, 3) + "全部正常</button>";
  }
  if (fm.noWork) {
-  h += '<div class="box warn"><div class="r">' + ic("info", 22) + '<div class="bt"><b>這一天記為「無作業」</b><div class="m">表上留空白。按下方送出即可；要改回來請按「↺ 取消無作業」。</div></div></div></div>';
+  h += '<div class="box warn"><div class="r">' + ic("info", 22) + '<div class="bt"><b>這一天記為「無作業」</b><div class="m">表上這天留空白。按最下面「送出（今日無作業）」；選錯了按「↺ 取消無作業」。</div></div></div></div>';
  } else {
   var g = null, shown = 0, nextSeq = st.todo[0] || st.noNote[0];
   h += '<div class="fitems">';
@@ -2238,7 +2238,7 @@ function submitFill() {
   var left = (S.me.assigns || []).filter((function(x) {
    return x.daily && x.due && !x.due.todayDone && !pendingFor(x, today());
   })).length;
-  var msg = f.name + " " + md(body.date) + (body.date === today() && left ? "・今天還有 " + left + " 張" : "") + "（當天要改可以再打開這張）";
+  var msg = f.name + " " + md(body.date) + (body.date === today() && left ? "・今天還有 " + left + " 張" : "") + "（今天要改：再打開這張，改好重送）";
   S.sentMsg = "已送出 " + msg;
   if (nBad) {
    msg += "；" + nBad + " 項異常已轉到「異常追蹤」";
@@ -2421,7 +2421,7 @@ function monthRender() {
   var blanks = blankDays(x, v.period), canEdit = (v.status === "填寫中" || v.status === "退回") && !ehs && v.period >= fillMin();
   if (canEdit && blanks.length) stats += '<div class="blankl">' + ic("pen", 16, 2.4) + "平日沒紀錄 " + blanks.length + " 天（" + blanks.slice(0, 10).join("、") + (blanks.length > 10 ? "…" : "") + " 號）：點日期可以補填</div>";
   var calc = '<div class="card calcard' + (S.mSlide ? S.mSlide > 0 ? " slideL" : " slideR" : "") + '">' + stats + calHtml(f, x, v.period, late[x.form]) + "</div>", dd = dayDetail(f, x, v.period, late[x.form]);
-  if (S.mv === "cal") h += deskCal ? '<div class="mdesk"><div class="mdmain">' + calc + '</div><div class="mdside">' + (dd || '<div class="card"><div class="muted">點月曆上的日期，這裡會顯示那天的檢查人員、異常與說明；沒紀錄的平日可以直接補填。</div></div>') + topPart + "</div></div>" : calc + dd; else h += '<div class="card">' + stats + "</div>" + gridHtml(f, x, v.period, seeLate(v) ? late[x.form] : null);
+  if (S.mv === "cal") h += deskCal ? '<div class="mdesk"><div class="mdmain">' + calc + '</div><div class="mdside">' + (dd || '<div class="card"><div class="muted">點月曆上的日期，看那天的檢查人員、異常與說明；沒有紀錄的上班日，點下去就是補填。</div></div>') + topPart + "</div></div>" : calc + dd; else h += '<div class="card">' + stats + "</div>" + gridHtml(f, x, v.period, seeLate(v) ? late[x.form] : null);
  }
  if (mm.periodic.length) h += '<div class="sec">定期檢查（本月）</div>';
  h += (isDesk() && mm.periodic.length ? '<div class="sfper">' : "") + mm.periodic.map((function(x) {
@@ -2449,13 +2449,13 @@ function monthRender() {
   var nx = new Date(Number(v.period.slice(0, 4)), Number(v.period.slice(5)), 1);
   bar('<button class="btn" disabled>' + Number(v.period.slice(5)) + " 月還沒結束，" + (nx.getMonth() + 1) + "/1 起才能送審</button>");
  } else if (v.status === "待主管審核" && !boss && !ehs && v.submitter === S.me.person.name) {
-  bar('<button class="btn redline" onclick="withdrawMonth()">' + ic("ret", 20, 2.4) + "撤回送審（主管還沒審核，可以撤回修改）</button>");
+  bar('<button class="btn redline" onclick="withdrawMonth()">' + ic("ret", 20, 2.4) + "撤回送審，改好再送（主管審核前才能撤回）</button>");
  } else if ((v.status === "填寫中" || v.status === "退回") && !ehs) {
   bar(v.problems.length ? '<button class="btn" disabled>補完 ' + v.problems.length + " 個地方，才能送單位負責人</button>" : '<button class="btn" id="smBtn" onclick="submitMonth()">' + ic("check", 22, 2.8) + (v.who ? "送出我的 " + (v.nSend || 0) + " 份，鎖定送單位負責人" : "本月完成，鎖定送單位負責人") + "</button>");
  } else if (v.status === "待主管審核" && boss && !ehs) {
-  bar('<label class="nl" for="cm">意見（核准可不填；<b>退回要寫要改哪一天、哪一項</b>，本課看得到）</label><textarea id="cm" class="note plain" placeholder="退回時必填，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm) + "</textarea>" + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">離開</button><button class="btn redline" onclick="doReview(\'return\')">退回</button><button class="btn" onclick="doReview(\'approve\')">' + ic("pen", 22) + "核准並簽名</button></div>");
+  bar('<label class="nl" for="cm">退回原因：<b>寫要改哪一天、哪一項</b>（核准不用填，本課看得到）</label><textarea id="cm" class="note plain" placeholder="退回時必填，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm) + "</textarea>" + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">先離開</button><button class="btn redline" onclick="doReview(\'return\')">退回本課修改</button><button class="btn" onclick="doReview(\'approve\')">' + ic("pen", 22) + "核准並簽名</button></div>");
  } else if (v.status === "待環安衛審核" && ehs) {
-  bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>" + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">離開</button><button class="btn redline" onclick="doEhs(\'return\')">退回</button><button class="btn" onclick="doEhs(\'approve\')">' + ic("check", 22, 2.8) + "核准歸檔</button></div>");
+  bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>" + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">先離開</button><button class="btn redline" onclick="doEhs(\'return\')">退回本課修改</button><button class="btn" onclick="doEhs(\'approve\')">' + ic("check", 22, 2.8) + "核准歸檔</button></div>");
  } else if (v.status === "已歸檔" || v.status === "待環安衛審核") {
   bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>");
  }
@@ -2805,7 +2805,7 @@ function submitMonth() {
   toast("已鎖定送審", "ok");
   var link = location.origin + location.pathname + "?r=" + r.monthId;
   var text = (v.who ? v.who + " " : "") + v.dept + " " + ymLabel(v.period) + " 作業檢點已完成，請審核簽名：" + link;
-  $("app").innerHTML = '<div class="sent"><span class="bigck">' + ic("check", 40, 3) + "</span><b>已送給單位負責人</b><p>" + esc(v.dept + " " + ymLabel(v.period)) + " 已鎖定送審。<br>單位負責人打開 App 就會看到。急的話按下面的按鈕傳 LINE 提醒他。</p></div>";
+  $("app").innerHTML = '<div class="sent"><span class="bigck">' + ic("check", 40, 3) + "</span><b>已送給單位負責人</b><p>" + esc(v.dept + " " + ymLabel(v.period)) + " 已送給單位負責人。<br>他打開 App 就會看到；要催他，按下面「用 LINE／訊息通知主管」。</p></div>";
   bar('<button class="btn" onclick="shareTo(' + jsq(text) + ')">' + ic("chat", 22, 2.4) + "用 LINE／訊息通知主管</button>" + '<button class="btn ghost" onclick="S.stack=[];go(\'home\',{},true);refreshMe()">' + ic("home", 20, 2.2) + "回首頁</button>");
  })).catch((function(e) {
   busyOff();

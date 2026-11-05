@@ -1,5 +1,5 @@
 {
- "version": "0.32.8",
+ "version": "0.32.9",
  "chapters": [
   {
    "no": 1,
@@ -444,7 +444,7 @@
      "steps": [
       "Switch forms at the top to see the calendar or item table; for periodic inspections open the <b>photos</b> and notes.",
       "If all is fine tap <b>\"Approve and sign\"</b>; your signature is added and a PDF is created.",
-      "If something is wrong, tap <b>\"Return\"</b> and tell the inspector in person what to fix; they fix it and resend."
+      "If something is wrong, write which day and which item to fix at the bottom and tap <b>\"Return to unit for fixes\"</b>; the inspector fixes it and resends."
      ],
      "tip": "",
      "warn": false
@@ -486,7 +486,7 @@
       "The tabs at the top are each daily checklist of the unit; tabs with abnormal items show a red number. Above the table are the submitter and the counts of checked days, abnormal items and late entries.",
       "<b>\"Abnormal items\"</b> on the right lists every abnormal item with its note; click one to jump to that cell. Click any cell to see that day's inspector, result, note and late-entry time on the right.",
       "This month's periodic inspection records are below the table.",
-      "When done, write a comment at the bottom and click <b>\"Approve and sign\"</b> or <b>\"Return\"</b> (when returning, say which day and which item to fix)."
+      "When done, click <b>\"Approve and sign\"</b>. If something needs fixing, write which day and which item at the bottom and click <b>\"Return to unit for fixes\"</b>."
      ],
      "tip": "The review screen is view-only; to correct something, return it to the unit.",
      "warn": false
