@@ -501,6 +501,22 @@ function prevDefects(a) {
  })).join("<br>") + (list.length > 4 ? "<br>…另有 " + (list.length - 4) + " 項" : "") + "<br>這次檢查請一併確認；改善好了到「異常追蹤」填寫改善措施結案。</div></div></div>" + '<button class="btn ghost" onclick="S.tk=null;go(\'track\')">' + ic("warn", 20, 2.2) + "到異常追蹤填寫改善</button></div>";
 }
 
+function tkPlan(id, v) {
+ if (!v) return;
+ api("trackPlan", {
+  id,
+  plan: v
+ }).then((function(r) {
+  S.tk = r;
+  S.me.tracksOpen = r.open.length;
+  toast("已排定預定完成日 " + md(v), "ok", 2500);
+  keepY(render);
+ })).catch((function(e) {
+  toast(esc(e.message), "err", 4500);
+  keepY(render);
+ }));
+}
+
 function tkDates(x) {
  var d = x.dates.map(md);
  return (d.length > 3 ? d.slice(0, 2).join("、") + "…" + d[d.length - 1] : d.join("、")) + (d.length > 1 ? "（" + d.length + " 天）" : "");
@@ -533,7 +549,10 @@ PAGES.track = function() {
  h += list.length ? list.map((function(x) {
   var head = '<div class="tkh"><span class="nm">' + esc(tkTitle(x)) + "</span>" + (x.state === "已結案" ? pill("ok", "check", "已結案") : pill("ng", "warn", x.mark || "異常")) + "</div>";
   var body = '<div class="tki">' + esc(x.item.replace(/^\d+\.\s*/, "")) + "</div>" + (x.note ? '<div class="tkn">' + esc(x.note) + "</div>" : "") + '<span class="mt">' + esc((multi ? x.dept + "・" : "") + "發現：" + tkDates(x) + "・" + x.finder) + "</span>" + tkPhotos(x.photos, "異常照片");
-  if (x.state === "已結案") body += '<div class="tkf"><b>改善：</b>' + esc(x.fix) + '<span class="mt">' + esc(md(x.fixDate) + " 完成・" + x.fixer) + "</span>" + tkPhotos(x.fixPhotos, "改善照片") + "</div>"; else body += '<button class="btn line sm" onclick="go(\'trackFix\',{id:' + jsq(x.id) + '})">' + ic("pen", 18) + "填寫改善</button>";
+  if (x.state === "已結案") body += '<div class="tkf"><b>改善：</b>' + esc(x.fix) + '<span class="mt">' + esc(md(x.fixDate) + " 完成・" + x.fixer) + "</span>" + tkPhotos(x.fixPhotos, "改善照片") + "</div>"; else {
+   if (isEhs() || mgrOf(x.dept)) body += '<div class="tkp"><label class="nl" for="pl_' + esc(x.id) + '">預定完成日（主管排定，印在檢點表上）</label>' + '<input type="date" id="pl_' + esc(x.id) + '" class="field" value="' + esc(x.plan || "") + '" min="' + esc(x.dates[0] || today()) + '" onchange="tkPlan(' + jsq(x.id) + ',this.value)"></div>'; else body += '<span class="mt">' + esc(x.plan ? "預定 " + md(x.plan) + " 前完成改善" : "預定完成日：等單位負責人排定") + "</span>";
+   body += '<button class="btn line sm" onclick="go(\'trackFix\',{id:' + jsq(x.id) + '})">' + ic("pen", 18) + "填寫改善</button>";
+  }
   return '<div class="card tk">' + head + body + "</div>";
  })).join("") : '<div class="empty">' + (tab === "open" ? "目前沒有待改善的異常" : "最近 90 天沒有結案的紀錄") + "</div>";
  $("app").innerHTML = h;
