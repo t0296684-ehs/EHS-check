@@ -1,5 +1,5 @@
 {
- "version": "0.34.0",
+ "version": "0.35.0",
  "chapters": [
   {
    "no": 1,
@@ -575,7 +575,7 @@
      ],
      "steps": [
       "Menu → <b>\"EHS training\"</b> → <b>\"Post new item\"</b>.",
-      "<b>Training</b>: hours, instructor, due date; upload Chinese and Thai versions and pick the language; add a quiz (up to 10 questions, all correct to pass). \"I have completed it\" signs staff in automatically.",
+      "<b>Training</b>: hours, instructor, due date; upload Chinese and Thai versions and pick the language; add quiz questions (up to 20) with a <b>pass mark</b> — below it, staff retake the whole quiz. Staff are signed in automatically when they pass or tap \"I have completed it\".",
       "<b>Health info</b>: reading only, no sign-in; you can ask staff to tap \"I have read it\".",
       "Choose recipients and tap <b>\"Post\"</b>. <b>\"Read records\"</b> shows who has finished; remove items you no longer need."
      ],
@@ -789,7 +789,7 @@
      "steps": [
       "On the Menu tap <b>\"EHS training\"</b>; Home also reminds you of courses to finish.",
       "Open a course and read the material (PDF, pictures). If there is a Thai version and your phone is set to Thai, you see it first.",
-      "If there is a quiz, <b>all answers must be correct</b>; wrong ones turn red — read again and retry.",
+      "If there is a quiz, you must reach the <b>pass mark</b>; otherwise retake the whole quiz.",
       "Tap <b>\"I have completed it (use my signature)\"</b>; your stored signature is <b>added to the training sign-in sheet</b>.",
       "Health info only needs reading; tap <b>\"I have read it\"</b> where asked."
      ],
@@ -821,14 +821,14 @@
     {
      "no": "6-2",
      "title": "Video courses",
-     "lead": "YouTube video courses from EHS are completed only after you watch for the required time in the App.",
+     "lead": "Video course time counts from when you first open the course. When the time is up you can take the quiz; you complete the course by reaching the pass mark.",
      "shots": [],
      "steps": [
-      "Open the course; videos play inside the App, and the top shows <b>how many minutes are required and how many you have watched</b>.",
-      "Only time played inside the App counts. Skipping, pausing or leaving the screen does not count.",
-      "When done, tap <b>\"I have completed (use my signature)\"</b> to sign in and record your hours automatically."
+      "Open the course; videos play inside the App. The top and the button at the bottom show <b>how many minutes are left</b> before the quiz.",
+      "Time counts from the first time you open it, and you may switch to other screens. When time is up, tap <b>\"Class time is up. Start the quiz\"</b>.",
+      "After answering, tap <b>\"Submit\"</b>. If you reach the pass mark you are signed in and your hours are recorded; otherwise <b>retake the whole quiz</b> (you are not told which answers were wrong)."
      ],
-     "tip": "You can watch in several sessions; watched time is kept.",
+     "tip": "For video courses without a quiz, tap \"I have completed\" when the time is up.",
      "warn": false
     },
     {
