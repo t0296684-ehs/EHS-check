@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.33.4";
+var APP_VERSION = "0.34.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -2412,6 +2412,16 @@ PAGES.home = function() {
    on: "go('months')"
   });
  }
+ (m.classDue || []).forEach((function(x) {
+  tasks.unshift({
+   red: true,
+   tag: "實體課・現在上課・" + x.start + "～" + x.end,
+   title: x.topic,
+   meta: (x.place || "") + "・" + x.hours + " 小時・講師 " + x.host + "；到現場再按",
+   btn: "我在現場，簽到",
+   on: "classSignAsk(" + jsq(x.id) + "," + jsq(x.topic) + ")"
+  });
+ }));
  (m.envDue || []).forEach((function(x) {
   var mo = Number(x.period.slice(5)), go_ = "S.envM=null;go('envMonth',{sys:" + jsq(x.sys) + ",period:" + jsq(x.period) + "})";
   if (x.need === "confirm") {
@@ -2827,6 +2837,13 @@ function appInit() {
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) swReg();
   return;
  }
+ var cls = /[#&]cls=([A-Za-z0-9]+)/.exec(location.hash);
+ if (cls) {
+  S.clsGo = cls[1];
+  try {
+   history.replaceState(null, "", location.pathname + location.search);
+  } catch (e) {}
+ }
  var deep = new URLSearchParams(location.search).get("r");
  authRestore().then((function() {
   S.me = lsGet(LS.ME, null);
@@ -2842,6 +2859,16 @@ function appInit() {
   flush();
   return refreshMe();
  })).then((function() {
+  if (S.clsGo && S.me) {
+   var cg = S.clsGo;
+   S.clsGo = "";
+   var cx = (S.me.classDue || []).filter((function(x) {
+    return x.id === cg;
+   }))[0];
+   setTimeout((function() {
+    if (cx) classSignAsk(cg, cx.topic); else toast("這堂課您已經簽到過，或名單上沒有您（請找講師）", "", 4e3);
+   }), 300);
+  }
   if (deep && S.me) {
    return apiR("packages", {}).then((function(list) {
     var p = list.filter((function(x) {

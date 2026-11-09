@@ -1,4 +1,4 @@
-var PLAT_VER = "0.33.4";
+var PLAT_VER = "0.34.0";
 
 function platHeal() {
  try {
@@ -2101,7 +2101,10 @@ PLAT_PAGES.edu = function() {
   return;
  }
  var h = "";
- if (isEhs()) h += '<div class="btns"><button class="btn" onclick="S.ep=null;go(\'eduPost\')">' + ic("plus", 18, 2.4) + '發布新文宣</button><button class="btn ghost" onclick="S.es=null;go(\'eduStats\')">' + ic("review", 18, 2.4) + "閱讀紀錄</button></div>" + '<button class="btn line" style="margin-top:10px" onclick="go(\'meetNew\')">' + ic("helmet", 18, 2.4) + "新進人員教育訓練（現場掃碼簽到）</button>" + edDraftHtml();
+ if (isEhs()) h += '<div class="btns"><button class="btn" onclick="S.ep=null;go(\'eduPost\')">' + ic("plus", 18, 2.4) + '發布新文宣</button><button class="btn ghost" onclick="S.es=null;go(\'eduStats\')">' + ic("review", 18, 2.4) + "閱讀紀錄</button></div>" + '<button class="btn line" style="margin-top:10px" onclick="S.cn=null;go(\'classNew\')">' + ic("users", 18, 2.4) + "開實體課（勾選同仁，App 簽到、自動登記時數）</button>" + '<button class="btn line" style="margin-top:10px" onclick="go(\'meetNew\')">' + ic("helmet", 18, 2.4) + "新進人員教育訓練（現場掃碼簽到）</button>" + edDraftHtml();
+ h += '<button class="btn line" style="margin:10px 0 4px" onclick="S.eh=null;go(\'eduHours\')">' + ic("clock", 18, 2.4) + (isEhs() || (S.me.depts || []).some((function(d) {
+  return d.mgr;
+ })) ? "訓練時數（近三年）" : "我的訓練時數（近三年）") + "</button>";
  var isTodo = function(x) {
   return x.forMe !== false && (x.course ? !isEhs() && !x.done : x.needAck ? !x.acked : !x.opened);
  };
@@ -2202,6 +2205,7 @@ PLAT_PAGES.eduItem = function() {
   };
   h += '<div class="sec">' + (x.course ? "教材" : "附件") + '</div><div class="list">' + mine.map(row).join("") + "</div>" + (rest.length ? '<details class="edoth"><summary>其他語言版本（' + rest.length + '）</summary><div class="list">' + rest.map(row).join("") + "</div></details>" : "") + '<div id="eduView"></div>';
  }
+ if (x.videos && x.videos.length) h += eduVideoHtml(x);
  if (x.link) h += '<button class="btn line" onclick="openUrl(' + jsq(x.link) + ')">' + ic("link", 18, 2.4) + "打開相關連結</button>";
  if (x.course && x.quiz.length && !x.done) {
   var q = S.eq || (S.eq = {
@@ -2217,6 +2221,7 @@ PLAT_PAGES.eduItem = function() {
   h += isEhs() && !S.dev ? '<button class="btn line" onclick="eduDone(true)">' + ic("check", 20, 3) + "預覽批改（環安衛不簽到）</button>" : needRead ? '<button class="btn" disabled>' + ic("lock", 20, 2.6) + "先看完教材才能送出</button>" : '<button class="btn" onclick="eduDone()">' + ic("check", 22, 3) + "送出答案並完成（帶入簽名）</button>";
  }
  $("app").innerHTML = h;
+ eduVideoInit(x);
  if (isEhs() && !S.dev) return;
  var rd0 = pl.length && !x.readDone ? '<button class="btn" onclick="go(\'eduRead\',{id:' + jsq(x.id) + ",lang:" + jsq(pl[0]) + '})">' + ic("book", 22, 2.6) + "開始閱讀</button>" : "";
  if (!x.course && pl.length) {
@@ -2228,7 +2233,7 @@ PLAT_PAGES.eduItem = function() {
   return;
  }
  if (x.course) {
-  if (x.done) bar('<div class="donebar">' + ic("check", 20, 3) + "已完成・" + esc(x.doneAt.slice(5).replace("-", "/")) + (x.score ? "・測驗 " + esc(x.score) : "") + "・已簽到</div>"); else if (!x.quiz.length) bar('<button class="btn" id="doneBtn" onclick="eduDone()">' + ic("check", 22, 3) + "我已完成（帶入簽名）</button>");
+  if (x.done) bar('<div class="donebar">' + ic("check", 20, 3) + "已完成・" + esc(x.doneAt.slice(5).replace("-", "/")) + (x.score ? "・測驗 " + esc(x.score) : "") + "・已簽到</div>"); else if (x.videos && x.videos.length && (x.watched || 0) < x.needSec) bar('<button class="btn" disabled>' + ic("lock", 20, 2.6) + "影片看滿 " + Math.round(x.needSec / 60) + " 分鐘才能完成</button>"); else if (!x.quiz.length) bar('<button class="btn" id="doneBtn" onclick="eduDone()">' + ic("check", 22, 3) + "我已完成（帶入簽名）</button>");
  } else if (x.needAck && !x.acked) bar('<button class="btn" id="ackBtn" onclick="eduAck()">' + ic("check", 22, 3) + "我已閱讀，了解內容</button>"); else if (x.acked) bar('<div class="donebar">' + ic("check", 20, 3) + "已確認閱讀・" + esc(x.ackAt.slice(5).replace("-", "/")) + "</div>");
 };
 
@@ -2561,7 +2566,8 @@ PLAT_PAGES.eduPost = function() {
     teacher: S.me.person.name,
     due: "",
     quiz: [],
-    topic: ""
+    topic: "",
+    videos: []
    };
    var d = S.epDraft;
    S.epDraft = null;
@@ -2593,7 +2599,9 @@ PLAT_PAGES.eduPost = function() {
   return '<div class="li">' + ic(/^image/.test(f.mime) ? "img" : "pdf", 22, 2.2) + '<span class="mn"><span class="nm">' + esc(f.name) + '</span><span class="mt">' + fsz(f.size) + "</span></span>" + '<select class="field sel" onchange="S.ep.files[' + i + '].lang=this.value">' + [ "zh", "th", "en" ].map((function(l) {
    return '<option value="' + l + '"' + ((f.lang || "zh") === l ? " selected" : "") + ">" + EDU_LANG[l] + "</option>";
   })).join("") + "</select>" + '<button class="lnk" onclick="S.ep.files.splice(' + i + ',1);render()">移除</button></div>';
- })).join("") + "</div>" : "") + (b.up ? loading("上傳中…（" + b.up + " 個）") : "") + (b.files.length < 5 ? '<label class="btn ghost filebtn">' + ic("plus", 18, 2.4) + '選擇檔案<input type="file" accept="application/pdf,image/jpeg,image/png" multiple onchange="epFiles(this)" hidden></label>' : "") + (b.files.length ? '<div class="muted sm2">同一份教材有中文、泰文版，各傳一個並選語言；同仁手機選泰文就先看到泰文版。</div>' : "") + '<label class="nl" for="epL">相關連結（選填，例如影片）</label><input id="epL" class="field" inputmode="url" placeholder="https://" value="' + esc(b.link) + '" oninput="S.ep.link=this.value">' + "</div>";
+ })).join("") + "</div>" : "") + (b.up ? loading("上傳中…（" + b.up + " 個）") : "") + (b.files.length < 5 ? '<label class="btn ghost filebtn">' + ic("plus", 18, 2.4) + '選擇檔案<input type="file" accept="application/pdf,image/jpeg,image/png" multiple onchange="epFiles(this)" hidden></label>' : "") + (b.files.length ? '<div class="muted sm2">同一份教材有中文、泰文版，各傳一個並選語言；同仁手機選泰文就先看到泰文版。</div>' : "") + (course ? '<label class="nl">YouTube 影片（選填，最多 8 支）</label>' + b.videos.map((function(u, i) {
+  return '<div class="mr2"><input class="field" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" value="' + esc(u) + '" oninput="S.ep.videos[' + i + ']=this.value;epBar()"><button class="lnk" onclick="S.ep.videos.splice(' + i + ',1);render()">移除</button></div>';
+ })).join("") + (b.videos.length < 8 ? '<button class="btn ghost" onclick="S.ep.videos.push(\'\');render()">' + ic("plus", 18, 2.4) + "加一支影片</button>" : "") + (b.videos.length ? '<div class="muted sm2">貼網路上公開的 YouTube 影片網址就可以，App 用 YouTube 的播放器播放，不用下載。同仁要看滿上面的「時數」才能完成；作者不允許嵌入播放的影片，發布時會提醒您換一支。</div>' : "") : "") + '<label class="nl" for="epL">相關連結（選填）</label><input id="epL" class="field" inputmode="url" placeholder="https://" value="' + esc(b.link) + '" oninput="S.ep.link=this.value">' + "</div>";
  if (course) {
   h += '<div class="sec">測驗<small>選填，最多 10 題，全對才算完成</small></div>' + b.quiz.map((function(q, i) {
    return '<div class="card"><div class="mr"><b>第 ' + (i + 1) + ' 題</b><button class="lnk" onclick="S.ep.quiz.splice(' + i + ',1);render()">刪除</button></div>' + '<input class="field" placeholder="題目" value="' + esc(q.q) + '" oninput="S.ep.quiz[' + i + '].q=this.value">' + q.opts.map((function(o, k) {
@@ -2632,7 +2640,9 @@ function epCount() {
 
 function epBar() {
  if (S.page !== "eduPost" || !S.ep) return;
- var b = S.ep, n = epCount(), ok = n && b.title.trim() && (b.body.trim() || b.files.length || b.link.trim()) && !b.up;
+ var b = S.ep, n = epCount(), vs = (b.videos || []).filter((function(u) {
+  return String(u).trim();
+ })), ok = n && b.title.trim() && (b.body.trim() || b.files.length || b.link.trim() || vs.length) && !b.up && (!vs.length || Number(b.hours) > 0);
  bar('<button class="btn"' + (ok ? "" : " disabled") + ' onclick="epSend()">' + ic("book", 22, 2.4) + (b.up ? "附件上傳中…" : !n ? "先選要發給誰" : ok ? "發布（" + n + " 人）" : "寫好標題和內容就能發布（" + n + " 人）") + "</button>");
 }
 
@@ -2702,7 +2712,14 @@ function epSend() {
   due: b.due,
   quiz: b.quiz,
   topic: b.topic.trim() || b.title.trim(),
-  draftId: b.draftId || ""
+  draftId: b.draftId || "",
+  videos: (b.videos || []).filter((function(u) {
+   return String(u).trim();
+  })).map((function(u) {
+   return {
+    url: String(u).trim()
+   };
+  }))
  }).then((function(r) {
   busyOff();
   toast("已發布給 " + r.n + " 人", "ok", 3e3);
@@ -3218,7 +3235,8 @@ function chemPts(x) {
 
 var MEET_KIND_NAME = {
  toolbox: "工具箱會議",
- newhire: "新進人員教育訓練"
+ newhire: "新進人員教育訓練",
+ class: "實體教育訓練"
 };
 
 function meetTok(id, t) {
@@ -3444,6 +3462,11 @@ PLAT_PAGES.meetRoom = function() {
  }
  var m = st.meet, tok = meetTok(id), read = meetRead(id);
  setTitle(MEET_KIND_NAME[m.kind]);
+ if (m.kind === "class") {
+  $("app").innerHTML = classRoomHtml(st, id);
+  meetPoll(false);
+  return;
+ }
  var h = '<div class="card"><div class="fh"><b>' + esc(m.kind === "newhire" ? m.topic : m.vendor) + '</b></div><div class="muted">' + esc(m.kind === "newhire" ? md(m.date) + " " + m.start + "～" + m.end + "・" + (m.place || "") : (m.caseId || "臨時") + "・" + m.work + "・" + m.area) + (m.spec.length ? "<br>特殊作業：" + esc(m.spec.join("、")) : "") + "</div></div>";
  if (m.status !== "進行中") {
   h += '<div class="box ok"><div class="r">' + ic("check", 22) + '<div class="bt"><b>這場會議' + esc(m.status) + "</b>" + (m.sent ? '<div class="m">PDF 已寄給：' + esc(m.sent) + "</div>" : "") + "</div></div></div>";
@@ -3573,13 +3596,13 @@ function meetDel(seq, name) {
 
 function meetCancel() {
  if (!confirm("取消這場會議？QR Code 會失效，簽到紀錄不會產生 PDF。")) return;
- var nhk = S.ms && S.ms.meet.kind === "newhire";
+ var mk0 = S.ms && S.ms.meet.kind;
  api("meetCancel", {
   id: S.arg.id
  }).then((function() {
   S.mh = null;
   S.ms = null;
-  go(nhk ? "meetNew" : "meet", {}, true);
+  go(mk0 === "newhire" ? "meetNew" : mk0 === "class" ? "edu" : "meet", {}, true);
   toast("已取消", "ok");
  })).catch((function(e) {
   toast(esc(e.message), "err", 4e3);
@@ -3589,7 +3612,9 @@ function meetCancel() {
 PLAT_PAGES.meetSign = function() {
  setTitle("新增簽名");
  var m = S.ms && S.ms.meet;
- var h = '<div class="lead">請本人在這支手機上簽名（先看完簡報或聽完您說明）。當面簽的視為現場已聽講說明。</div>' + '<label class="nl req" for="msN">姓名</label><input class="field" id="msN" maxlength="20" placeholder="請寫全名" value="' + esc(S.arg.name || "") + '">' + '<label class="nl req" for="msU">' + (m && m.kind === "newhire" ? "單位（部門）" : "公司") + '</label><input class="field" id="msU" maxlength="30" value="' + esc(m && m.kind !== "newhire" ? m.vendor : "") + '">' + '<div class="h2" style="margin-top:14px">請用手指簽全名</div><div class="sigwrap"><canvas id="cv" class="sigbox" aria-label="簽名區"></canvas>' + '<div class="right"><button class="btn ghost sm" onclick="sigClear()">' + ic("refresh", 18) + '清除重簽</button></div></div><div id="msErr"></div>';
+ var h = '<div class="lead">請本人在這支手機上簽名（先看完簡報或聽完您說明）。當面簽的視為現場已聽講說明。</div>' + '<label class="nl req" for="msN">姓名</label><input class="field" id="msN" maxlength="20" placeholder="請寫全名" value="' + esc(S.arg.name || "") + '">' + '<label class="nl req" for="msU">' + (m && m.kind !== "toolbox" ? "單位（部門）" : "公司") + '</label><input class="field" id="msU" maxlength="30" value="' + esc(m && m.kind === "toolbox" ? m.vendor : m && m.kind === "class" ? ((S.ms.expect || []).filter((function(x) {
+  return x.name === S.arg.name;
+ }))[0] || {}).dept || "" : "") + '">' + '<div class="h2" style="margin-top:14px">請用手指簽全名</div><div class="sigwrap"><canvas id="cv" class="sigbox" aria-label="簽名區"></canvas>' + '<div class="right"><button class="btn ghost sm" onclick="sigClear()">' + ic("refresh", 18) + '清除重簽</button></div></div><div id="msErr"></div>';
  $("app").innerHTML = h;
  bar('<div class="btns r12"><button class="btn ghost" onclick="S.ms=null;back()">回會議</button><button class="btn" id="msBtn" onclick="meetSignGo()">' + ic("check", 22, 2.8) + "加入簽到</button></div>");
  sigInit();
@@ -4053,7 +4078,7 @@ function meetJoinDone() {
  }));
 }
 
-var DEV_READ = [ "me", "chemList", "overview", "notices", "dayView", "monthView", "packages", "tracks", "photoGet", "getPdf", "team", "nextList", "eduList", "eduGet", "eduFile", "consCases", "consHome", "consDetail", "consVendors", "envMe", "envMonth", "ping", "meetHome", "meetState", "meetList", "meetDeck", "meetChecks", "supportMine", "supportPic", "supportAll", "xeMine", "xeAll" ];
+var DEV_READ = [ "me", "chemList", "overview", "notices", "dayView", "monthView", "packages", "tracks", "photoGet", "getPdf", "team", "nextList", "eduList", "eduGet", "eduFile", "eduHours", "consCases", "consHome", "consDetail", "consVendors", "envMe", "envMonth", "ping", "meetHome", "meetState", "meetList", "meetDeck", "meetChecks", "supportMine", "supportPic", "supportAll", "xeMine", "xeAll" ];
 
 var DEV_SELF = [ "bootstrap", "devLogs" ];
 
@@ -4682,3 +4707,355 @@ window.addEventListener("resize", (function() {
   if (typeof render === "function" && S.me) render();
  }
 }));
+
+PLAT_PAGES.classNew = function() {
+ setTitle("開實體課");
+ if (!isEhs()) return back();
+ if (!S.cn) {
+  $("app").innerHTML = loading("讀取人員名單…");
+  apiR("bcPeople", {}).then((function(r) {
+   S.cn = {
+    depts: r.depts,
+    pick: {},
+    topic: "",
+    hours: "1",
+    teacher: S.me.person.name,
+    place: "會議室",
+    start: "13:00",
+    end: "14:00"
+   };
+   if (S.page === "classNew") render();
+  })).catch((function(e) {
+   $("app").innerHTML = errBox("讀不到人員名單", e.message);
+  }));
+  return;
+ }
+ var c = S.cn, t = today();
+ var h = '<div class="lead">勾選要上課的同仁 → 按「開始上課」。同仁的 App 首頁會出現「我在現場，簽到」，按下就沿用他在系統裡的簽名；也可以掃您手機上的 QR 打開。下課按「完成上課」，產生 P-05-01-A 內訓簽到表，出席的人自動登記時數。</div>' + '<div class="sec">1. 課程</div><div class="card ev">' + '<label class="nl req" for="cnT">課程名稱</label><input class="field" id="cnT" maxlength="40" placeholder="例：堆高機安全作業" value="' + esc(c.topic) + '" oninput="S.cn.topic=this.value;cnBar()">' + '<div class="btns r3"><div><label class="nl req" for="cnH">時數</label><input class="field" id="cnH" inputmode="decimal" value="' + esc(c.hours) + '" oninput="S.cn.hours=this.value;cnBar()"></div>' + '<div><label class="nl" for="cnR">講師</label><input class="field" id="cnR" maxlength="20" value="' + esc(c.teacher) + '" oninput="S.cn.teacher=this.value"></div>' + '<div><label class="nl" for="cnP">地點</label><input class="field" id="cnP" maxlength="30" value="' + esc(c.place) + '" oninput="S.cn.place=this.value"></div></div>' + '<div class="btns r3"><div><label class="nl req" for="cnD">日期</label><input class="field" id="cnD" type="date" max="' + t + '" value="' + t + '"></div>' + '<div><label class="nl req" for="cnS">開始</label><input class="field" id="cnS" type="time" value="' + esc(c.start) + '" onchange="S.cn.start=this.value"></div>' + '<div><label class="nl req" for="cnE">結束</label><input class="field" id="cnE" type="time" value="' + esc(c.end) + '" onchange="S.cn.end=this.value"></div></div></div>';
+ h += '<div class="sec">2. 上課的同仁<small>可以先勾名單，現場再加人</small></div>' + c.depts.map((function(d) {
+  var all = d.people.every((function(x) {
+   return c.pick[x.name];
+  }));
+  return '<div class="card"><div class="mr"><b>' + esc(d.id) + '</b><button class="lnk" onclick="cnAll(' + jsq(d.id) + "," + !all + ')">' + (all ? "取消全選" : "全選") + "</button></div>" + d.people.map((function(x) {
+   return '<label class="ck"><input type="checkbox"' + (c.pick[x.name] ? " checked" : "") + ' onchange="S.cn.pick[' + jsq(x.name) + ']=this.checked;cnBar()"><span>' + esc(x.name) + "</span></label>";
+  })).join("") + "</div>";
+ })).join("") + '<div id="cnErr"></div>';
+ $("app").innerHTML = h;
+ cnBar();
+};
+
+function cnAll(dept, on) {
+ S.cn.depts.forEach((function(d) {
+  if (d.id === dept) d.people.forEach((function(x) {
+   S.cn.pick[x.name] = on;
+  }));
+ }));
+ render();
+}
+
+function cnNames() {
+ return Object.keys(S.cn.pick).filter((function(k) {
+  return S.cn.pick[k];
+ }));
+}
+
+function cnBar() {
+ if (S.page !== "classNew" || !S.cn) return;
+ var n = cnNames().length, ok = n && S.cn.topic.trim().length >= 2 && Number(S.cn.hours) > 0;
+ bar('<button class="btn" id="cnBtn"' + (ok ? "" : " disabled") + ' onclick="cnGo()">' + ic("check", 22, 2.6) + (ok ? "開始上課（" + n + " 人）" : !n ? "先勾上課的同仁" : "填好課程名稱和時數") + "</button>");
+}
+
+function cnGo() {
+ var v = function(id) {
+  return ($(id).value || "").trim();
+ };
+ if (v("cnE") <= v("cnS")) return toast("結束時間要晚於開始時間", "err");
+ meetBusy($("cnBtn"), "開課中…");
+ api("meetCreate", {
+  kind: "class",
+  topic: v("cnT"),
+  hours: v("cnH"),
+  teacher: v("cnR"),
+  place: v("cnP"),
+  date: v("cnD"),
+  start: v("cnS"),
+  end: v("cnE"),
+  names: cnNames()
+ }).then((function(r) {
+  S.cn = null;
+  meetOpened(r, true);
+ })).catch((function(e) {
+  $("cnErr").innerHTML = errBox("沒有開成", e.message);
+  cnBar();
+ }));
+}
+
+function classLink(id) {
+ return location.origin + location.pathname + "#cls=" + id;
+}
+
+function classRoomHtml(st, id) {
+ var m = st.meet, ex = st.expect || [], signed = ex.filter((function(x) {
+  return x.signedAt;
+ })).length, extra = st.atts.filter((function(a) {
+  return !ex.some((function(x) {
+   return x.name === a.name;
+  }));
+ }));
+ var h = '<div class="card"><div class="fh"><b>' + esc(m.topic) + '</b></div><div class="muted">' + esc(md(m.date) + " " + m.start + "～" + m.end + "・" + (m.place || "") + "・" + m.hours + " 小時" + (m.teacher ? "・講師 " + m.teacher : "")) + "</div></div>";
+ if (m.status !== "進行中") {
+  h += '<div class="box ok"><div class="r">' + ic("check", 22) + '<div class="bt"><b>這堂課' + esc(m.status) + "</b>" + (m.sent ? '<div class="m">簽到表已寄給：' + esc(m.sent) + "；出席的人已登記 " + esc(m.hours) + " 小時</div>" : "") + "</div></div></div>";
+ } else {
+  var url = classLink(id);
+  h += '<div class="sec">①　同仁簽到<small>App 首頁按「我在現場，簽到」，或掃這個 QR</small></div>' + '<div class="card qrcard"><div class="qr">' + meetQrSvg(url, 240) + '</div><div class="muted" style="text-align:center">同仁用自己的手機掃描（要先登入過員和環安衛系統）</div></div>';
+ }
+ h += '<div class="sec">' + (m.status === "進行中" ? "②　" : "") + "上課名單<small>已簽 " + signed + "／" + ex.length + ' 人（每 5 秒更新）</small></div><div class="list">' + ex.map((function(x) {
+  return '<div class="li"><span class="mn"><span class="nm">' + esc(x.name) + '</span><span class="mt">' + esc(x.dept + (x.signedAt ? "・" + x.signedAt + " 簽到" : "")) + "</span></span>" + (x.signedAt ? pill("ok", "check", "已簽到") : pill("warn", "clock", "還沒簽")) + (!x.signedAt && m.status === "進行中" ? '<button class="btn ghost sm" onclick="go(\'meetSign\',{id:' + jsq(id) + ",name:" + jsq(x.name) + '})">' + ic("pen", 16, 2.2) + "當面簽</button>" : "") + "</div>";
+ })).join("") + extra.map((function(a) {
+  return '<div class="li"><span class="mn"><span class="nm">' + esc(a.name) + '</span><span class="mt">' + esc(a.unit + "・" + a.signedAt + " 簽到（名單外）") + "</span></span>" + pill("ok", "check", "已簽到") + "</div>";
+ })).join("") + "</div>";
+ if (m.status === "進行中") {
+  h += '<div class="muted sm2">沒帶手機的人按「當面簽」，在這支手機上簽。名單外的人來上課：</div>' + '<div class="btns"><button class="btn ghost" onclick="classAddAsk(' + jsq(id) + ')">' + ic("plus", 18, 2.4) + '加人到名單</button><button class="btn ghost" onclick="meetCancel()">取消這堂課</button></div>';
+  bar('<button class="btn" onclick="classFinish(' + jsq(id) + "," + signed + "," + ex.length + ')">' + ic("check", 22, 2.8) + "完成上課，產生簽到表（" + (signed + extra.length) + " 人）</button>");
+ } else bar('<button class="btn" onclick="S.mh=null;S.stack=[];go(\'edu\',{},true)">回教育訓練</button>');
+ return h;
+}
+
+function classAddAsk(id) {
+ var n = prompt("要加入的同仁姓名（多位用、隔開）", "");
+ if (!n) return;
+ api("classAdd", {
+  id,
+  names: n.split(/[、,，\s]+/).filter(String)
+ }).then((function(r) {
+  toast(r.added.length ? "已加入：" + r.added.join("、") + "，他的 App 會出現簽到" : "他已經在名單裡", "ok", 3500);
+  S.ms = null;
+  render();
+ })).catch((function(e) {
+  toast(esc(e.message), "err", 4500);
+ }));
+}
+
+function classFinish(id, signed, total) {
+ if (!confirm("完成上課？" + (signed < total ? "\n還有 " + (total - signed) + " 人沒簽到，他們不會登記時數。" : "") + "\n會產生 P-05-01-A 內訓簽到表、寄給您並存 NAS，出席的人自動登記時數。")) return;
+ busyOn("產生簽到表…");
+ api("meetFinish", {
+  id,
+  hostTalk: true
+ }).then((function(r) {
+  busyOff();
+  toast("已完成，簽到表已寄出", "ok", 3500);
+  S.ms = null;
+  S.mh = null;
+  render();
+ })).catch((function(e) {
+  busyOff();
+  toast(esc(e.message), "err", 5e3);
+ }));
+}
+
+function classSignAsk(id, topic) {
+ dlg("<b>" + esc(topic ? "「" + topic + "」" : "實體課") + "簽到</b><p>確認您現在在上課現場？按下後沿用您在系統裡的簽名，寫進這堂課的簽到表。</p>", [ [ "我在現場，簽到", function() {
+  classSignGo(id);
+ }, "" ] ]);
+}
+
+function classSignGo(id) {
+ busyOn("簽到中…");
+ api("classSign", {
+  id
+ }).then((function(r) {
+  busyOff();
+  toast(r.already ? "您已經簽到過了（" + r.at + "）" : "簽到完成（" + r.at + "），下課後講師按完成就會登記時數", "ok", 4e3);
+  if (S.me) S.me.classDue = (S.me.classDue || []).filter((function(x) {
+   return x.id !== id;
+  }));
+  render();
+ })).catch((function(e) {
+  busyOff();
+  toast(esc(e.message), "err", 5e3);
+ }));
+}
+
+function eduVideoHtml(x) {
+ var need = Math.round((x.needSec || 0) / 60), got = Math.floor((x.watched || 0) / 60);
+ return '<div class="sec">影片<small id="ytPg">' + (x.done ? "已完成" : "要看滿 " + need + " 分鐘・已看 " + got + " 分鐘") + "</small></div>" + '<div class="ytbar"><i id="ytBar" style="width:' + Math.min(100, x.needSec ? Math.round(100 * (x.watched || 0) / x.needSec) : 0) + '%"></i></div>' + x.videos.map((function(v, i) {
+  return '<div class="ytw"><div class="ytf"><div id="yt_' + i + '"></div></div><div class="mt">' + esc(v.t) + '</div><div class="ngt" id="ytE' + i + '" hidden></div></div>';
+ })).join("") + '<div class="muted sm2">在 App 裡播放才會累計；快轉、暫停、切到別的畫面都不算時間。</div>';
+}
+
+function eduVideoInit(x) {
+ eduVideoStop();
+ if (!x.videos || !x.videos.length) return;
+ var Y = S.yt = {
+  id: x.id,
+  players: [],
+  acc: {},
+  got: x.watched || 0,
+  need: x.needSec || 0,
+  done: x.done
+ };
+ var mk = function() {
+  if (S.yt !== Y) return;
+  x.videos.forEach((function(v, i) {
+   if (!$("yt_" + i)) return;
+   Y.players[i] = new YT.Player("yt_" + i, {
+    videoId: v.v,
+    width: "100%",
+    height: "100%",
+    playerVars: {
+     rel: 0,
+     playsinline: 1,
+     modestbranding: 1
+    },
+    events: {
+     onStateChange: function(e) {
+      if (e.data === 2 || e.data === 0) eduVideoFlush();
+     },
+     onError: function(e) {
+      var el = $("ytE" + i);
+      if (el) {
+       el.hidden = false;
+       el.textContent = e.data === 101 || e.data === 150 ? "這支影片的作者不允許在其他網站播放，請通知環安衛換一支" : "影片播放不了（" + e.data + "），請稍後再試";
+      }
+     }
+    }
+   });
+  }));
+ };
+ if (window.YT && YT.Player) mk(); else {
+  var prev = window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady = function() {
+   if (prev) try {
+    prev();
+   } catch (e) {}
+   mk();
+  };
+  if (!document.getElementById("ytApi")) {
+   var s = document.createElement("script");
+   s.id = "ytApi";
+   s.src = "https://www.youtube.com/iframe_api";
+   document.head.appendChild(s);
+  }
+ }
+ Y.tick = setInterval((function() {
+  if (S.yt !== Y || S.page !== "eduItem") return eduVideoStop();
+  if (document.visibilityState === "hidden") return;
+  Y.players.forEach((function(p, i) {
+   try {
+    if (p && p.getPlayerState && p.getPlayerState() === 1) {
+     var v = x.videos[i].v;
+     Y.acc[v] = (Y.acc[v] || 0) + 1;
+     Y.got++;
+    }
+   } catch (e) {}
+  }));
+  eduVideoShow();
+  Y.n = (Y.n || 0) + 1;
+  if (Y.n % 30 === 0) eduVideoFlush();
+ }), 1e3);
+}
+
+function eduVideoShow() {
+ var Y = S.yt;
+ if (!Y) return;
+ var pg = $("ytPg"), b = $("ytBar");
+ if (pg && !Y.done) pg.textContent = Y.got >= Y.need ? "已看滿 " + Math.round(Y.need / 60) + " 分鐘，可以按完成" : "要看滿 " + Math.round(Y.need / 60) + " 分鐘・已看 " + Math.floor(Y.got / 60) + " 分鐘";
+ if (b) b.style.width = Math.min(100, Y.need ? Math.round(100 * Y.got / Y.need) : 0) + "%";
+ if (!Y.done && Y.got >= Y.need && !Y.ready) {
+  Y.ready = true;
+  eduVideoFlush((function() {
+   if (S.page === "eduItem" && S.eduItem) {
+    S.eduItem.watched = Y.got;
+    if (!S.eduItem.quiz.length && !S.eduItem.done) bar('<button class="btn" id="doneBtn" onclick="eduDone()">' + ic("check", 22, 3) + "我已完成（帶入簽名）</button>");
+   }
+  }));
+ }
+}
+
+function eduVideoFlush(cb) {
+ var Y = S.yt;
+ if (!Y) return;
+ Object.keys(Y.acc).forEach((function(v) {
+  var s = Y.acc[v];
+  if (!s) return;
+  Y.acc[v] = 0;
+  api("eduWatch", {
+   id: Y.id,
+   v,
+   s
+  }, {
+   quiet: true
+  }).then((function(r) {
+   if (r && r.watched != null && S.yt === Y) Y.got = Math.max(Y.got, r.watched);
+   if (cb) cb();
+  })).catch((function() {
+   Y.acc[v] = (Y.acc[v] || 0) + s;
+  }));
+ }));
+}
+
+function eduVideoStop() {
+ var Y = S.yt;
+ if (!Y) return;
+ clearInterval(Y.tick);
+ eduVideoFlush();
+ S.yt = null;
+}
+
+PLAT_PAGES.eduHours = function() {
+ setTitle("訓練時數");
+ var e = S.eh;
+ if (!e) {
+  $("app").innerHTML = loading("讀取中…");
+  api("eduHours", {}).then((function(r) {
+   S.eh = r;
+   S.eh.open = {};
+   S.eh.dept = "";
+   if (S.page === "eduHours") render();
+  })).catch((function(x) {
+   $("app").innerHTML = errBox("讀不到訓練時數", x.message) + '<button class="btn navy" onclick="render()">再試一次</button>';
+  }));
+  return;
+ }
+ var ys = e.years, h = '<div class="lead">在職教育訓練每 3 年至少 3 小時。這裡只算近三年（' + ys[0] + "～" + ys[2] + "），每年自動往前滾。App 上完成的課自動累計；以前的實體課、外訓由環安衛補登。</div>";
+ var me = e.people.filter((function(p) {
+  return p.name === e.me;
+ }))[0], others = e.people.filter((function(p) {
+  return p.name !== e.me;
+ }));
+ var card = function(p, open) {
+  var head = '<span class="mn"><span class="nm">' + esc(p.name) + '</span><span class="mt">' + esc(p.dept + "・" + p.years.map((function(y) {
+   return y.y + "：" + y.total;
+  })).join("・")) + "</span></span>" + pill(p.ok ? "ok" : "ng", p.ok ? "check" : "", p.total + " 小時");
+  if (!open) return '<button class="li" onclick="S.eh.open[' + jsq(p.name) + ']=1;render()">' + head + ic("chev", 18, 2.6) + "</button>";
+  return '<div class="card"><div class="mr">' + head + "</div>" + '<table class="tbl"><tr><th>年度</th><th>App</th><th>補登</th><th>合計</th></tr>' + p.years.map((function(y) {
+   return "<tr><td>" + y.y + "</td><td>" + y.app + "</td><td>" + y.manual + "</td><td><b>" + y.total + "</b></td></tr>";
+  })).join("") + "</table>" + (p.items.length ? '<div class="list">' + p.items.map((function(it) {
+   return '<div class="li"><span class="mn"><span class="nm">' + esc(it.course) + '</span><span class="mt">' + esc(it.date.replace(/-/g, "/") + "・" + it.how) + "</span></span><b>" + it.hours + " 小時</b></div>";
+  })).join("") + "</div>" : '<div class="muted sm2">近三年沒有 App 上的課程紀錄</div>') + (p.note ? '<div class="muted sm2">備註：' + esc(p.note) + "</div>" : "") + (p.ok ? "" : '<div class="ngt">三年合計還差 ' + Math.round((3 - p.total) * 100) / 100 + " 小時</div>") + "</div>";
+ };
+ if (me) h += '<div class="sec">我的時數</div>' + card(me, true);
+ if (others.length) {
+  var depts = [];
+  others.forEach((function(p) {
+   if (depts.indexOf(p.dept) < 0) depts.push(p.dept);
+  }));
+  var lack = others.filter((function(p) {
+   return !p.ok;
+  })).length;
+  h += '<div class="sec">' + (e.scope === "all" ? "全廠" : "本課") + "同仁<small>" + others.length + " 人・未達 " + lack + " 人</small></div>";
+  if (depts.length > 1) h += '<div class="chips wrap"><button class="chip' + (!e.dept ? " on" : "") + '" onclick="S.eh.dept=\'\';render()">全部</button>' + depts.map((function(d) {
+   return '<button class="chip' + (e.dept === d ? " on" : "") + '" onclick="S.eh.dept=' + jsq(d) + ';render()">' + esc(d) + "</button>";
+  })).join("") + "</div>";
+  h += '<div class="list">' + others.filter((function(p) {
+   return !e.dept || p.dept === e.dept;
+  })).sort((function(a, b) {
+   return a.ok - b.ok || a.total - b.total;
+  })).map((function(p) {
+   return card(p, !!e.open[p.name]);
+  })).join("") + "</div>";
+ }
+ if (e.scope === "all") h += '<div class="muted sm2">補登：後台試算表「教育訓練時數」頁，一人一列、每年一欄，填 App 以外上過的時數（App 上完成的不要再填，會重複）。</div>';
+ $("app").innerHTML = h;
+};

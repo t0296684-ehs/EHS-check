@@ -1,5 +1,5 @@
 {
- "version": "0.33.4",
+ "version": "0.34.0",
  "chapters": [
   {
    "no": 1,
@@ -652,6 +652,20 @@
     },
     {
      "no": "4-7",
+     "title": "Classroom training (pick attendees, sign in on the App)",
+     "lead": "EHS starts a classroom session; attendees sign in on the App, and after class the sign-in sheet and hours are created automatically.",
+     "shots": [],
+     "steps": [
+      "<b>EHS Training</b> → <b>\"Start a classroom session\"</b> → fill in course name, hours, trainer, time and place, tick the attendees → <b>\"Start class\"</b>.",
+      "Attendees see <b>\"I am here, sign in\"</b> on their App home page; tapping it uses their saved signature. They can also scan the QR on your phone. For anyone without a phone, tap <b>\"Sign here\"</b> next to their name.",
+      "If someone not on the list comes, tap <b>\"Add to list\"</b>. The screen shows who has signed every 5 seconds.",
+      "After class tap <b>\"Finish class and create sign-in sheet\"</b>: the <b>P-05-01-A sign-in sheet</b> is emailed to EHS and saved to the NAS, and attendees get their hours recorded automatically."
+     ],
+     "tip": "People who did not sign in do not get hours recorded.",
+     "warn": false
+    },
+    {
+     "no": "4-8",
      "title": "Problem reports: see questions and reply",
      "lead": "EHS sees \"EHS: all problem reports\" at the top of \"Report a problem\", with every question, screenshot and the screen it came from, plus the Xiao-En question log.",
      "shots": [],
@@ -802,6 +816,32 @@
       "<b>High-risk work</b>: hot work, height, confined space, lifting, electrical, forklifts, organic solvents, dust and hazardous chemicals. Tap a card to see the <b>main hazards</b>, what you <b>must do</b> and the legal basis. In the English or Thai interface the content is shown in that language."
      ],
      "tip": "Materials disappear from the Library only when EHS takes them down.",
+     "warn": false
+    },
+    {
+     "no": "6-2",
+     "title": "Video courses",
+     "lead": "YouTube video courses from EHS are completed only after you watch for the required time in the App.",
+     "shots": [],
+     "steps": [
+      "Open the course; videos play inside the App, and the top shows <b>how many minutes are required and how many you have watched</b>.",
+      "Only time played inside the App counts. Skipping, pausing or leaving the screen does not count.",
+      "When done, tap <b>\"I have completed (use my signature)\"</b> to sign in and record your hours automatically."
+     ],
+     "tip": "You can watch in several sessions; watched time is kept.",
+     "warn": false
+    },
+    {
+     "no": "6-3",
+     "title": "Training hours (last 3 years)",
+     "lead": "See your training hours for the last 3 years. Supervisors see their section; EHS sees the whole plant.",
+     "shots": [],
+     "steps": [
+      "<b>EHS Training</b> → <b>\"Training hours (last 3 years)\"</b>.",
+      "Each year is split into <b>App</b> (online, video and classroom courses completed in the App) and <b>Added by EHS</b> (earlier courses and external training). The 3-year total must be at least <b>3 hours</b>.",
+      "Tap a name to see each course with date and hours. Anyone below 3 hours is marked red with the hours still needed."
+     ],
+     "tip": "Only the last 3 years count, rolling forward each year.",
      "warn": false
     }
    ]
