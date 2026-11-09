@@ -1,5 +1,5 @@
 {
- "version": "0.33.3",
+ "version": "0.33.4",
  "chapters": [
   {
    "no": 1,
@@ -1016,8 +1016,8 @@
      ],
      "steps": [
       "On the readings page tap <b>\"This month's records\"</b> to see each day and any problems; tap a day to view or fill it.",
-      "From the 1st of the next month tap <b>\"Send month ○ for confirmation\"</b>.",
-      "Now two steps: <b>reader sends → EHS confirms</b>. When others take over it becomes three: reader → supervisor → EHS.",
+      "From the 1st of the next month, <b>\"Submit month ○ readings\"</b> appears on the home page and in Environmental readings. Fill in any missing days first by tapping that day, then tap <b>\"Check and submit month ○ readings\"</b>.",
+      "Flow: <b>reader submits → EHS confirms</b> (a supervisor step is added when someone else takes the readings). If the confirmer is the person submitting, that step is skipped automatically. After archiving, the operation record PDF is saved to the NAS the next day.",
       "The approver can <b>\"Confirm\"</b> or <b>\"Return\"</b>; returned months can be corrected and sent again."
      ],
      "tip": "",

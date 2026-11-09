@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.33.3";
+var APP_VERSION = "0.33.4";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -2412,6 +2412,30 @@ PAGES.home = function() {
    on: "go('months')"
   });
  }
+ (m.envDue || []).forEach((function(x) {
+  var mo = Number(x.period.slice(5)), go_ = "S.envM=null;go('envMonth',{sys:" + jsq(x.sys) + ",period:" + jsq(x.period) + "})";
+  if (x.need === "confirm") {
+   tasks.push({
+    tag: "環保抄表・等您確認",
+    title: x.name + " " + mo + " 月抄表紀錄",
+    meta: "確認後歸檔，操作紀錄 PDF 隔天存到 NAS",
+    btn: "去確認 " + mo + " 月",
+    on: go_
+   });
+   return;
+  }
+  var sd = monthDue(x.period, sDay), late = dDays(sd) < 0, miss = (x.missing || []).length;
+  var meta = (x.status === "退回" && x.reason ? "被退回：" + x.reason + "。" : "") + (miss ? "有 " + miss + " 個平日沒抄（" + x.missing.slice(0, 3).map(md).join("、") + (miss > 3 ? "…" : "") + "），可以先補填再送出" : "每天都有抄，檢查一下就可以送出");
+  var task = {
+   red: late,
+   tag: "環保抄表・" + (late ? "送出逾時 " + -dDays(sd) + " 天" : dueTxt(x.period) + " 前・" + leftTxt(sd)),
+   title: "送出 " + x.name + " " + mo + " 月抄表紀錄",
+   meta,
+   btn: "檢查並送出 " + mo + " 月",
+   on: go_
+  };
+  if (late) tasks.unshift(task); else tasks.push(task);
+ }));
  var say, sub;
  if (ehs) {
   say = m.pendingReview ? "有 <b>" + m.pendingReview + "</b> 份等您歸檔" : "目前沒有要歸檔的";

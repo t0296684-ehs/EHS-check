@@ -1,4 +1,4 @@
-var PLAT_VER = "0.33.3";
+var PLAT_VER = "0.33.4";
 
 function platHeal() {
  try {
@@ -281,7 +281,11 @@ PLAT_PAGES.env = function() {
   空污: "wind",
   水污: "drop"
  };
- $("app").innerHTML = '<div class="mcards">' + S.envL.map((function(x) {
+ var due = ((S.me || {}).envDue || []).map((function(x) {
+  var mo = Number(x.period.slice(5)), miss = (x.missing || []).length;
+  return '<button class="li" onclick="S.envM=null;go(\'envMonth\',{sys:' + jsq(x.sys) + ",period:" + jsq(x.period) + '})"><span class="mn"><span class="nm">' + esc(x.need === "confirm" ? x.name + " " + mo + " 月抄表紀錄等您確認" : "送出 " + x.name + " " + mo + " 月抄表紀錄") + '</span><span class="mt">' + esc(x.need === "confirm" ? "確認後歸檔" : miss ? miss + " 個平日沒抄，可以先補填再送出" : "每天都有抄，檢查一下就可以送出") + "</span></span>" + pill("warn", "", "未完成") + "</button>";
+ })).join("");
+ $("app").innerHTML = (due ? '<div class="sec">未完成</div><div class="list">' + due + '</div><div class="sec">抄表</div>' : "") + '<div class="mcards">' + S.envL.map((function(x) {
   var off = !x.url && !x.n, sub = x.url ? "開啟員和環保系統（抄法不變）" : x.n ? x.n + " 項・" + (x.layers === 3 ? "抄表 → 主管確認 → 環安衛確認" : "抄表 → 環安衛確認") : "項目還沒設定";
   return '<button class="mcard' + (off ? " locked" : "") + '" style="--c:' + (col[x.sys] || "#3D4754") + '"' + (off ? " disabled" : ' onclick="' + (x.url ? "openAir(" + jsq(x.url) + "," + jsq(x.gas || "") + ")" : "S.env=null;go('envSys',{sys:" + jsq(x.sys) + "})") + '"') + '><span class="mi">' + ic(icn[x.sys] || "clip", 30, 2.1) + '</span><span class="mx"><b>' + esc(x.name) + "</b><small>" + esc(sub) + "</small></span>" + ic(x.url ? "ext" : "chev", 20, 2.4) + "</button>" + (x.trial ? '<button class="mcard" style="--c:#0F766E" onclick="S.env=null;go(\'envSys\',{sys:' + jsq(x.sys) + '})"><span class="mi">' + ic("pen", 28, 2.1) + '</span><span class="mx"><b>' + esc(x.name) + "・新版試用</b><small>12/1 切換前只有環安衛看得到；正式紀錄仍以上面的舊系統為準</small></span>" + ic("chev", 20, 2.4) + "</button>" : "");
  })).join("") + '</div><div class="muted upnote">空污目前開啟原本的「員和環保系統」；之後會整合進本系統。</div>';
@@ -1592,8 +1596,8 @@ PLAT_PAGES.envMonth = function() {
   rows += '<button class="li" onclick="S.env=null;go(\'envSys\',{sys:' + jsq(sys) + ",date:" + jsq(date) + '})"><span class="mn"><span class="nm">' + esc(md(date) + "（" + wk(date) + "）") + "</span>" + '<span class="mt">' + esc(x ? x.who + " " + String(x.at).slice(11, 16) + (over ? "・" + over + " 項超出範圍" : "") : dow === 0 || dow === 6 ? "假日" : "還沒抄") + "</span></span>" + (x ? pill(over ? "ng" : "ok", over ? "" : "check", over ? "有異常" : "已抄") : pill("na", "", "—")) + "</button>";
  }
  var act = "", st = M.status;
- if ((st === "填寫中" || st === "退回") && per < t.slice(0, 7)) act = '<button class="btn" onclick="envAct(\'submit\')">送出 ' + Number(per.slice(5)) + " 月確認</button>"; else if (st === "待主管確認" && M.canMgr || st === "待環安衛確認" && M.canEhs) act = '<div class="btns"><button class="btn" onclick="envAct(\'approve\')">' + ic("check", 20, 3) + "確認 " + Number(per.slice(5)) + ' 月抄表紀錄</button><button class="btn ghost" onclick="envAct(\'return\')">退回給抄表的人</button></div>';
- $("app").innerHTML = '<div class="card"><div class="mr"><b>本月狀態</b>' + pill(st === "已歸檔" ? "ok" : st === "退回" ? "ng" : "info", "", st) + "</div>" + '<div class="muted sm2">' + esc(M.layers === 3 ? "流程：抄表人送出 → 單位負責人（" + (M.mgr || "未設定") + "）確認 → 環安衛確認" : "流程：抄表人送出 → 環安衛確認") + "</div>" + (st === "退回" && M.reason ? '<div class="box err"><div class="r">' + ic("ret", 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(M.reason) + "</div></div></div></div>" : "") + "</div>" + '<div class="list">' + rows + "</div>";
+ if ((st === "填寫中" || st === "退回") && per < t.slice(0, 7)) act = '<button class="btn" onclick="envAct(\'submit\')">' + ic("check", 20, 3) + "檢查並送出 " + Number(per.slice(5)) + " 月抄表紀錄</button>"; else if (st === "待主管確認" && M.canMgr || st === "待環安衛確認" && M.canEhs) act = '<div class="btns"><button class="btn" onclick="envAct(\'approve\')">' + ic("check", 20, 3) + "確認 " + Number(per.slice(5)) + ' 月抄表紀錄</button><button class="btn ghost" onclick="envAct(\'return\')">退回給抄表的人</button></div>';
+ $("app").innerHTML = '<div class="card"><div class="mr"><b>本月狀態</b>' + pill(st === "已歸檔" ? "ok" : st === "退回" ? "ng" : "info", "", st) + "</div>" + '<div class="muted sm2">' + esc(M.layers === 3 ? "流程：抄表人送出 → 單位負責人（" + (M.mgr || "未設定") + "）確認 → 環安衛確認" : "流程：抄表人送出 → 環安衛確認") + "</div>" + (per < t.slice(0, 7) && (st === "填寫中" || st === "退回") ? '<div class="muted sm2">' + esc("沒抄到的日子先點那一天補填，補好再送出。確認的人就是送出的人時，那一關自動跳過；歸檔後隔天把操作紀錄 PDF 存到 NAS。") + "</div>" : "") + (st === "退回" && M.reason ? '<div class="box err"><div class="r">' + ic("ret", 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(M.reason) + "</div></div></div></div>" : "") + "</div>" + '<div class="list">' + rows + "</div>";
  if (act) bar(act);
 };
 
@@ -1603,7 +1607,15 @@ function envAct(a) {
   reason = prompt("退回原因（可不填，要改哪裡請當面說明）：", "");
   if (reason === null) return;
  }
- if (a === "submit" && !confirm("送出 " + ymLabel(M.period) + " 的抄表確認？送出後這個月就不能再改，要改請退回。")) return;
+ if (a === "submit") {
+  var n = new Date(Number(M.period.slice(0, 4)), Number(M.period.slice(5)), 0).getDate(), miss = [];
+  for (var d = 1; d <= n; d++) {
+   var ds = M.period + "-" + pad(d), w = new Date(ds + "T12:00:00").getDay();
+   if (w > 0 && w < 6 && !M.days[d]) miss.push(md(ds));
+  }
+  var msg = miss.length ? "這幾個平日沒有抄：" + miss.join("、") + "\n\n要補填請按「取消」，回清單點那一天補。\n這幾天確實沒有運轉，才按「確定」送出。" : "送出 " + ymLabel(M.period) + " 的抄表紀錄？\n送出後這個月就鎖定，要改請確認的人退回。";
+  if (!confirm(msg)) return;
+ }
  busyOn("處理中…");
  api("envMonthAct", {
   sys: M.sys,
@@ -1612,8 +1624,11 @@ function envAct(a) {
   reason
  }).then((function(r) {
   busyOff();
-  toast("已更新：" + r.status, "ok");
+  toast(r.status === "已歸檔" ? "已歸檔，操作紀錄 PDF 明天存到 NAS" : "已更新：" + r.status, "ok");
   S.envM = null;
+  if (S.me) S.me.envDue = (S.me.envDue || []).filter((function(x) {
+   return !(x.sys === M.sys && x.period === M.period);
+  }));
   render();
  })).catch((function(e) {
   busyOff();
