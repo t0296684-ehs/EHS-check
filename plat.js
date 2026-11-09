@@ -1,4 +1,4 @@
-var PLAT_VER = "0.36.0";
+var PLAT_VER = "0.36.1";
 
 function platHeal() {
  try {
@@ -2101,7 +2101,7 @@ PLAT_PAGES.edu = function() {
   return;
  }
  var h = "";
- if (isEhs()) h += '<div class="btns"><button class="btn" onclick="S.ep=null;go(\'eduPost\')">' + ic("plus", 18, 2.4) + '發布新文宣</button><button class="btn ghost" onclick="S.es=null;go(\'eduStats\')">' + ic("review", 18, 2.4) + "閱讀紀錄</button></div>" + '<button class="btn line" style="margin-top:10px" onclick="S.cn=null;go(\'classNew\')">' + ic("users", 18, 2.4) + "開實體課（勾選同仁，App 簽到、自動登記時數）</button>" + '<button class="btn line" style="margin-top:10px" onclick="go(\'meetNew\')">' + ic("helmet", 18, 2.4) + "新進人員教育訓練（現場掃碼簽到）</button>" + edDraftHtml();
+ if (isEhs()) h += '<div class="btns"><button class="btn" onclick="S.ep=null;go(\'eduPost\')">' + ic("plus", 18, 2.4) + '發布教育訓練／文宣</button><button class="btn ghost" onclick="S.es=null;go(\'eduStats\')">' + ic("review", 18, 2.4) + "閱讀紀錄</button></div>" + '<button class="btn line" style="margin-top:10px" onclick="S.cn=null;go(\'classNew\')">' + ic("users", 18, 2.4) + "開實體課（勾選同仁，App 簽到、自動登記時數）</button>" + '<button class="btn line" style="margin-top:10px" onclick="go(\'meetNew\')">' + ic("helmet", 18, 2.4) + "新進人員教育訓練（現場掃碼簽到）</button>" + edDraftHtml();
  h += '<button class="btn line" style="margin:10px 0 4px" onclick="S.eh=null;go(\'eduHours\')">' + ic("clock", 18, 2.4) + (isEhs() || (S.me.depts || []).some((function(d) {
   return d.mgr;
  })) ? "訓練時數（近三年）" : "我的訓練時數（近三年）") + "</button>";
@@ -2554,7 +2554,7 @@ function edDraftDrop(id) {
 }
 
 PLAT_PAGES.eduPost = function() {
- setTitle("發布教育訓練");
+ setTitle(S.ep && S.ep.cat === "衛教文宣" ? "發布衛教文宣" : "發布教育訓練");
  if (!isEhs()) return back();
  if (!S.ep) {
   $("app").innerHTML = loading("讀取人員名單…");
@@ -2603,7 +2603,7 @@ PLAT_PAGES.eduPost = function() {
   return '<button class="' + (b.cat === c ? "on" : "") + '" onclick="S.ep.cat=' + jsq(c) + ";S.ep.needAck=" + (c === "教育訓練") + ';render()">' + c + "</button>";
  })).join("") + "</div>" + '<div class="muted sm2">' + (course ? "教育訓練＝要簽到表：同仁看完按「我已完成」自動簽到；全員完成後您確認，電腦產生 P-05-01-A 簽到表放 NAS。" : "衛教文宣＝不出簽到表：只在「閱讀紀錄」看誰還沒看過。") + "</div>";
  h += '<div class="sec">2. 內容</div><div class="card ev"><label class="nl" for="epT">標題</label><input id="epT" class="field" maxlength="60" placeholder="例：有機溶劑危害告知" value="' + esc(b.title) + '" oninput="S.ep.title=this.value;epBar()">' + '<label class="nl" for="epB">說明</label><textarea id="epB" class="note plain" maxlength="3000" placeholder="重點、要注意的事" oninput="S.ep.body=this.value;epBar()">' + esc(b.body) + "</textarea>";
- if (course) h += '<div class="btns r3"><div><label class="nl" for="epH">時數</label><input id="epH" class="field" inputmode="decimal" placeholder="1" value="' + esc(b.hours) + '" oninput="S.ep.hours=this.value"></div>' + '<div><label class="nl" for="epR">講師</label><input id="epR" class="field" value="' + esc(b.teacher) + '" oninput="S.ep.teacher=this.value"></div>' + '<div><label class="nl" for="epD">完成期限</label><input id="epD" class="field" type="date" value="' + esc(b.due) + '" onchange="S.ep.due=this.value"></div></div>';
+ if (course) h += '<div class="btns r3"><div><label class="nl" for="epH">時數</label><input id="epH" class="field" inputmode="decimal" placeholder="1" value="' + esc(b.hours) + '" oninput="S.ep.hours=this.value;epBar()"></div>' + '<div><label class="nl" for="epR">講師</label><input id="epR" class="field" value="' + esc(b.teacher) + '" oninput="S.ep.teacher=this.value"></div>' + '<div><label class="nl" for="epD">完成期限</label><input id="epD" class="field" type="date" value="' + esc(b.due) + '" onchange="S.ep.due=this.value"></div></div>';
  if (course) h += '<label class="nl" for="epTp">主題（NAS 歷年教育訓練資料裡的資料夾名稱）</label><input id="epTp" class="field" list="eduTopics" placeholder="例：一般安全衛生教育訓練" value="' + esc(b.topic) + '" oninput="S.ep.topic=this.value">' + '<datalist id="eduTopics">' + EDU_TOPICS.map((function(x) {
   return '<option value="' + esc(x) + '">';
  })).join("") + '</datalist><div class="muted sm2">簽到表與教材會放在 歷年教育訓練資料／民國年／主題；同主題的課會放同一個資料夾。</div>';
@@ -2615,10 +2615,10 @@ PLAT_PAGES.eduPost = function() {
   return '<div class="mr2"><input class="field" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" value="' + esc(u) + '" oninput="S.ep.videos[' + i + ']=this.value;epBar()"><button class="lnk" onclick="S.ep.videos.splice(' + i + ',1);render()">移除</button></div>';
  })).join("") + (b.videos.length < 8 ? '<button class="btn ghost" onclick="S.ep.videos.push(\'\');render()">' + ic("plus", 18, 2.4) + "加一支影片</button>" : "") + (b.videos.length ? '<div class="muted sm2">貼網路上公開的 YouTube 影片網址就可以，App 用 YouTube 的播放器播放，不用下載。從同仁第一次打開課程算起，滿上面的「時數」才能考試或完成；作者不允許嵌入播放的影片，發布時會提醒您換一支。</div>' : "") : "") + '<label class="nl" for="epL">相關連結（選填）</label><input id="epL" class="field" inputmode="url" placeholder="https://" value="' + esc(b.link) + '" oninput="S.ep.link=this.value">' + "</div>";
  if (course) {
-  h += '<div class="sec">考題<small>選填，最多 20 題</small></div>' + (b.quiz.length ? '<div class="card"><label class="nl" for="epPass">及格分數（滿分 100，沒到要整份重考）</label><input id="epPass" class="field" inputmode="numeric" value="' + esc(b.pass) + '" oninput="S.ep.pass=this.value"><div class="muted sm2">例：5 題、及格 80 分＝最多錯 1 題。沒過不會告訴同仁哪幾題錯，要整份重考。</div></div>' : "") + b.quiz.map((function(q, i) {
-   return '<div class="card"><div class="mr"><b>第 ' + (i + 1) + ' 題</b><button class="lnk" onclick="S.ep.quiz.splice(' + i + ',1);render()">刪除</button></div>' + '<input class="field" placeholder="題目" value="' + esc(q.q) + '" oninput="S.ep.quiz[' + i + '].q=this.value">' + q.opts.map((function(o, k) {
-    return '<label class="ck"><input type="radio" name="qa' + i + '"' + (q.ans === k ? " checked" : "") + ' onchange="S.ep.quiz[' + i + "].ans=" + k + '" title="正確答案"><input class="field" placeholder="選項 ' + (k + 1) + '" value="' + esc(o) + '" oninput="S.ep.quiz[' + i + "].opts[" + k + ']=this.value"></label>';
-   })).join("") + '<div class="muted sm2">點選項左邊的圓圈＝正確答案</div></div>';
+  h += '<div class="sec">考題<small>選填，最多 20 題</small></div>' + (b.quiz.length ? '<div class="card"><label class="nl" for="epPass">及格分數（滿分 100，沒到要整份重考）</label><input id="epPass" class="field" inputmode="numeric" value="' + esc(b.pass) + '" oninput="S.ep.pass=this.value;epBar()"><div class="muted sm2">例：5 題、及格 80 分＝最多錯 1 題。沒過不會告訴同仁哪幾題錯，要整份重考。</div></div>' : "") + b.quiz.map((function(q, i) {
+   return '<div class="card"><div class="mr"><b>第 ' + (i + 1) + ' 題</b><button class="lnk" onclick="S.ep.quiz.splice(' + i + ',1);render()">刪除</button></div>' + '<textarea class="note plain qtext" rows="2" placeholder="題目" oninput="S.ep.quiz[' + i + '].q=this.value;epBar()">' + esc(q.q) + "</textarea>" + q.opts.map((function(o, k) {
+    return '<div class="qopt"><input type="radio" id="qa' + i + "_" + k + '" name="qa' + i + '"' + (q.ans === k ? " checked" : "") + ' onchange="S.ep.quiz[' + i + "].ans=" + k + '" aria-label="正確答案"><input class="field" placeholder="選項 ' + (k + 1) + '" value="' + esc(o) + '" oninput="S.ep.quiz[' + i + "].opts[" + k + ']=this.value;epBar()"></div>';
+   })).join("") + '<div class="muted sm2">點選項左邊的圓圈＝正確答案；選項留空的不會出現</div></div>';
   })).join("") + (b.quiz.length < 20 ? "<button class=\"btn ghost\" onclick=\"S.ep.quiz.push({q:'',opts:['','',''],ans:0});render()\">" + ic("plus", 18, 2.4) + "加一題</button>" : "");
  }
  h += '<div class="sec">3. 發給誰</div><div class="seg">' + [ [ "all", "全部人員" ], [ "dept", "指定部門" ], [ "name", "指定人員" ] ].map((function(t) {
@@ -2628,11 +2628,7 @@ PLAT_PAGES.eduPost = function() {
   return '<button class="chip' + (b.depts2[d.id] ? " on" : "") + '" onclick="S.ep.depts2[' + jsq(d.id) + "]=!S.ep.depts2[" + jsq(d.id) + '];render()">' + esc(d.id) + "・" + d.people.length + " 人</button>";
  })).join("") + "</div>";
  if (b.mode !== "name") h += '<label class="ck"><input type="checkbox"' + (b.mgrOnly ? " checked" : "") + ' onchange="S.ep.mgrOnly=this.checked;render()">只發給單位負責人</label>';
- if (b.mode === "name") h += b.depts.map((function(d) {
-  return '<div class="sec">' + esc(d.id) + '</div><div class="card">' + d.people.map((function(x) {
-   return '<label class="ck"><input type="checkbox"' + (b.names[x.name] ? " checked" : "") + ' onchange="S.ep.names[' + jsq(x.name) + ']=this.checked;epBar()"><span>' + esc(x.name) + "</span></label>";
-  })).join("") + "</div>";
- })).join("");
+ if (b.mode === "name") h += epPickHtml(b);
  h += '<div class="card">' + (course ? "" : '<label class="ck"><input type="checkbox"' + (b.needAck ? " checked" : "") + ' onchange="S.ep.needAck=this.checked">要同仁看完按「我已閱讀」</label>') + '<label class="ck"><input type="checkbox"' + (b.mail ? " checked" : "") + ' onchange="S.ep.mail=this.checked">另外寄 Email 給有信箱的人</label></div>';
  $("app").innerHTML = h;
  epBar();
@@ -2646,7 +2642,7 @@ function epCount() {
    if (b.mode === "name" ? b.names[x.name] : hit && (!b.mgrOnly || x.role === "單位負責人")) set[x.name] = 1;
   }));
  }));
- delete set[S.me.person.name];
+ if (b.mode !== "name") delete set[S.me.person.name];
  return Object.keys(set).length;
 }
 
@@ -2654,8 +2650,19 @@ function epBar() {
  if (S.page !== "eduPost" || !S.ep) return;
  var b = S.ep, n = epCount(), vs = (b.videos || []).filter((function(u) {
   return String(u).trim();
- })), ok = n && b.title.trim() && (b.body.trim() || b.files.length || b.link.trim() || vs.length) && !b.up && (!vs.length || Number(b.hours) > 0);
- bar('<button class="btn"' + (ok ? "" : " disabled") + ' onclick="epSend()">' + ic("book", 22, 2.4) + (b.up ? "附件上傳中…" : !n ? "先選要發給誰" : ok ? "發布（" + n + " 人）" : "寫好標題和內容就能發布（" + n + " 人）") + "</button>");
+ })), miss = [];
+ if (!b.title.trim()) miss.push("標題");
+ if (!(b.body.trim() || b.files.length || b.link.trim() || vs.length)) miss.push("說明或教材");
+ if (b.cat === "教育訓練" && vs.length && !(Number(b.hours) > 0)) miss.push("時數（影片課要填）");
+ if (b.cat === "教育訓練" && b.quiz.some((function(q) {
+  return !String(q.q).trim() || q.opts.filter((function(o) {
+   return String(o).trim();
+  })).length < 2 || !String(q.opts[q.ans] || "").trim();
+ }))) miss.push("考題（題目、至少 2 個選項、正確答案）");
+ if (b.cat === "教育訓練" && b.quiz.length && !(Number(b.pass) >= 1 && Number(b.pass) <= 100)) miss.push("及格分數");
+ if (!n) miss.push("要發給誰");
+ var ok = !miss.length && !b.up;
+ bar('<button class="btn"' + (ok ? "" : " disabled") + ' onclick="epSend()">' + ic("book", 22, 2.4) + (b.up ? "附件上傳中…" : ok ? "發布（" + n + " 人）" : "還沒填：" + miss.join("、")) + "</button>");
 }
 
 var EDU_MAX = 10 * 1024 * 1024;
@@ -5032,8 +5039,9 @@ PLAT_PAGES.eduHours = function() {
   var head = '<span class="mn"><span class="nm">' + esc(p.name) + '</span><span class="mt">' + esc(p.dept + "・" + p.years.map((function(y) {
    return y.y + "：" + y.total;
   })).join("・")) + "</span></span>" + pill(p.ok ? "ok" : "ng", p.ok ? "check" : "", p.total + " 小時");
-  if (!open) return '<button class="li" onclick="S.eh.open[' + jsq(p.name) + ']=1;render()">' + head + ic("chev", 18, 2.6) + "</button>";
-  return '<div class="card"><div class="mr">' + head + "</div>" + '<table class="tbl"><tr><th>年度</th><th>App</th><th>補登</th><th>合計</th></tr>' + p.years.map((function(y) {
+  if (!open) return '<button class="li" onclick="S.eh.open[' + jsq(p.name) + ']=1;render()" aria-expanded="false">' + head + '<span class="ehdn">' + ic("chev", 18, 2.6) + "</span></button>";
+  var fold = p.name === e.me ? '<div class="mr">' + head + "</div>" : '<button class="li ehfold" onclick="delete S.eh.open[' + jsq(p.name) + '];render()" aria-expanded="true">' + head + '<span class="ehup">收起' + ic("chev", 16, 2.6) + "</span></button>";
+  return '<div class="card">' + fold + '<table class="tbl"><tr><th>年度</th><th>App</th><th>補登</th><th>合計</th></tr>' + p.years.map((function(y) {
    return "<tr><td>" + y.y + "</td><td>" + y.app + "</td><td>" + y.manual + "</td><td><b>" + y.total + "</b></td></tr>";
   })).join("") + "</table>" + (p.items.length ? '<div class="list">' + p.items.map((function(it) {
    return '<div class="li"><span class="mn"><span class="nm">' + esc(it.course) + '</span><span class="mt">' + esc(it.date.replace(/-/g, "/") + "・" + it.how) + "</span></span><b>" + it.hours + " 小時</b></div>";
@@ -5063,3 +5071,87 @@ PLAT_PAGES.eduHours = function() {
  if (e.scope === "all") h += '<div class="muted sm2">補登：後台試算表「教育訓練時數」頁，一人一列、每年一欄，填 App 以外上過的時數（App 上完成的不要再填，會重複）。</div>';
  $("app").innerHTML = h;
 };
+
+function epGroups(b) {
+ var seen = {}, mgr = [], groups = [];
+ b.depts.forEach((function(d) {
+  d.people.forEach((function(x) {
+   if (x.role === "單位負責人" && !seen[x.name]) {
+    seen[x.name] = 1;
+    mgr.push({
+     name: x.name,
+     sub: []
+    });
+   }
+  }));
+ }));
+ b.depts.forEach((function(d) {
+  d.people.forEach((function(x) {
+   if (x.role === "單位負責人") mgr.filter((function(m) {
+    return m.name === x.name;
+   }))[0].sub.push(d.id);
+  }));
+ }));
+ if (mgr.length) groups.push({
+  id: "單位負責人",
+  people: mgr
+ });
+ b.depts.forEach((function(d) {
+  var ps = d.people.filter((function(x) {
+   if (x.role === "單位負責人" || seen[x.name]) return false;
+   seen[x.name] = 1;
+   return true;
+  }));
+  if (ps.length) groups.push({
+   id: d.id,
+   people: ps.map((function(x) {
+    return {
+     name: x.name
+    };
+   }))
+  });
+ }));
+ return groups;
+}
+
+function epPickHtml(b) {
+ var sel = Object.keys(b.names).filter((function(n) {
+  return b.names[n];
+ })), q = String(b.q || "").trim();
+ var h = '<div class="card eppick"><div class="mr"><b>已選 ' + sel.length + " 人</b>" + (sel.length ? '<button class="lnk" onclick="S.ep.names={};render()">全部清除</button>' : "") + "</div>" + (sel.length ? '<div class="chips wrap">' + sel.map((function(n) {
+  return '<button class="chip on" onclick="S.ep.names[' + jsq(n) + ']=false;render()" aria-label="移除 ' + esc(n) + '">' + esc(n) + " " + ic("x", 14, 3) + "</button>";
+ })).join("") + "</div>" : '<div class="muted sm2">從下面點名字加進來；點已選的名字就移除。</div>') + "</div>";
+ h += '<input class="field" id="epQ" placeholder="找人（打名字）" value="' + esc(b.q || "") + '" oninput="S.ep.q=this.value;epPickList()">';
+ return h + '<div id="epPL">' + epPickListHtml(b) + "</div>";
+}
+
+function epPickListHtml(b) {
+ var q = String(b.q || "").trim();
+ return epGroups(b).map((function(g) {
+  var ps = g.people.filter((function(x) {
+   return !q || x.name.indexOf(q) >= 0;
+  }));
+  if (!ps.length) return "";
+  var left = ps.filter((function(x) {
+   return !b.names[x.name];
+  }));
+  return '<div class="sec">' + esc(g.id) + (left.length > 1 ? '<small><button class="lnk" onclick="epPickAll(' + jsq(g.id) + ')">這區全選</button></small>' : "") + '</div><div class="chips wrap">' + ps.map((function(x) {
+   var on = !!b.names[x.name];
+   return '<button class="chip' + (on ? " on" : "") + '" onclick="S.ep.names[' + jsq(x.name) + "]=" + !on + ';render()">' + (on ? ic("check", 14, 3) : ic("plus", 14, 3)) + esc(x.name) + (x.sub && x.sub.length ? '<small class="muted">' + esc(x.sub.length > 1 ? x.sub.length + " 課" : x.sub[0]) + "</small>" : "") + "</button>";
+  })).join("") + "</div>";
+ })).join("") || '<div class="empty">找不到這個名字</div>';
+}
+
+function epPickList() {
+ var el = $("epPL");
+ if (el) el.innerHTML = epPickListHtml(S.ep);
+}
+
+function epPickAll(gid) {
+ epGroups(S.ep).forEach((function(g) {
+  if (g.id === gid) g.people.forEach((function(x) {
+   S.ep.names[x.name] = true;
+  }));
+ }));
+ render();
+}
