@@ -1,5 +1,5 @@
 {
- "version": "0.35.0",
+ "version": "0.36.0",
  "chapters": [
   {
    "no": 1,
@@ -469,11 +469,11 @@
      ],
      "steps": [
       "On Home tap <b>\"Department\"</b>; it has three tabs: <b>People, Forms, Equipment</b>.",
-      "<b>People</b>: whether each person has signed in and signed, and what they handle; tap a person to tick their forms and equipment.",
-      "<b>Forms / Equipment</b>: current owner, last periodic inspection and deadline; tap an item to change its owner.",
+      "<b>People</b>: whether each person has logged in and signed, and what they are in charge of. Tap a person to tick their forms and equipment; for leave or resignation tap <b>\"Hand everything to someone else\"</b>.",
+      "<b>Equipment</b>: one card per unit showing who does the daily and periodic checks. Tap a card to change people, share it, or tick <b>\"Give daily and periodic checks to different people\"</b> (e.g. robot arm: daily to the operator, monthly to maintenance); plate number and location are edited here too. On a computer, <b>drag a person onto a card</b> to give it to them.",
       "Then tap <b>\"Effective today\"</b> (changes now) or <b>\"From next month\"</b> (no change this month, switches on the 1st). People involved are notified."
      ],
-     "tip": "To add or disable people, forms or equipment, ask the EHS Center.",
+     "tip": "Shared responsibility: done when any one person fills it in. Adding or retiring equipment, changing its type, and choosing which forms a section uses are set by EHS in the App.",
      "warn": false
     },
     {

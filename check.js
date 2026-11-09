@@ -1024,8 +1024,13 @@ PAGES.team = function() {
    var inner = '<span class="mn"><span class="nm">' + esc(p.name) + (p.role !== "檢點人員" ? '　<small class="muted">' + esc(p.role) + "</small>" : "") + "</span>" + '<span class="mt' + (warn ? " wn" : "") + '">' + esc(st) + "</span>" + (p.role === "檢點人員" ? '<span class="mt">' + esc(mine.length ? "負責 " + mine.length + " 項：" + mine.join("、") : "目前沒有負責的表或設備") + "</span>" : '<span class="mt">審核本課紀錄，可代填</span>') + "</span>";
    return p.role === "檢點人員" ? '<button class="li" onclick="go(\'teamPerson\',{dept:' + jsq(tm.dept) + ",name:" + jsq(p.name) + '})">' + inner + "</button>" : '<div class="li">' + inner + "</div>";
   })).join("") + "</div>";
+ } else if (tab === "equip") {
+  $("app").innerHTML = h + teqListHtml(tm);
+  teqDragInit(tm);
+  return;
  } else {
   var list = tab === "form" ? forms : eqs;
+  if (tab === "form" && isEhs() && tm.ehs) h += '<button class="btn ghost" onclick="go(\'deptForms\',{dept:' + jsq(tm.dept) + '})">' + ic("pen", 18, 2.4) + "本課要用的表（環安衛設定）</button>";
   h += '<div class="muted upnote">點一項調整負責人：可以今天起生效，或排到下個月 1 日。</div>';
   h += list.length ? '<div class="list">' + list.map((function(x) {
    var per = (x.periodic || []).map((function(y) {
@@ -1483,6 +1488,14 @@ function teamTab(t) {
 }
 
 PAGES.teamEdit = function() {
+ if (/^[EQ]:/.test(S.arg.key || "")) {
+  var ka = S.arg.key.split(":");
+  return go("teamEq", {
+   dept: S.arg.dept,
+   cat: ka[1],
+   obj: ka.slice(2).join(":")
+  }, true);
+ }
  var tm = S.team, tg = tm && tm.targets.filter((function(x) {
   return x.key === S.arg.key;
  }))[0];
@@ -1574,7 +1587,7 @@ PAGES.teamPerson = function() {
   })).join("") + "</div>";
  };
  var mo = Number(tm.month.slice(5)) + " 月";
- $("app").innerHTML = '<div class="muted upnote">勾選 ' + esc(name) + " 負責的表單與設備。同一項可以多人一起負責；取消勾選不會影響其他人。</div>" + sec("form", "表單") + sec("equip", "設備");
+ $("app").innerHTML = '<div class="muted upnote">勾選 ' + esc(name) + " 負責的表單與設備。同一項可以多人一起負責；取消勾選不會影響其他人。</div>" + '<button class="btn ghost" onclick="teamHandover(' + jsq(tm.dept) + "," + jsq(name) + ')">' + ic("swap", 18, 2.4) + "全部轉給別人（請假、離職交接）</button>" + sec("form", "表單") + sec("equip", "設備");
  var n = teamPersonDiff().length;
  bar('<div class="btns r21"><button class="btn"' + (n ? "" : " disabled") + " onclick=\"teamPersonSave('now')\">" + ic("check", 22, 2.8) + (n ? "今天起生效（" + n + " 項）" : "沒有變更") + "</button>" + '<button class="btn ghost"' + (n ? "" : " disabled") + " onclick=\"teamPersonSave('next')\">" + "下月起（" + esc(mo) + "）</button></div>");
 };
@@ -5465,4 +5478,454 @@ function ewRun() {
   window.scrollTo(0, document.body.scrollHeight);
   toast("匯出完成（" + res.length + " 份），結果在最下面", "ok", 4e3);
  }));
+}
+
+var TEQ_POWER_CATS = [ "堆高機", "升降機" ];
+
+function teqGroups(tm) {
+ var g = {}, order = [];
+ tm.targets.filter((function(x) {
+  return x.kind === "equip";
+ })).forEach((function(x) {
+  var a = x.key.split(":"), k = a[1] + ":" + a.slice(2).join(":");
+  if (!g[k]) {
+   g[k] = {
+    cat: a[1],
+    obj: a.slice(2).join(":"),
+    loc: x.loc || "",
+    power: x.power || "",
+    e: null,
+    q: null
+   };
+   order.push(k);
+  }
+  if (x.key.charAt(0) === "Q") g[k].q = x; else {
+   g[k].e = x;
+   g[k].loc = x.loc || g[k].loc;
+   g[k].power = x.power || "";
+  }
+ }));
+ return order.map((function(k) {
+  return g[k];
+ }));
+}
+
+function teqWho(a) {
+ return a && a.length ? a.join("、") : "沒有人";
+}
+
+function teqForms(gp) {
+ var out = [];
+ if (gp.e && gp.e.dailyForm) out.push({
+  name: gp.e.dailyForm.name,
+  freq: "每日"
+ });
+ (gp.q ? gp.q.periodic : gp.e ? gp.e.periodic : []).forEach((function(y) {
+  out.push(y);
+ }));
+ return out;
+}
+
+function teqListHtml(tm) {
+ var gs = teqGroups(tm), desk = isDesk(), ehs = isEhs(), h = "";
+ h += '<div class="muted upnote">' + (desk ? "把左邊的同仁拖到設備卡上，就交給他負責；" : "") + "點一台設備可以換負責人、每日和定期分給不同人、或多人一起負責。" + (ehs ? "" : "新增或停用設備請洽環安衛中心。") + "</div>";
+ if (ehs) h += '<button class="btn ghost" onclick="go(\'eqNew\',{dept:' + jsq(tm.dept) + '})">' + ic("plus", 18, 2.4) + "新增設備</button>";
+ var cats = [];
+ gs.forEach((function(x) {
+  if (cats.indexOf(x.cat) < 0) cats.push(x.cat);
+ }));
+ var body = cats.map((function(c) {
+  var list = gs.filter((function(x) {
+   return x.cat === c;
+  }));
+  return '<div class="sec">' + esc(c) + "<small>" + list.length + ' 台</small></div><div class="teqs">' + list.map((function(x) {
+   var none = !(x.e && x.e.now.length) || x.q && !x.q.now.length;
+   var rows = x.q ? '<div class="teqr" data-drop="E"><span>每日</span><b>' + esc(teqWho(x.e && x.e.now)) + '</b></div><div class="teqr" data-drop="Q"><span>定期</span><b>' + esc(teqWho(x.q.now)) + "</b></div>" : '<div class="teqr" data-drop="E"><span>負責</span><b>' + esc(teqWho(x.e && x.e.now)) + "</b></div>";
+   var fs = teqForms(x).map((function(y) {
+    return y.freq;
+   })).filter((function(v, i, a) {
+    return v && a.indexOf(v) === i;
+   })).join("・");
+   return '<button class="teq' + (none ? " none" : "") + '" data-cat="' + esc(x.cat) + '" data-obj="' + esc(x.obj) + "\" onclick=\"go('teamEq',{dept:" + jsq(tm.dept) + ",cat:" + jsq(x.cat) + ",obj:" + jsq(x.obj) + '})">' + '<span class="teqh"><b data-raw>' + esc(x.obj) + "</b>" + (x.power === "電動" ? pill("info", "", "電動") : "") + "</span>" + (x.loc ? '<span class="mt" data-raw>' + esc(x.loc) + "</span>" : "") + rows + (fs ? '<span class="mt">' + esc(fs) + "</span>" : "") + "</button>";
+  })).join("") + "</div>";
+ })).join("") || '<div class="empty">本課沒有設備</div>';
+ if (ehs && tm.ehs && tm.ehs.off.length) body += '<details class="edoth"><summary>停用中的設備（' + tm.ehs.off.length + '）</summary><div class="list">' + tm.ehs.off.map((function(x) {
+  return '<div class="li"><span class="mn"><span class="nm" data-raw>' + esc(x.cat + " " + x.obj) + "</span>" + (x.loc ? '<span class="mt" data-raw>' + esc(x.loc) + "</span>" : "") + "</span>" + '<button class="btn sm ghost" onclick="teqSaveInfo(' + jsq(x.cat) + "," + jsq(x.obj) + ',{on:true})">恢復使用</button></div>';
+ })).join("") + "</div></details>";
+ if (!desk) return h + body;
+ var ops = tm.people.filter((function(p) {
+  return p.role === "檢點人員";
+ }));
+ return h + '<div class="teqdesk"><div class="teqppl"><div class="sec">本課同仁<small>拖到右邊設備上</small></div>' + ops.map((function(p) {
+  return '<div class="chip teqp" draggable="true" data-name="' + esc(p.name) + '">' + esc(p.name) + "<small>" + (p.equips.length + p.forms.length) + "</small></div>";
+ })).join("") + '</div><div class="teqmain">' + body + "</div></div>";
+}
+
+function teqDragInit(tm) {
+ if (!isDesk()) return;
+ var who = "";
+ document.querySelectorAll(".teqp").forEach((function(el) {
+  el.addEventListener("dragstart", (function(e) {
+   who = el.getAttribute("data-name");
+   e.dataTransfer.setData("text/plain", who);
+   e.dataTransfer.effectAllowed = "copy";
+  }));
+ }));
+ document.querySelectorAll(".teq").forEach((function(card) {
+  card.addEventListener("dragover", (function(e) {
+   e.preventDefault();
+   card.classList.add("drop");
+  }));
+  card.addEventListener("dragleave", (function() {
+   card.classList.remove("drop");
+  }));
+  card.addEventListener("drop", (function(e) {
+   e.preventDefault();
+   card.classList.remove("drop");
+   var n = e.dataTransfer.getData("text/plain") || who, cat = card.getAttribute("data-cat"), obj = card.getAttribute("data-obj");
+   var row = e.target.closest && e.target.closest("[data-drop]"), part = row ? row.getAttribute("data-drop") : "E";
+   var gp = teqGroups(S.team).filter((function(x) {
+    return x.cat === cat && x.obj === obj;
+   }))[0];
+   if (!gp || !n) return;
+   var tg = part === "Q" && gp.q ? gp.q : gp.e, label = cat + " " + obj + (gp.q ? part === "Q" ? "・定期檢查" : "・每日檢點" : "");
+   if (tg.now.indexOf(n) >= 0 && tg.now.length === 1) return toast(n + " 已經負責「" + label + "」", "ok", 2500);
+   var keys = [ tg.key ];
+   dlg("<b>" + esc(label) + "</b><p>目前：" + esc(teqWho(tg.now)) + "</p>", [ [ "改由 " + n + " 負責", function() {
+    teqBatch(keys.map((function(k) {
+     return {
+      target: k,
+      names: [ n ]
+     };
+    })), "now");
+   }, "" ], tg.now.indexOf(n) < 0 && tg.now.length ? [ "加 " + n + " 一起負責", function() {
+    teqBatch([ {
+     target: tg.key,
+     names: tg.now.concat([ n ])
+    } ], "now");
+   }, "ghost" ] : null ].filter(Boolean));
+  }));
+ }));
+}
+
+function teqDone(r, msg) {
+ S.team = r;
+ S.teamAt = Date.now();
+ S.teamAll = null;
+ busyOff();
+ toast(msg, "ok", 3500);
+ refreshMe();
+ render();
+}
+
+function teqBatch(changes, when) {
+ var tm = S.team;
+ if (!changes.length) return;
+ if (!navigator.onLine) return toast("沒有網路，調整要連上網路才能存", "err", 3500);
+ busyOn("儲存中…");
+ api("assignBatch", {
+  deptId: tm.dept,
+  changes,
+  when
+ }).then((function(r) {
+  teqDone(r, when === "next" ? "已安排，" + Number(tm.month.slice(5)) + " 月 1 日生效" : "已改好，今天起生效；相關人員會收到通知");
+ })).catch((function(e) {
+  busyOff();
+  toast(esc(e.message), "err", 5e3);
+ }));
+}
+
+PAGES.teamEq = function() {
+ var tm = S.team;
+ if (!tm) return back();
+ var gp = teqGroups(tm).filter((function(x) {
+  return x.cat === S.arg.cat && x.obj === S.arg.obj;
+ }))[0];
+ if (!gp) {
+  if (!S.arg.off) toast("這台設備已停用或改了編號", "err");
+  return back();
+ }
+ setTitle(gp.cat + " " + gp.obj);
+ var ops = tm.people.filter((function(p) {
+  return p.role === "檢點人員";
+ })).map((function(p) {
+  return p.name;
+ }));
+ var st = S.arg.st || (S.arg.st = {
+  split: !!gp.q,
+  d: (gp.e ? gp.e.now : []).slice(),
+  q: (gp.q ? gp.q.now : gp.e ? gp.e.now : []).slice(),
+  loc: gp.loc,
+  power: gp.power,
+  cat: gp.cat
+ });
+ var forms = teqForms(gp), hasDaily = forms.some((function(y) {
+  return y.freq === "每日";
+ })), hasPer = forms.some((function(y) {
+  return y.freq !== "每日";
+ }));
+ var chips = function(part) {
+  var w = st[part];
+  return '<div class="chips wrap">' + ops.map((function(n) {
+   return '<button class="chip' + (w.indexOf(n) >= 0 ? " on" : "") + '" onclick="teqPick(' + jsq(part) + "," + jsq(n) + ')">' + (w.indexOf(n) >= 0 ? ic("check", 16, 3) : "") + esc(n) + "</button>";
+  })).join("") + "</div>" + (ops.length ? "" : '<div class="muted">本課還沒有檢點人員</div>');
+ };
+ var h = '<div class="card"><div class="mr"><b data-raw>' + esc(gp.cat + " " + gp.obj) + "</b>" + (gp.power === "電動" ? pill("info", "", "電動") : "") + "</div>" + (gp.loc ? '<div class="muted" data-raw>' + esc(gp.loc) + "</div>" : "") + '<div class="sec sm">要做的檢查</div>' + (forms.length ? forms.map((function(y) {
+  return '<div class="muted">' + esc(y.name) + "・" + esc(y.freq) + (y.state ? " " + perPill(y) : "") + "</div>";
+ })).join("") : '<div class="muted">本課沒有開這類設備的表</div>') + "</div>";
+ if (st.split) {
+  h += '<div class="sec">每日檢點<small>點名字選，可以多人</small></div>' + chips("d");
+  h += '<div class="sec">定期檢查（每月、每年…）<small>點名字選，可以多人</small></div>' + chips("q");
+ } else h += '<div class="sec">負責人<small>每日和定期全部；點名字選，可以多人</small></div>' + chips("d");
+ if (hasDaily && hasPer) h += '<label class="ck"><input type="checkbox"' + (st.split ? " checked" : "") + ' onchange="teqSplitTick(this.checked)"><span>每日和定期分給不同人<small class="muted">　例：機械手臂每日給操作員、每月給保養的人</small></span></label>';
+ var empty = !st.d.length || st.split && !st.q.length;
+ if (empty) h += '<div class="box warn"><div class="r">' + ic("warn", 22) + '<div class="bt"><div class="m">' + (st.split && !st.q.length ? "定期檢查至少要一位負責人。" : "沒有負責人＝這台設備本課不再使用（手機上看不到、不算缺漏）。") + "</div></div></div></div>";
+ h += '<div class="muted upnote">多人一起負責：任何一位填了就算完成。「今天起」馬上換人；「下月起」這個月照舊，下個月 1 日自動換。當事人都會收到 App 通知。</div>';
+ var ehs = isEhs(), cats = ehs && tm.ehs ? tm.ehs.cats : [];
+ h += '<div class="sec">設備資料</div><div class="card"><label class="nl" for="teqLoc">名稱或位置（車號、廠牌也寫這裡）</label><input id="teqLoc" class="field" value="' + esc(st.loc) + '" oninput="S.arg.st.loc=this.value">';
+ if (ehs) {
+  h += '<label class="nl" for="teqCat">設備類別（決定要做哪些檢查）</label><select id="teqCat" class="field" onchange="S.arg.st.cat=this.value">' + cats.map((function(c) {
+   return "<option" + (c === st.cat ? " selected" : "") + ">" + esc(c) + "</option>";
+  })).join("") + "</select>";
+  if (TEQ_POWER_CATS.indexOf(st.cat) >= 0) h += '<label class="nl">動力</label><div class="seg">' + [ [ "", "引擎式" ], [ "電動", "電動" ] ].map((function(o) {
+   return '<button class="' + (st.power === o[0] ? "on" : "") + '" onclick="S.arg.st.power=' + jsq(o[0]) + ';render()">' + o[1] + "</button>";
+  })).join("") + "</div>";
+ }
+ h += '<div class="btns"><button class="btn ghost" onclick="teqInfoSave()">儲存設備資料</button>' + (ehs ? '<button class="btn ghost" onclick="teqOff()">停用這台設備</button>' : "") + "</div>" + (ehs ? "" : '<div class="muted sm2">改設備類別、電動或引擎式、停用設備，請洽環安衛中心。</div>') + "</div>";
+ $("app").innerHTML = h;
+ var chg = teqChanged(gp, st), splitChg = st.split !== !!gp.q, mo = Number(tm.month.slice(5)) + " 月";
+ bar('<div class="btns r21"><button class="btn"' + (chg ? "" : " disabled") + " onclick=\"teqSave('now')\">" + ic("check", 22, 2.8) + (chg ? "今天起生效" : "沒有變更") + "</button>" + '<button class="btn ghost"' + (chg && !splitChg ? "" : " disabled") + " onclick=\"teqSave('next')\">下月起（" + esc(mo) + "）</button></div>");
+};
+
+function teqPick(part, n) {
+ var w = S.arg.st[part], i = w.indexOf(n);
+ if (i >= 0) w.splice(i, 1); else w.push(n);
+ render();
+}
+
+function teqSplitTick(on) {
+ var st = S.arg.st;
+ st.split = on;
+ if (on && !st.q.length) st.q = st.d.slice();
+ render();
+}
+
+function teqSame(a, b) {
+ return (a || []).slice().sort().join() === (b || []).slice().sort().join();
+}
+
+function teqChanged(gp, st) {
+ if (st.split !== !!gp.q) return true;
+ if (!teqSame(st.d, gp.e ? gp.e.now : [])) return true;
+ return st.split && !teqSame(st.q, gp.q ? gp.q.now : []);
+}
+
+function teqSave(when) {
+ var tm = S.team, st = S.arg.st, gp = teqGroups(tm).filter((function(x) {
+  return x.cat === S.arg.cat && x.obj === S.arg.obj;
+ }))[0];
+ if (!gp) return;
+ if (!navigator.onLine) return toast("沒有網路，調整要連上網路才能存", "err", 3500);
+ if (st.split && !st.q.length) return toast("定期檢查至少要一位負責人", "err", 3500);
+ if (!st.d.length && !confirm("沒有負責人＝這台設備本課不再使用。確定嗎？")) return;
+ var done = function(r) {
+  S.arg.st = null;
+  teqDone(r, when === "next" ? "已安排，" + Number(tm.month.slice(5)) + " 月 1 日生效" : "已改好，今天起生效；相關人員會收到通知");
+  back();
+ };
+ var fail = function(e) {
+  busyOff();
+  toast(esc(e.message), "err", 5e3);
+ };
+ busyOn("儲存中…");
+ if (st.split !== !!gp.q) return api("eqSplit", {
+  deptId: tm.dept,
+  cat: gp.cat,
+  obj: gp.obj,
+  names: st.split ? st.q : [],
+  daily: st.d
+ }).then(done).catch(fail);
+ var ch = [];
+ if (!teqSame(st.d, gp.e ? gp.e.now : [])) ch.push({
+  target: gp.e.key,
+  names: st.d
+ });
+ if (st.split && gp.q && !teqSame(st.q, gp.q.now)) ch.push({
+  target: gp.q.key,
+  names: st.q
+ });
+ api("assignBatch", {
+  deptId: tm.dept,
+  changes: ch,
+  when
+ }).then(done).catch(fail);
+}
+
+function teqSaveInfo(cat, obj, v) {
+ var tm = S.team;
+ busyOn("儲存中…");
+ return api("eqSave", Object.assign({
+  deptId: tm.dept,
+  cat,
+  obj
+ }, v)).then((function(r) {
+  teqDone(r, "設備資料已更新");
+  return r;
+ })).catch((function(e) {
+  busyOff();
+  toast(esc(e.message), "err", 5e3);
+  throw e;
+ }));
+}
+
+function teqInfoSave() {
+ var st = S.arg.st, v = {
+  name: st.loc
+ };
+ if (isEhs()) {
+  v.power = st.power;
+  if (st.cat !== S.arg.cat) v.newCat = st.cat;
+ }
+ teqSaveInfo(S.arg.cat, S.arg.obj, v).then((function() {
+  if (v.newCat) {
+   S.arg.cat = v.newCat;
+  }
+  S.arg.st = null;
+  render();
+ })).catch((function() {}));
+}
+
+function teqOff() {
+ if (!confirm("停用「" + S.arg.cat + " " + S.arg.obj + "」？（報廢、移走用；之前的紀錄保留，可以再恢復）")) return;
+ S.arg.off = true;
+ teqSaveInfo(S.arg.cat, S.arg.obj, {
+  on: false
+ }).then((function() {
+  if (S.page === "teamEq") back();
+ })).catch((function() {}));
+}
+
+PAGES.eqNew = function() {
+ var tm = S.team;
+ if (!tm || !tm.ehs) return back();
+ setTitle("新增設備");
+ var n = S.arg.n || (S.arg.n = {
+  cat: tm.ehs.cats[0] || "",
+  obj: "",
+  loc: "",
+  power: "",
+  owner: ""
+ });
+ var ops = tm.people.filter((function(p) {
+  return p.role === "檢點人員";
+ })).map((function(p) {
+  return p.name;
+ }));
+ var h = '<div class="muted upnote">新增到「' + esc(tm.dept) + '」。設備類別決定要做哪些檢查；這一課有開的表才會出現在負責人的手機上（到「表單」分頁的「本課要用的表」設定）。</div><div class="card">' + '<label class="nl" for="enCat">設備類別</label><select id="enCat" class="field" onchange="S.arg.n.cat=this.value;render()">' + tm.ehs.cats.map((function(c) {
+  return "<option" + (c === n.cat ? " selected" : "") + ">" + esc(c) + "</option>";
+ })).join("") + "</select>" + '<label class="nl" for="enNo">設備編號</label><input id="enNo" class="field" placeholder="例：3號、M-070" value="' + esc(n.obj) + '" oninput="S.arg.n.obj=this.value">' + '<label class="nl" for="enLoc">名稱或位置（選填）</label><input id="enLoc" class="field" placeholder="例：倉庫、TOYOTA 8FB25" value="' + esc(n.loc) + '" oninput="S.arg.n.loc=this.value">' + (TEQ_POWER_CATS.indexOf(n.cat) >= 0 ? '<label class="nl">動力</label><div class="seg">' + [ [ "", "引擎式" ], [ "電動", "電動" ] ].map((function(o) {
+  return '<button class="' + (n.power === o[0] ? "on" : "") + '" onclick="S.arg.n.power=' + jsq(o[0]) + ';render()">' + o[1] + "</button>";
+ })).join("") + "</div>" : "") + '<label class="nl" for="enOw">負責人</label><select id="enOw" class="field" onchange="S.arg.n.owner=this.value"><option value="">先不指定</option>' + ops.map((function(o) {
+  return "<option" + (o === n.owner ? " selected" : "") + ">" + esc(o) + "</option>";
+ })).join("") + "</select></div>";
+ $("app").innerHTML = h;
+ bar('<button class="btn" onclick="eqNewGo()">' + ic("plus", 22, 2.8) + "新增這台設備</button>");
+};
+
+function eqNewGo() {
+ var tm = S.team, n = S.arg.n;
+ if (!String(n.obj).trim()) return toast("要填設備編號", "err");
+ busyOn("新增中…");
+ api("eqSave", {
+  deptId: tm.dept,
+  add: true,
+  cat: n.cat,
+  obj: n.obj.trim(),
+  name: n.loc,
+  power: n.power,
+  owner: n.owner
+ }).then((function(r) {
+  S.arg.n = null;
+  teqDone(r, "已新增「" + n.cat + " " + n.obj.trim() + "」");
+  back();
+ })).catch((function(e) {
+  busyOff();
+  toast(esc(e.message), "err", 5e3);
+ }));
+}
+
+PAGES.deptForms = function() {
+ var tm = S.team;
+ if (!tm || !tm.ehs) return back();
+ setTitle("本課要用的表");
+ var w = S.arg.w || (S.arg.w = {}), cur = function(f) {
+  return f.id in w ? w[f.id] : f.cur;
+ };
+ var sec = function(title, list) {
+  if (!list.length) return "";
+  return '<div class="sec">' + title + '</div><div class="list">' + list.map((function(f) {
+   var v = cur(f), chg = v !== f.cur;
+   return '<div class="li' + (chg ? " chg" : "") + '"><span class="mn"><span class="nm">' + esc(f.name) + "</span>" + (f.equip ? '<span class="mt">設備類別：' + esc(f.equip) + "</span>" : "") + "</span>" + '<select class="field sel" onchange="S.arg.w[' + jsq(f.id) + ']=this.value;render()"><option value="">不用</option>' + tm.ehs.freqs.map((function(q) {
+    return "<option" + (q === v ? " selected" : "") + ">" + esc(q) + "</option>";
+   })).join("") + "</select></div>";
+  })).join("") + "</div>";
+ };
+ var fs = tm.ehs.forms;
+ $("app").innerHTML = '<div class="muted upnote">「' + esc(tm.dept) + "」要做哪些檢查、多久一次。選「不用」＝這課看不到這張表。分設備的表，還要這課有那類設備才會出現。改好按下方儲存，今天起生效。</div>" + sec("不分設備的表", fs.filter((function(f) {
+  return !f.equip;
+ }))) + sec("分設備的表", fs.filter((function(f) {
+  return f.equip;
+ })));
+ var n = Object.keys(w).filter((function(k) {
+  return w[k] !== fs.filter((function(f) {
+   return f.id === k;
+  }))[0].cur;
+ })).length;
+ bar('<button class="btn"' + (n ? "" : " disabled") + ' onclick="deptFormsSave()">' + ic("check", 22, 2.8) + (n ? "儲存（" + n + " 項）" : "沒有變更") + "</button>");
+};
+
+function deptFormsSave() {
+ var tm = S.team, w = S.arg.w, set = {};
+ tm.ehs.forms.forEach((function(f) {
+  if (f.id in w && w[f.id] !== f.cur) set[f.id] = w[f.id];
+ }));
+ busyOn("儲存中…");
+ api("deptForms", {
+  deptId: tm.dept,
+  set
+ }).then((function(r) {
+  S.arg.w = null;
+  teqDone(r, "已更新本課要用的表");
+  back();
+ })).catch((function(e) {
+  busyOff();
+  toast(esc(e.message), "err", 5e3);
+ }));
+}
+
+function teamHandover(dept, name) {
+ var tm = S.team, ops = tm.people.filter((function(p) {
+  return p.role === "檢點人員" && p.name !== name;
+ })).map((function(p) {
+  return p.name;
+ }));
+ var mine = tm.targets.filter((function(x) {
+  return x.now.indexOf(name) >= 0;
+ }));
+ if (!mine.length) return toast(name + " 目前沒有負責的表或設備", "ok");
+ if (!ops.length) return toast("本課沒有其他檢點人員", "err");
+ dlg("<b>" + esc(name) + " 的 " + mine.length + ' 項全部轉給誰？</b><p class="sm">今天起生效；跟別人一起負責的項目，只把 ' + esc(name) + " 換掉。</p>", ops.map((function(n) {
+  return [ n, function() {
+   teqBatch(mine.map((function(x) {
+    var w = x.now.filter((function(k) {
+     return k !== name;
+    }));
+    if (w.indexOf(n) < 0) w.push(n);
+    return {
+     target: x.key,
+     names: w
+    };
+   })), "now");
+  }, "ghost" ];
+ })));
 }

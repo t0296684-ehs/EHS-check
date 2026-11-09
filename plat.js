@@ -1,4 +1,4 @@
-var PLAT_VER = "0.35.0";
+var PLAT_VER = "0.36.0";
 
 function platHeal() {
  try {
@@ -4189,6 +4189,9 @@ var PAGE_NAME = {
  nextOwners: "下月負責人",
  teamEdit: "部門管理",
  teamPerson: "部門管理",
+ teamEq: "部門管理",
+ eqNew: "新增設備",
+ deptForms: "本課要用的表",
  devPick: "開發者模式",
  devPerson: "開發者模式",
  support: "問題回報",
@@ -4437,6 +4440,11 @@ function sideKey(p, a) {
   trackFix: "track",
   claim: "claim",
   claimReview: "team",
+  teamEq: "team",
+  teamEdit: "team",
+  teamPerson: "team",
+  eqNew: "team",
+  deptForms: "team",
   shareMake: "share",
   notice: "notice",
   bc: "bc",
