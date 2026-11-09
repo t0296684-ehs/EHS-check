@@ -2495,6 +2495,8 @@ function monthRender() {
   bar('<button class="btn" disabled>' + Number(v.period.slice(5)) + " 月還沒結束，" + (nx.getMonth() + 1) + "/1 起才能送審</button>");
  } else if (v.status === "待主管審核" && !boss && !ehs && v.submitter === S.me.person.name) {
   bar('<button class="btn redline" onclick="withdrawMonth()">' + ic("ret", 20, 2.4) + "撤回送審，改好再送（主管審核前才能撤回）</button>");
+ } else if ((v.status === "填寫中" || v.status === "退回") && !ehs && v.who && !v.nSend) {
+  bar('<button class="btn" disabled>這個月沒有您簽的檢點紀錄，不用送審</button>');
  } else if ((v.status === "填寫中" || v.status === "退回") && !ehs) {
   bar(v.problems.length ? '<button class="btn" disabled>補完 ' + v.problems.length + " 個地方，才能送單位負責人</button>" : '<button class="btn" id="smBtn" onclick="submitMonth()">' + ic("check", 22, 2.8) + (v.who ? "送出我的 " + (v.nSend || 0) + " 份，鎖定送單位負責人" : "本月完成，鎖定送單位負責人") + "</button>");
  } else if (v.status === "待主管審核" && boss && !ehs) {
