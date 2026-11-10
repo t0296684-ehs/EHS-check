@@ -3138,7 +3138,8 @@ PAGES.shareMake = function() {
   } else {
    var q = (S.arg.q || "").trim();
    h += '<input class="field" id="smQ" type="search" placeholder="打名字或課別找人" value="' + esc(S.arg.q || "") + '" oninput="S.arg.q=this.value;smFilter()">';
-   h += '<div class="list" id="smList">' + smRows(ML, q) + "</div>";
+   h += '<div class="smchips" id="smChips">' + smChips(ML, q) + "</div>";
+   h += '<div class="list smbox" id="smList">' + smRows(ML, q) + '</div><div class="muted" style="margin-top:6px">可以打名字找，也可以在名單裡上下滑；上面點課別直接跳過去。</div>';
   }
  }
  if (D) {
@@ -3153,26 +3154,60 @@ PAGES.shareMake = function() {
  if (L) bar('<button class="btn" onclick="shareTo(' + jsq("請幫忙填 " + L.dept + " " + md(L.date) + "（" + wk(L.date) + "）的每日檢點表，那天打開這個連結就能填：" + L.url) + ')">' + ic("chat", 22, 2.4) + "用 LINE／訊息傳給同事</button>"); else if (D) bar('<button class="btn" onclick="S.stack=[];go(\'home\',{},true)">' + ic("check", 22, 2.6) + "完成，回首頁</button>"); else bar("");
 };
 
-function smRows(ML, q) {
+function smGroups(ML, q) {
  var xs = ML.filter((function(x) {
   return !q || x.name.indexOf(q) >= 0 || x.depts.join("、").indexOf(q) >= 0;
+ })), by = {}, order = [];
+ xs.forEach((function(x) {
+  var g = x.same ? "同一課" : x.depts[0];
+  if (!by[g]) {
+   by[g] = [];
+   order.push(g);
+  }
+  by[g].push(x);
  }));
- if (!xs.length) return '<div class="empty">找不到「' + esc(q) + "」</div>";
- var same = xs.filter((function(x) {
-  return x.same;
- })), other = xs.filter((function(x) {
-  return !x.same;
+ order.sort((function(a, b) {
+  return a === "同一課" ? -1 : b === "同一課" ? 1 : a.localeCompare(b, "zh-Hant");
  }));
+ return {
+  n: xs.length,
+  order,
+  by
+ };
+}
+
+function smRows(ML, q) {
+ var G = smGroups(ML, q);
+ if (!G.n) return '<div class="empty">找不到「' + esc(q) + "」</div>";
  var row = function(x) {
   var sub = x.depts.join("、") + (x.sig ? "" : "・還沒在 App 簽名，不能代填");
   return x.sig ? '<button class="li" onclick="shareMember(' + jsq(x.name) + ')"><span class="mn"><span class="nm">' + esc(x.name) + '</span><span class="mt">' + esc(sub) + "</span></span>" + pill("na", "chat", "分享") + "</button>" : '<div class="li off" aria-disabled="true"><span class="mn"><span class="nm">' + esc(x.name) + '</span><span class="mt">' + esc(sub) + "</span></span></div>";
  };
- return (same.length ? '<div class="muted" style="padding:6px 2px">同一課</div>' + same.map(row).join("") : "") + (other.length ? '<div class="muted" style="padding:6px 2px">其他課</div>' + other.slice(0, q ? 60 : 30).map(row).join("") + (!q && other.length > 30 ? '<div class="muted" style="padding:6px 2px">其他人請打名字找</div>' : "") : "");
+ return G.order.map((function(g, k) {
+  return '<div class="smh" id="smg' + k + '">' + esc(g) + "<small>" + G.by[g].length + " 人</small></div>" + G.by[g].map(row).join("");
+ })).join("");
+}
+
+function smChips(ML, q) {
+ var G = smGroups(ML, q);
+ if (G.order.length < 2) return "";
+ return G.order.map((function(g, k) {
+  return '<button class="smchip" onclick="smJump(' + k + ')">' + esc(g) + "</button>";
+ })).join("");
+}
+
+function smJump(k) {
+ var box = $("smList"), el = $("smg" + k);
+ if (box && el) box.scrollTop = el.offsetTop - box.offsetTop;
 }
 
 function smFilter() {
- var el = $("smList");
- if (el && S.arg.members) el.innerHTML = smRows(S.arg.members, (S.arg.q || "").trim());
+ var q = (S.arg.q || "").trim(), el = $("smList"), ch = $("smChips");
+ if (el && S.arg.members) {
+  el.innerHTML = smRows(S.arg.members, q);
+  el.scrollTop = 0;
+ }
+ if (ch && S.arg.members) ch.innerHTML = smChips(S.arg.members, q);
 }
 
 function shareMember(name) {

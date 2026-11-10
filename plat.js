@@ -1,4 +1,4 @@
-var PLAT_VER = "0.37.0";
+var PLAT_VER = "0.37.1";
 
 function platHeal() {
  try {
@@ -2075,6 +2075,7 @@ var EDU_LANG = {
 };
 
 function eduState(x) {
+ if (isEhs() && (x.course || x.forMe === false)) return x.course ? [ "na", "", x.due ? "期限 " + md(x.due) : "開課中" ] : null;
  if (x.course) return x.done ? [ "ok", "check", "已完成" ] : x.due && x.due < today() ? [ "ng", "", "已逾期" ] : [ "warn", "", x.due ? "期限 " + md(x.due) : "待完成" ];
  return x.needAck ? x.acked ? [ "ok", "check", "已確認" ] : [ "warn", "", "請看完確認" ] : x.opened ? null : [ "ng", "", "新" ];
 }
