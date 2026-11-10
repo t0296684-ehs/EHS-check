@@ -1,4 +1,4 @@
-var PLAT_VER = "0.37.3";
+var PLAT_VER = "0.37.4";
 
 function platHeal() {
  try {
@@ -4940,7 +4940,7 @@ function classSignGo(id) {
 
 function eduLeft(x) {
  if (!x || !x.course || x.done || !x.videos || !x.videos.length || !x.needSec) return 0;
- var got = (x.watched || 0) + (x._t0 ? (Date.now() - x._t0) / 1e3 : 0);
+ var got = (x.watched || 0) + (x._acc || 0);
  return Math.max(0, Math.ceil(x.needSec - got));
 }
 
@@ -4965,7 +4965,7 @@ function eduVideoHtml(x) {
  var need = Math.round((x.needSec || 0) / 60), left = eduLeft(x), got = x.needSec - left;
  return '<div class="sec">影片<small id="ytPg">' + (x.done ? "已完成" : eduPgTxt(x, left)) + "</small></div>" + '<div class="ytbar"><i id="ytBar" style="width:' + (x.done ? 100 : Math.min(100, x.needSec ? Math.round(100 * got / x.needSec) : 0)) + '%"></i></div>' + x.videos.map((function(v, i) {
   return '<div class="ytw"><div class="ytf"><div id="yt_' + i + '"></div></div><div class="mt">' + esc(v.t) + '</div><div class="ngt" id="ytE' + i + '" hidden></div></div>';
- })).join("") + (x.done ? "" : '<div class="muted sm2">上課時間從第一次打開這堂課算起，要滿 ' + need + " 分鐘" + (x.quiz.length ? "才能考試" : "才能完成") + "；中途可以切到別的畫面。</div>");
+ })).join("") + (x.done ? "" : '<div class="muted sm2">上課時間只算 App 開著、停在這堂課的時間，要滿 ' + need + " 分鐘" + (x.quiz.length ? "才能考試" : "才能完成") + "；關掉 App、切到別的 App 或別的畫面就暫停。</div>");
 }
 
 function eduVideoInit(x) {
@@ -5016,8 +5016,19 @@ function eduVideoInit(x) {
   }
  }
  if (x.done || eduPreview(x) || !eduLeft(x)) return;
+ Y.x = x;
+ x._acc = x._acc || 0;
+ Y.last = Date.now();
+ Y.vis = function() {
+  if (document.visibilityState !== "visible") eduBeat(Y, true); else Y.last = Date.now();
+ };
+ document.addEventListener("visibilitychange", Y.vis);
  Y.tick = setInterval((function() {
   if (S.yt !== Y || S.page !== "eduItem" || S.eduItem !== x) return eduVideoStop();
+  var now = Date.now();
+  if (document.visibilityState === "visible") x._acc += Math.min(5, Math.max(0, (now - Y.last) / 1e3));
+  Y.last = now;
+  if (x._acc >= 30) eduBeat(Y);
   var left = eduLeft(x), pg = $("ytPg"), b = $("ytBar"), lk = $("eduLockT");
   if (pg) pg.textContent = eduPgTxt(x, left);
   if (b) b.style.width = Math.min(100, Math.round(100 * (x.needSec - left) / x.needSec)) + "%";
@@ -5025,9 +5036,31 @@ function eduVideoInit(x) {
   if (!left) {
    clearInterval(Y.tick);
    Y.tick = null;
+   eduBeat(Y);
    bar(x.quiz.length ? eduGoQuizBtn() : '<button class="btn" id="doneBtn" onclick="eduDone()">' + ic("check", 22, 3) + "我已完成（帶入簽名）</button>");
   }
  }), 1e3);
+}
+
+function eduBeat(Y, leaving) {
+ var x = Y && Y.x;
+ if (!x || !(x._acc >= 1) || Y.busy) return;
+ var s = Math.round(x._acc);
+ x._acc -= s;
+ Y.busy = true;
+ api("eduWatch", {
+  id: x.id,
+  v: "",
+  s
+ }, {
+  quiet: true
+ }).then((function(r) {
+  Y.busy = false;
+  if (r && r.watched != null) x.watched = r.watched;
+ })).catch((function() {
+  Y.busy = false;
+  x._acc += s;
+ }));
 }
 
 function eduGoQuizBtn() {
@@ -5089,6 +5122,8 @@ function eduVideoStop() {
  var Y = S.yt;
  if (!Y) return;
  if (Y.tick) clearInterval(Y.tick);
+ if (Y.vis) document.removeEventListener("visibilitychange", Y.vis);
+ eduBeat(Y, true);
  S.yt = null;
 }
 
