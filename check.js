@@ -3143,7 +3143,7 @@ PAGES.shareMake = function() {
   }
  }
  if (D) {
-  h += '<div class="card"><div class="mr"><b>已分享給 ' + esc(D.to) + "</b>" + pill("ok", "check", D.again ? "已再通知一次" : "已分享") + "</div>" + '<div class="muted">' + esc(D.to) + " 的 App 會跳出通知「" + esc(m.person.name) + " 向您分享了「" + esc(D.dept) + "」" + md(D.date) + " 的每日檢點表」，首頁最上面也會顯示，" + md(D.date) + " 當天就能填。<br>請記得先跟 " + esc(D.to) + " 講好。</div></div>";
+  h += '<div class="card"><div class="mr"><b>已分享給 ' + esc(D.to) + "</b>" + pill("ok", "check", D.quiet ? "剛剛已通知過" : D.again ? "已再通知一次" : "已分享") + "</div>" + '<div class="muted">' + esc(D.to) + " 的 App 會跳出通知「" + esc(m.person.name) + " 向您分享了「" + esc(D.dept) + "」" + md(D.date) + " 的每日檢點表」，首頁最上面也會顯示，" + md(D.date) + " 當天就能填。<br>請記得先跟 " + esc(D.to) + " 講好。</div></div>";
  }
  if (L) {
   h += '<div class="card"><div class="mr"><b>' + esc(L.dept) + "　" + md(L.date) + " 代填連結</b>" + pill("ok", "check", "已產生") + "</div>" + '<div class="muted">只能在 ' + md(L.date) + "（" + wk(L.date) + "）當天使用，填那天的每日檢點表，23:59 失效。拿到連結的人送出時要寫姓名並當場簽名。</div>" + '<div class="cprow"><input class="field" id="shareUrl" readonly value="' + esc(L.url) + '" onclick="this.select()">' + '<button class="btn navy sm" id="cpBtn" onclick="copyShare()">' + ic("check", 18, 2.6) + "複製網址</button></div></div>";
