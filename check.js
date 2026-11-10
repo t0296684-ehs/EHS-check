@@ -2065,7 +2065,7 @@ PAGES.fill = function() {
   }));
   if (f.evidence && !a.daily) side = evHtml(f, fm);
  }
- var sig = S.share ? '<div class="box info"><div class="r">' + ic("pen", 22) + '<div class="bt"><b>勾完按送出，下一步請寫姓名並簽名</b><div class="m">代填的檢點要本人當場簽名才算數。</div></div></div></div>' : '<div class="sigcard"><img src="' + esc(S.me.signature.image) + '" alt="您的簽名"><div class="stx"><b>送出時自動帶入您的簽名</b>不用再簽</div></div>';
+ var sig = S.share ? '<div class="box info"><div class="r">' + ic("pen", 22) + '<div class="bt"><b>' + (S.share.member ? "勾完按送出，下一步確認後用您的電子簽名送出" : "勾完按送出，下一步請寫姓名並簽名") + '</b><div class="m">' + (S.share.member ? "紀錄上會寫您的名字，代 " + esc(S.share.d ? S.share.d.creator : "") + " 檢點。" : "代填的檢點要本人當場簽名才算數。") + "</div></div></div></div>" : '<div class="sigcard"><img src="' + esc(S.me.signature.image) + '" alt="您的簽名"><div class="stx"><b>送出時自動帶入您的簽名</b>不用再簽</div></div>';
  if (side && isDesk()) h = '<div class="fdesk"><div class="fmain">' + h + '</div><div class="fside">' + side + sig + "</div></div>"; else h += side + sig;
  $("app").innerHTML = h;
  fillBar();
@@ -3104,31 +3104,99 @@ PAGES.shareMake = function() {
   }));
  }));
  if (!S.arg.dept && ds.length === 1) S.arg.dept = ds[0].id;
- var h = '<div class="box info"><div class="r">' + ic("info", 22) + '<div class="bt"><b>休假或沒辦法檢點時用</b><div class="m">產生一個連結傳給同事，同事用手機打開就能填<b>那一天</b>的每日檢點表，不用裝 App、不用登入。送出時要寫姓名並當場簽名。連結只在那一天有效。</div></div></div></div>';
- if (ds.length > 1) h += '<div class="sec">哪一課</div><div class="depts">' + ds.map((function(d, i) {
+ var h = '<div class="box info"><div class="r">' + ic("info", 22) + '<div class="bt"><b>休假或沒辦法檢點時用</b><div class="m">' + "① 選哪一天　② 選同事，直接分享到他的 App（他會收到通知，用他自己的電子簽名送出）。<br>同事沒有 App 帳號，才用最下面的「代填連結」傳 LINE。只能填<b>那一天</b>的每日檢點表。</div></div></div></div>";
+ if (ds.length > 1) h += '<div class="sec">哪一課</div><div class="depts">' + ds.map((function(d) {
   var on = S.arg.dept === d.id;
   return '<button class="dept' + (on ? " on" : "") + '" aria-pressed="' + on + '" onclick="S.arg={dept:' + jsq(d.id) + '};render()">' + (on ? ic("check", 16, 3.2) : "") + esc(d.id) + "</button>";
  })).join("") + "</div>";
- var L = S.arg.link, t = today();
- if (!L && S.arg.dept) {
+ var L = S.arg.link, D = S.arg.done, t = today();
+ if (!L && !D && S.arg.dept) {
   var days = [ 0, 1, 2, 3, 4, 5, 6, 7 ].map((function(n) {
    var d = nowD();
    d.setDate(d.getDate() + n);
    return ymd(d);
   }));
   if (!S.arg.date) S.arg.date = t;
-  h += '<div class="sec">哪一天要代填</div><div class="depts">' + days.map((function(d, i) {
+  h += '<div class="sec">① 哪一天要代填</div><div class="depts">' + days.map((function(d, i) {
    var on = S.arg.date === d, lab = i === 0 ? "今天" : i === 1 ? "明天" : i === 2 ? "後天" : md(d) + "（" + wk(d) + "）";
    return '<button class="dept' + (on ? " on" : "") + '" aria-pressed="' + on + '" onclick="S.arg.date=' + jsq(d) + ';render()">' + (on ? ic("check", 16, 3.2) : "") + esc(lab) + "</button>";
   })).join("") + "</div>";
+  h += '<div class="sec">② 分享給誰</div>';
+  var ML = S.arg.members;
+  if (!ML) {
+   h += '<div id="smList">' + loading("讀取同事名單…") + "</div>";
+   api("shareMembers", {
+    deptId: S.arg.dept
+   }).then((function(r) {
+    if (S.page !== "shareMake") return;
+    S.arg.members = r;
+    render();
+   })).catch((function(e) {
+    var el = $("smList");
+    if (el) el.innerHTML = errBox("讀不到同事名單", e.message);
+   }));
+  } else {
+   var q = (S.arg.q || "").trim();
+   h += '<input class="field" id="smQ" type="search" placeholder="打名字或課別找人" value="' + esc(S.arg.q || "") + '" oninput="S.arg.q=this.value;smFilter()">';
+   h += '<div class="list" id="smList">' + smRows(ML, q) + "</div>";
+  }
+ }
+ if (D) {
+  h += '<div class="card"><div class="mr"><b>已分享給 ' + esc(D.to) + "</b>" + pill("ok", "check", D.again ? "已再通知一次" : "已分享") + "</div>" + '<div class="muted">' + esc(D.to) + " 的 App 會跳出通知「" + esc(m.person.name) + " 向您分享了「" + esc(D.dept) + "」" + md(D.date) + " 的每日檢點表」，首頁最上面也會顯示，" + md(D.date) + " 當天就能填。<br>請記得先跟 " + esc(D.to) + " 講好。</div></div>";
  }
  if (L) {
-  h += '<div class="card"><div class="mr"><b>' + esc(L.dept) + "　" + md(L.date) + " 代填連結</b>" + pill("ok", "check", "已產生") + "</div>" + '<div class="muted">只能在 ' + md(L.date) + "（" + wk(L.date) + "）當天使用，填那天的每日檢點表，23:59 失效。</div>" + '<div class="cprow"><input class="field" id="shareUrl" readonly value="' + esc(L.url) + '" onclick="this.select()">' + '<button class="btn navy sm" id="cpBtn" onclick="copyShare()">' + ic("check", 18, 2.6) + "複製網址</button></div></div>";
+  h += '<div class="card"><div class="mr"><b>' + esc(L.dept) + "　" + md(L.date) + " 代填連結</b>" + pill("ok", "check", "已產生") + "</div>" + '<div class="muted">只能在 ' + md(L.date) + "（" + wk(L.date) + "）當天使用，填那天的每日檢點表，23:59 失效。拿到連結的人送出時要寫姓名並當場簽名。</div>" + '<div class="cprow"><input class="field" id="shareUrl" readonly value="' + esc(L.url) + '" onclick="this.select()">' + '<button class="btn navy sm" id="cpBtn" onclick="copyShare()">' + ic("check", 18, 2.6) + "複製網址</button></div></div>";
  }
  h += '<div id="shareErr"></div>';
+ if (!L && !D && S.arg.dept) h += '<div class="sec">同事沒有 App 帳號</div><button class="btn ghost" id="mkBtn" onclick="shareMake()">' + ic("ext", 22, 2.2) + "改用代填連結（傳 LINE，要當場簽名）</button>";
  $("app").innerHTML = h;
- if (L) bar('<button class="btn" onclick="shareTo(' + jsq("請幫忙填 " + L.dept + " " + md(L.date) + "（" + wk(L.date) + "）的每日檢點表，那天打開這個連結就能填：" + L.url) + ')">' + ic("chat", 22, 2.4) + "用 LINE／訊息傳給同事</button>"); else if (S.arg.dept) bar('<button class="btn" id="mkBtn" onclick="shareMake()">' + ic("ext", 22, 2.2) + "產生" + (S.arg.date === t ? "今天" : " " + md(S.arg.date) + " ") + "的代填連結</button>");
+ if (L) bar('<button class="btn" onclick="shareTo(' + jsq("請幫忙填 " + L.dept + " " + md(L.date) + "（" + wk(L.date) + "）的每日檢點表，那天打開這個連結就能填：" + L.url) + ')">' + ic("chat", 22, 2.4) + "用 LINE／訊息傳給同事</button>"); else if (D) bar('<button class="btn" onclick="S.stack=[];go(\'home\',{},true)">' + ic("check", 22, 2.6) + "完成，回首頁</button>"); else bar("");
 };
+
+function smRows(ML, q) {
+ var xs = ML.filter((function(x) {
+  return !q || x.name.indexOf(q) >= 0 || x.depts.join("、").indexOf(q) >= 0;
+ }));
+ if (!xs.length) return '<div class="empty">找不到「' + esc(q) + "」</div>";
+ var same = xs.filter((function(x) {
+  return x.same;
+ })), other = xs.filter((function(x) {
+  return !x.same;
+ }));
+ var row = function(x) {
+  var sub = x.depts.join("、") + (x.sig ? "" : "・還沒在 App 簽名，不能代填");
+  return x.sig ? '<button class="li" onclick="shareMember(' + jsq(x.name) + ')"><span class="mn"><span class="nm">' + esc(x.name) + '</span><span class="mt">' + esc(sub) + "</span></span>" + pill("na", "chat", "分享") + "</button>" : '<div class="li off" aria-disabled="true"><span class="mn"><span class="nm">' + esc(x.name) + '</span><span class="mt">' + esc(sub) + "</span></span></div>";
+ };
+ return (same.length ? '<div class="muted" style="padding:6px 2px">同一課</div>' + same.map(row).join("") : "") + (other.length ? '<div class="muted" style="padding:6px 2px">其他課</div>' + other.slice(0, q ? 60 : 30).map(row).join("") + (!q && other.length > 30 ? '<div class="muted" style="padding:6px 2px">其他人請打名字找</div>' : "") : "");
+}
+
+function smFilter() {
+ var el = $("smList");
+ if (el && S.arg.members) el.innerHTML = smRows(S.arg.members, (S.arg.q || "").trim());
+}
+
+function shareMember(name) {
+ var d = S.arg.date || today();
+ if (!confirm("分享給 " + name + "，請他代填 " + md(d) + "（" + wk(d) + "）的每日檢點表？\n\n請先跟 " + name + " 講好；他的 App 會跳出通知。")) return;
+ busyOn("分享中…");
+ api("shareMember", {
+  deptId: S.arg.dept,
+  date: d,
+  to: name
+ }).then((function(r) {
+  busyOff();
+  S.arg = {
+   dept: S.arg.dept,
+   date: d,
+   done: r
+  };
+  render();
+ })).catch((function(e) {
+  busyOff();
+  $("shareErr").innerHTML = errBox("沒有分享成功", e.message);
+  window.scrollTo(0, document.body.scrollHeight);
+ }));
+}
 
 function copyShare() {
  var el = $("shareUrl"), txt = el.value, done = function() {
@@ -3209,22 +3277,27 @@ PAGES.proxy = function() {
  var sh = S.share;
  if (!sh.d) {
   $("app").innerHTML = loading("讀取連結中…");
-  api("shareOpen", {
+  (sh.member ? api("shareOpenM", {
+   link: sh.link
+  }) : api("shareOpen", {
    share: sh.token
   }, {
    token: "-"
-  }).then((function(d) {
+  })).then((function(d) {
    sh.d = d;
    S.me = shareMe(d);
+   if (sh.member) S.me.person.name = sh.name;
    render();
   })).catch((function(e) {
-   $("app").innerHTML = errBox(e.biz ? "這個連結不能用" : "連不上系統", e.message) + (e.biz ? "" : '<button class="btn navy" onclick="render()">再試一次</button>');
+   $("app").innerHTML = errBox(e.biz ? sh.member ? "這份代填分享不能用" : "這個連結不能用" : "連不上系統", e.message) + (e.biz ? "" : '<button class="btn navy" onclick="render()">再試一次</button>');
+   if (sh.member) bar(shareExitBtn());
   }));
   return;
  }
  var d = sh.d;
  S.hero = '<div class="hero-in"><div class="brand"><span class="logo">' + '<img src="icon-192.png" alt="" style="width:100%;height:100%;border-radius:inherit;display:block">' + "</span>員和環安衛系統</div>" + '<div class="hn"><div class="h1">代填 ' + esc(d.dept) + '</div><div class="hsub">' + md(d.date) + "（" + wk(d.date) + "）的每日檢點・" + esc(d.creator) + " 請您幫忙・今天 23:59 前有效</div></div></div>";
  var h = "";
+ if (sh.member) h += '<div class="box warn"><div class="r">' + ic("info", 22) + '<div class="bt"><b>' + esc(d.creator) + ' 向您分享了這一課的表單</b><div class="m">請先向 ' + esc(d.creator) + " 本人確認是否代填本日。送出會用您的電子簽名，不用再簽一次。</div></div></div></div>";
  if (d.locked) h += errBox("這個月已經送審", "不能再填，請洽單位負責人。");
  h += '<div class="sec">今天的每日檢點表</div><div class="list">' + d.daily.map((function(x) {
   var f = d.forms[x.form], key = d.dept + "|" + x.form + "||";
@@ -3235,12 +3308,18 @@ PAGES.proxy = function() {
  })).join("") + "</div>";
  h += '<div class="muted" style="margin-top:12px">已經有人檢點的表不能再改。填錯了請告訴 ' + esc(d.creator) + " 或單位負責人。</div>";
  $("app").innerHTML = h;
+ if (sh.member) bar(shareExitBtn());
 };
 
 PAGES.psign = function() {
  var a = A(S.arg.key), fm = S.fill, f = F(a.form, fm && fm.date);
  if (!fm) return back();
  setTitle("簽名送出");
+ if (S.share.member) {
+  $("app").innerHTML = '<div class="h2">' + esc(f.name) + '</div><div class="lead">' + esc(S.share.d.dept) + "・" + md(fm.date) + (fm.noWork ? "・今日無作業" : "") + "</div>" + '<div class="box info"><div class="r">' + ic("pen", 22) + '<div class="bt"><b>以 ' + esc(S.share.name) + ' 的電子簽名送出</b><div class="m">紀錄上會寫「' + esc(S.share.name) + "」代 " + esc(S.share.d.creator) + " 檢點。請確認已經向 " + esc(S.share.d.creator) + ' 本人確認過要代填今天。</div></div></div></div><div id="psErr"></div>';
+  bar('<button class="btn" id="psBtn" onclick="proxySubmit()">' + ic("check", 22, 2.8) + "確認並送出</button>");
+  return;
+ }
  var h = '<div class="h2">' + esc(f.name) + '</div><div class="lead">' + esc(S.share.d.dept) + "・" + md(fm.date) + (fm.noWork ? "・今日無作業" : "") + "</div>" + '<label class="nl req" for="pname">您的姓名</label><input id="pname" class="field" maxlength="20" autocomplete="name" placeholder="請寫全名" value="' + esc(S.share.name || "") + '" oninput="S.share.name=this.value">';
  if (!fm.noWork) h += '<div class="h2" style="margin-top:16px">在直的框裡，由上往下簽全名</div>' + '<div class="sigwrap"><div class="sigv"><div class="arw" aria-hidden="true"><span>由</span><span>上</span><span>往</span><span>下</span>' + '<svg class="ic" width="28" height="110" viewBox="0 0 28 110" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v98M4 90l10 12 10-12"/></svg></div>' + '<canvas id="cv" class="sigbox" aria-label="直式簽名區，由上往下簽"></canvas><span class="sp"></span></div>' + '<div class="right"><button class="btn ghost sm" onclick="sigClear()">' + ic("refresh", 18) + "清除重簽</button></div></div>";
  h += '<div id="psErr"></div>';
@@ -3251,6 +3330,7 @@ PAGES.psign = function() {
 
 function proxySubmit() {
  var a = A(S.arg.key), fm = S.fill, sh = S.share;
+ if (sh.member) return proxySubmitM(a, fm, sh);
  var name = ($("pname").value || "").trim();
  sh.name = name;
  var nw = nameWhy(name);
@@ -3297,6 +3377,78 @@ function proxySubmit() {
   btn.className = "btn";
   btn.textContent = "再送一次";
  }));
+}
+
+function proxySubmitM(a, fm, sh) {
+ var btn = $("psBtn");
+ btn.disabled = true;
+ btn.className = "btn busy";
+ btn.innerHTML = '<span class="spin"></span>送出中…';
+ fm.submitId = fm.submitId || newId();
+ api("shareSubmitM", {
+  link: sh.link,
+  submitId: fm.submitId,
+  formId: a.form,
+  results: fm.noWork ? {} : fm.r,
+  notes: fm.noWork ? {} : fm.n,
+  noWork: fm.noWork
+ }).then((function() {
+  draftDrop(fm);
+  S.fill = null;
+  sh.d = null;
+  S.stack = [];
+  S.page = "proxy";
+  S.arg = {};
+  render();
+  toast("已送出，謝謝您", "ok", 3e3);
+ })).catch((function(e) {
+  if (!$("psErr")) return toast(esc(e.message), "err", 5e3);
+  $("psErr").innerHTML = errBox("送出沒有成功", e.message);
+  btn.disabled = false;
+  btn.className = "btn";
+  btn.textContent = "再送一次";
+ }));
+}
+
+function shareEnter(id) {
+ var x = (S.me.shared || []).filter((function(y) {
+  return y.id === id;
+ }))[0];
+ if (!x) return;
+ if (x.date !== today()) return toast(md(x.date) + " 當天才能填", "err");
+ S.meBak = S.me;
+ S.share = {
+  member: true,
+  link: id,
+  name: S.me.person.name
+ };
+ S.stack = [];
+ S.arg = {};
+ go("proxy", {}, true);
+}
+
+function shareExitBtn() {
+ return '<button class="btn ghost" onclick="shareExit()">' + ic("back", 22, 2.4) + "回到我的首頁</button>";
+}
+
+function shareExit() {
+ if (S.meBak) S.me = S.meBak;
+ S.meBak = null;
+ S.share = null;
+ S.fill = null;
+ S.stack = [];
+ S.arg = {};
+ go("home", {}, true);
+ refreshMe();
+}
+
+function sharedBlock() {
+ var L = S.me && S.me.shared || [], t = today();
+ if (!L.length) return "";
+ return '<div class="sec">代填分享</div>' + L.map((function(x) {
+  var on = x.date === t;
+  return '<div class="box warn"><div class="r">' + ic("chat", 22) + '<div class="bt"><b>' + esc(x.from) + " 向您分享了「" + esc(x.dept) + "」" + md(x.date) + "（" + wk(x.date) + "）的每日檢點表</b>" + '<div class="m">請先向 ' + esc(x.from) + " 本人確認是否代填" + (on ? "本日" : " " + md(x.date)) + "。" + (on ? "送出會用您的電子簽名。" : md(x.date) + " 當天這裡會出現「開始代填」。") + (x.used ? "<br>已填：" + esc(x.used.replace(/\n/g, "、")) : "") + "</div>" + (on ? '<div style="margin-top:8px"><button class="btn sm" onclick="shareEnter(' + jsq(x.id) + ')">' + ic("pen", 18, 2.4) + "開始代填</button></div>" : "") + "</div></div></div>";
+ })).join("");
 }
 
 function remDefault(a) {

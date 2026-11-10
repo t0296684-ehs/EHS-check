@@ -1,5 +1,5 @@
 {
- "version": "0.36.2",
+ "version": "0.37.0",
  "chapters": [
   {
    "no": 1,
@@ -283,9 +283,10 @@
      ],
      "steps": [
       "On Home tap <b>\"Ask a coworker to fill in\"</b> and choose the day (up to 7 days ahead).",
-      "Tap <b>\"Create fill-in link\"</b> and send it to your coworker on LINE.",
-      "The coworker doesn't sign in; they open the link, fill in the day's form, and <b>sign by hand on the spot</b> when sending.",
-      "The link only works on that day and expires at 23:59."
+      "Under \"Share with\", pick a coworker (same section first; you can type a name) and tap <b>\"Share\"</b>. Their App shows a notification that you shared a form, also at the top of their Home.",
+      "The coworker should confirm with you first. On that day they tap <b>\"Start filling in\"</b>, fill it in and send it with <b>their own e-signature</b> — no need to sign again.",
+      "Only if the coworker has no App account, tap <b>\"Use a fill-in link instead\"</b> at the bottom and send it on LINE; the person opening the link signs by hand when sending.",
+      "Only that day's daily checks can be filled in; it expires at 23:59 that day."
      ],
      "tip": "",
      "warn": false

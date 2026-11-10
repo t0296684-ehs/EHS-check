@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.36.2";
+var APP_VERSION = "0.37.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -2475,7 +2475,7 @@ PAGES.home = function() {
   hs += '<div class="dbar" aria-hidden="true">' + segs + '</div><div class="hnote">每日檢點 ' + daily.length + " 張：" + parts.join("、") + "</div>";
  }
  S.hero = '<div class="hero-in">' + heroTop() + '<div class="hi"><div class="hn"><div class="h1">' + greet() + "，" + esc(m.person.name) + '</div><div class="hsub">' + esc(sub) + "</div></div></div>" + '<div class="hs">' + hs + "</div></div>";
- var top = netBlock() + clockBlock() + outboxBlock(), h = "";
+ var top = netBlock() + clockBlock() + outboxBlock() + (window.sharedBlock ? sharedBlock() : ""), h = "";
  if (tasks.length) h += '<div class="sec"><span class="sl"><span class="cnt">' + tasks.length + "</span>要做的事</span></div>" + tasks.map(taskHtml).join(""); else h += '<div class="card calm">' + ic("check", 24, 3) + "目前沒有要做的事</div>";
  var main = h;
  h = "";
@@ -2516,7 +2516,7 @@ PAGES.home = function() {
   return m.assigns.some((function(a) {
    return a.dept === d.id && a.daily;
   }));
- }))) tl += tile("chat", "請人代填", "go('shareMake')", "", "休假時給同事限時連結");
+ }))) tl += tile("chat", "請人代填", "go('shareMake')", "", "休假時分享給同事代填");
  if (!ehs && !mgr && m.claimable.length) tl += tile("plus", "申請表單", "go('claim')", "", "想多負責本課其他表或設備");
  if (mgr || ehs) tl += tile("review", "審核紀錄", "go('packages')");
  if (mgr || ehs) tl += tile("swap", "部門管理", "S.team=null;go('team')", "", "人員、表單、設備與負責人");

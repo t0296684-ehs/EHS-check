@@ -1,4 +1,4 @@
-var PLAT_VER = "0.36.2";
+var PLAT_VER = "0.37.0";
 
 function platHeal() {
  try {
@@ -170,6 +170,7 @@ PLAT_PAGES.menu = function() {
   var on = modOn(x.key);
   return '<button class="mcard' + (on ? "" : " locked") + '" style="--c:' + x.color + '" onclick="' + (on ? "goMod(" + jsq(x.key) + ")" : "permAsk(" + jsq(x.key) + ")") + '">' + '<span class="mi">' + ic(x.icon, 30, 2.1) + '</span><span class="mx"><b>' + esc(x.name) + "</b><small>" + esc(on ? subs[x.key] : "沒有權限・點這裡申請") + "</small></span>" + (on ? (badge[x.key] ? '<span class="mb">' + badge[x.key] + "</span>" : "") + ic("chev", 20, 2.6) : ic("lock", 20, 2.4)) + "</button>";
  })).join("") + "</div>";
+ if (window.sharedBlock) h = sharedBlock() + h;
  h += pushCard();
  h += agentCard();
  h += supportCard();
