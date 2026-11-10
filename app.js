@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.37.5";
+var APP_VERSION = "0.37.6";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -1131,6 +1131,9 @@ function render() {
  if (window.drawSide) drawSide();
  if (window.xeFab) xeFab();
  if (window.coachAfter) coachAfter();
+ if ((p === "menu" || p === "home") && window.lobbyMaybe) setTimeout((function() {
+  if (S.page === p && !document.querySelector(".coach, #pDlg")) lobbyMaybe();
+ }), 500);
 }
 
 function netTag() {

@@ -1,4 +1,4 @@
-var PLAT_VER = "0.37.5";
+var PLAT_VER = "0.37.6";
 
 function platHeal() {
  try {
@@ -132,6 +132,85 @@ function checkSub() {
   return a.daily && F(a.form) && !(pendingFor(a, t) || a.due.todayDone);
  })).length;
  return todo ? "今天還有 " + todo + " 張要做" : "今天的檢點都做完了";
+}
+
+function lobbyItems() {
+ var m = S.me;
+ if (!m || S.share || S.dev) return [];
+ var t = today(), sDay = m.submitDay || 5, rDay = m.reviewDay || 15, out = [];
+ var when = function(due) {
+  var n = dDays(due);
+  return n == null ? "" : n < 0 ? "已逾時 " + -n + " 天" : n === 0 ? "今天到期" : "期限 " + md(due) + "・剩 " + n + " 天";
+ };
+ (m.months || []).forEach((function(x) {
+  if (!(x.period < t.slice(0, 7)) || x.status !== "填寫中" && x.status !== "退回" || window.mgrOf && mgrOf(x.dept) || window.demoDept && demoDept(x.dept)) return;
+  if (m.startPeriod && x.period < m.startPeriod) return;
+  var due = monthDue(x.period, sDay), mo = Number(x.period.slice(5));
+  out.push({
+   red: dDays(due) < 0 || x.status === "退回",
+   title: "請先送出 " + mo + " 月的檢點紀錄",
+   sub: (window.dn ? dn(x.dept) : x.dept + "・") + (x.status === "退回" ? "被退回" + (x.reason ? "：" + x.reason : "") + "・" : "") + when(due),
+   btn: "去送審",
+   on: goMonth(x.dept, x.period)
+  });
+ }));
+ (m.envDue || []).forEach((function(x) {
+  if (x.need === "confirm") return;
+  var due = monthDue(x.period, sDay), mo = Number(x.period.slice(5));
+  out.push({
+   red: dDays(due) < 0,
+   title: "請先送出 " + x.name + " " + mo + " 月抄表紀錄",
+   sub: "環保抄表・" + when(due),
+   btn: "去送出",
+   on: "S.envM=null;go('envMonth',{sys:" + jsq(x.sys) + ",period:" + jsq(x.period) + "})"
+  });
+ }));
+ if (m.pendingReview && m.person.role !== "環安衛") {
+  out.push({
+   red: Number(t.slice(8)) > rDay,
+   title: "有 " + m.pendingReview + " 份檢點紀錄等您審核",
+   sub: "單位負責人・每月 " + rDay + " 號前核准",
+   btn: "去審核",
+   on: "go('packages')"
+  });
+ }
+ if (m.person.role === "環安衛" && m.pendingReview) out.push({
+  title: "有 " + m.pendingReview + " 份等您歸檔",
+  sub: "環安衛・主管核准後歸檔",
+  btn: "去歸檔",
+  on: "go('packages')"
+ });
+ return out.sort((function(a, b) {
+  return (b.red ? 1 : 0) - (a.red ? 1 : 0);
+ }));
+}
+
+function lobbyMaybe() {
+ var L = lobbyItems();
+ if (!L.length || $("lobby")) return;
+ var key = L.map((function(x) {
+  return x.title;
+ })).join("|");
+ try {
+  if (sessionStorage.getItem("chk_lobby") === key) return;
+  sessionStorage.setItem("chk_lobby", key);
+ } catch (e) {}
+ var d = document.createElement("div");
+ d.id = "lobby";
+ d.className = "dlg lobby";
+ d.setAttribute("role", "alertdialog");
+ d.innerHTML = '<div class="bx"><button class="lbx" aria-label="關閉" onclick="lobbyClose()">' + ic("x", 22, 2.6) + "</button>" + '<div class="lbh">' + ic("bell", 26, 2.2) + "<b>開始之前，請先完成</b></div>" + L.map((function(x, i) {
+  return '<div class="lbi' + (x.red ? " red" : "") + '"><div class="lbt"><b>' + esc(x.title) + "</b><small>" + esc(x.sub) + "</small></div>" + '<button class="btn sm' + (i ? " line" : "") + '" onclick="lobbyClose();' + x.on + '">' + esc(x.btn) + "</button></div>";
+ })).join("") + '<button class="btn ghost" onclick="lobbyClose()">稍後再說</button></div>';
+ d.onclick = function(e) {
+  if (e.target === d) lobbyClose();
+ };
+ document.body.appendChild(d);
+}
+
+function lobbyClose() {
+ var d = $("lobby");
+ if (d) d.remove();
 }
 
 PLAT_PAGES.menu = function() {
