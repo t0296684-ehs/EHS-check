@@ -1,4 +1,4 @@
-var PLAT_VER = "0.37.2";
+var PLAT_VER = "0.37.3";
 
 function platHeal() {
  try {
@@ -2074,14 +2074,34 @@ var EDU_LANG = {
  en: "English"
 };
 
+function eduPreview(x) {
+ return isEhs() && !S.dev && !!x && x.forMe === false;
+}
+
+function minsToH(m) {
+ var n = Number(m);
+ return n > 0 ? String(Math.round(n / 60 * 100) / 100) : "";
+}
+
+function eduDur(h) {
+ var m = Math.round(Number(h) * 60);
+ return !(m > 0) ? "" : m % 60 ? m + " 分鐘" : m / 60 + " 小時";
+}
+
+function eduMinsChips(id, key) {
+ return '<div class="minchips">' + [ 30, 60, 90, 120, 180 ].map((function(m) {
+  return '<button class="chip" onclick="var e=$(\'' + id + "');e.value=" + m + ';e.oninput()">' + m + " 分</button>";
+ })).join("") + "</div>";
+}
+
 function eduState(x) {
- if (isEhs() && (x.course || x.forMe === false)) return x.course ? [ "na", "", x.due ? "期限 " + md(x.due) : "開課中" ] : null;
+ if (isEhs() && x.forMe === false) return x.course ? [ "na", "", x.due ? "期限 " + md(x.due) : "開課中" ] : null;
  if (x.course) return x.done ? [ "ok", "check", "已完成" ] : x.due && x.due < today() ? [ "ng", "", "已逾期" ] : [ "warn", "", x.due ? "期限 " + md(x.due) : "待完成" ];
  return x.needAck ? x.acked ? [ "ok", "check", "已確認" ] : [ "warn", "", "請看完確認" ] : x.opened ? null : [ "ng", "", "新" ];
 }
 
 function eduRow(x) {
- var st = eduState(x), meta = x.cat + (x.course && x.hours ? "・" + x.hours + " 小時" : "") + "・" + x.time.slice(5, 10).replace("-", "/") + (x.files.length ? "・" + x.files.length + " 個附件" : "");
+ var st = eduState(x), meta = x.cat + (x.course && x.hours ? "・" + eduDur(x.hours) : "") + "・" + x.time.slice(5, 10).replace("-", "/") + (x.files.length ? "・" + x.files.length + " 個附件" : "");
  return '<button class="li' + (x.opened ? "" : " unread") + "\" onclick=\"go('eduItem',{id:" + jsq(x.id) + '})"><span class="mn"><span class="mt">' + esc(meta) + '</span><span class="nm">' + (x.opened ? "" : '<i class="ndot"></i>') + esc(x.title) + "</span></span>" + (st ? pill(st[0], st[1], st[2]) : "") + "</button>";
 }
 
@@ -2108,7 +2128,7 @@ PLAT_PAGES.edu = function() {
   return d.mgr;
  })) ? "訓練時數（近三年）" : "我的訓練時數（近三年）") + "</button>";
  var isTodo = function(x) {
-  return x.forMe !== false && (x.course ? !isEhs() && !x.done : x.needAck ? !x.acked : !x.opened);
+  return x.forMe !== false && (x.course ? !x.done : x.needAck ? !x.acked : !x.opened);
  };
  var todoL = e.list.filter(isTodo).sort((function(a, b) {
   return String(a.due || "9999").localeCompare(String(b.due || "9999")) || (b.course ? 1 : 0) - (a.course ? 1 : 0);
@@ -2168,7 +2188,7 @@ PLAT_PAGES.eduItem = function() {
   }));
   return;
  }
- var info = [ x.time.slice(0, 10).replace(/-/g, "/"), x.by ].concat(x.course ? [ x.hours ? x.hours + " 小時" : "", x.teacher ? "講師 " + x.teacher : "", x.due ? "期限 " + md(x.due) : "" ] : []).filter(String).join("・");
+ var info = [ x.time.slice(0, 10).replace(/-/g, "/"), x.by ].concat(x.course ? [ x.hours ? eduDur(x.hours) : "", x.teacher ? "講師 " + x.teacher : "", x.due ? "期限 " + md(x.due) : "" ] : []).filter(String).join("・");
  var h = '<div class="card edi"><div class="mt">' + pill(EDU_CAT_COLOR[x.cat] || "na", "", x.cat) + "　" + esc(info) + "</div>" + '<h2 class="gh">' + esc(x.title) + "</h2>" + (x.body ? '<div class="edb">' + esc(x.body) + "</div>" : "") + "</div>";
  var pl = Object.keys(x.pages || {});
  if (pl.length) {
@@ -2210,23 +2230,17 @@ PLAT_PAGES.eduItem = function() {
  }
  if (x.videos && x.videos.length) h += eduVideoHtml(x);
  if (x.link) h += '<button class="btn line" onclick="openUrl(' + jsq(x.link) + ')">' + ic("link", 18, 2.4) + "打開相關連結</button>";
- var vLeft = eduLeft(x), ehsView = isEhs() && !S.dev;
- if (x.course && x.quiz.length && !x.done && (!vLeft || ehsView)) {
-  var q = S.eq || (S.eq = {
-   ans: [],
-   wrong: []
-  });
-  h += '<div class="sec" id="quizTop">考試<small>' + x.quiz.length + " 題・" + (x.pass || 100) + " 分以上及格，沒過要整份重考</small></div>" + (x.lastScore != null && x.tries ? '<div class="card ngt">上次 ' + x.lastScore + " 分，沒有到 " + (x.pass || 100) + " 分，請再考一次（已考 " + x.tries + " 次）</div>" : "") + x.quiz.map((function(y, i) {
-   return '<div class="card quiz' + (q.wrong.indexOf(i + 1) >= 0 ? " bad" : "") + '"><b>' + (i + 1) + ". " + esc(y.q) + "</b>" + y.opts.map((function(o, k) {
-    return '<label class="ck"><input type="radio" name="q' + i + '"' + (q.ans[i] === k ? " checked" : "") + ' onchange="S.eq.ans[' + i + "]=" + k + '"><span>' + esc(o) + "</span></label>";
-   })).join("") + (q.wrong.indexOf(i + 1) >= 0 ? '<div class="ngt">這題答錯了（預覽）</div>' : "") + "</div>";
-  })).join("");
-  var needRead = pl.length && !x.readDone && !isEhs();
-  h += isEhs() && !S.dev ? '<button class="btn line" onclick="eduDone(true)">' + ic("check", 20, 3) + "預覽批改（環安衛不簽到）</button>" : needRead ? '<button class="btn" disabled>' + ic("lock", 20, 2.6) + "先看完教材才能送出</button>" : '<button class="btn" onclick="eduDone()">' + ic("check", 22, 3) + "交卷（及格就完成並帶入簽名）</button>";
+ var vLeft = eduLeft(x), ehsView = eduPreview(x);
+ if (x.course && x.quiz.length && !x.done) {
+  var needRead = pl.length && !x.readDone && !ehsView;
+  h += '<div class="sec" id="quizTop">考試</div><div class="card qintro"><div class="qi">' + ic("clip", 26, 2.2) + "</div><div><b>" + x.quiz.length + " 題選擇題・" + (x.pass || 100) + " 分及格</b>" + '<div class="muted">' + (ehsView ? "環安衛可以先預覽考題（不簽到）" : vLeft ? "上課時間滿了才能考試" : needRead ? "先看完教材才能考試" : "上完課按下面「我已上課完成，去考試」") + "・沒過要整份重考</div>" + (x.lastScore != null && x.tries ? '<div class="ngt">上次 ' + x.lastScore + " 分，沒有到 " + (x.pass || 100) + " 分（已考 " + x.tries + " 次）</div>" : "") + "</div></div>";
  }
  $("app").innerHTML = h;
  eduVideoInit(x);
- if (isEhs() && !S.dev) return;
+ if (ehsView) {
+  if (x.course && x.quiz.length) bar('<button class="btn line" onclick="eduQuizGo()">' + ic("clip", 20, 2.4) + "預覽考題（環安衛不簽到）</button>");
+  return;
+ }
  var rd0 = pl.length && !x.readDone ? '<button class="btn" onclick="go(\'eduRead\',{id:' + jsq(x.id) + ",lang:" + jsq(pl[0]) + '})">' + ic("book", 22, 2.6) + "開始閱讀</button>" : "";
  if (!x.course && pl.length) {
   bar(x.acked || x.readDone ? '<div class="donebar">' + ic("check", 20, 3) + "已閱讀" + (x.ackAt ? "・" + esc(x.ackAt.slice(5).replace("-", "/")) : "") + "</div>" : rd0);
@@ -2237,7 +2251,7 @@ PLAT_PAGES.eduItem = function() {
   return;
  }
  if (x.course) {
-  if (x.done) bar('<div class="donebar">' + ic("check", 20, 3) + "已完成・" + esc(x.doneAt.slice(5).replace("-", "/")) + (x.score ? "・測驗 " + esc(x.score) : "") + "・已簽到</div>"); else if (vLeft) bar(eduLockBtn(x, vLeft)); else if (!x.quiz.length) bar('<button class="btn" id="doneBtn" onclick="eduDone()">' + ic("check", 22, 3) + "我已完成（帶入簽名）</button>");
+  if (x.done) bar('<div class="donebar">' + ic("check", 20, 3) + "已完成・" + esc(x.doneAt.slice(5).replace("-", "/")) + (x.score ? "・測驗 " + esc(x.score) : "") + "・已簽到</div>"); else if (vLeft) bar(eduLockBtn(x, vLeft)); else if (x.quiz.length) bar(eduGoQuizBtn()); else if (!x.quiz.length) bar('<button class="btn" id="doneBtn" onclick="eduDone()">' + ic("check", 22, 3) + "我已完成（帶入簽名）</button>");
  } else if (x.needAck && !x.acked) bar('<button class="btn" id="ackBtn" onclick="eduAck()">' + ic("check", 22, 3) + "我已閱讀，了解內容</button>"); else if (x.acked) bar('<div class="donebar">' + ic("check", 20, 3) + "已確認閱讀・" + esc(x.ackAt.slice(5).replace("-", "/")) + "</div>");
 };
 
@@ -2444,11 +2458,10 @@ function eduDone(dry) {
  }, sig = S.me.signature;
  for (var i = 0; i < x.quiz.length; i++) if (q.ans[i] == null) {
   toast("第 " + (i + 1) + " 題還沒作答", "err");
-  var c = document.querySelectorAll(".quiz")[i];
-  if (c) c.scrollIntoView({
-   behavior: "smooth",
-   block: "center"
-  });
+  if (S.page === "eduQuiz") {
+   S.eq.i = i;
+   render();
+  }
   return;
  }
  if (dry) {
@@ -2459,9 +2472,16 @@ function eduDone(dry) {
    dry: true
   }).then((function(r) {
    busyOff();
-   S.eq.wrong = r.wrong || [];
+   S.eq.res = {
+    dry: true,
+    pass: r.done,
+    score: r.score,
+    need: r.pass,
+    right: r.right,
+    total: r.total,
+    wrong: r.wrong || []
+   };
    render();
-   toast(r.total ? r.score + " 分（答對 " + r.right + " / " + r.total + " 題，及格 " + r.pass + " 分）・預覽不簽到" : "這堂課沒有測驗", r.done ? "ok" : "err", 4500);
   })).catch((function(e) {
    busyOff();
    toast(esc(e.message), "err", 4500);
@@ -2471,7 +2491,7 @@ function eduDone(dry) {
   go("sign");
  }, "" ] ]);
  if (S.dev) return devBlock("教育訓練完成簽到");
- dlg("<b>完成這堂教育訓練？</b><p>" + esc(x.title) + (x.hours ? "（" + x.hours + " 小時）" : "") + '</p><img class="sigprev" src="' + sig.image + '" alt="我的簽名"><p class="sm">會用您的簽名寫進教育訓練簽到表。</p>', [ [ "確認完成", function() {
+ dlg("<b>完成這堂教育訓練？</b><p>" + esc(x.title) + (x.hours ? "（" + eduDur(x.hours) + "）" : "") + '</p><img class="sigprev" src="' + sig.image + '" alt="我的簽名"><p class="sm">會用您的簽名寫進教育訓練簽到表。</p>', [ [ "確認完成", function() {
   busyOn("送出中…");
   api("eduDone", {
    id: x.id,
@@ -2483,15 +2503,18 @@ function eduDone(dry) {
     x.lastScore = r.score;
     S.eq = {
      ans: [],
-     wrong: []
+     i: 0,
+     res: {
+      pass: false,
+      score: r.score,
+      need: r.pass,
+      right: r.right,
+      total: r.total,
+      tries: r.tries
+     }
     };
     render();
-    var tp = $("quizTop");
-    if (tp) tp.scrollIntoView({
-     behavior: "smooth",
-     block: "start"
-    });
-    return dlg("<b>這次 " + r.score + " 分，沒有及格</b><p>及格是 " + r.pass + " 分（答對 " + r.right + " / " + r.total + " 題）。可以再看一下影片或教材，整份重新作答。</p>", [ [ "再考一次", function() {}, "" ] ]);
+    return;
    }
    x.done = true;
    x.doneAt = r.doneAt;
@@ -2500,8 +2523,16 @@ function eduDone(dry) {
    if (S.edu) S.edu.list.forEach((function(y) {
     if (y.id === x.id) y.done = true;
    }));
-   toast("已完成並簽到，謝謝", "ok", 3500);
-   render();
+   if (S.page === "eduQuiz") {
+    S.eq.res = {
+     pass: true,
+     score: r.score
+    };
+    render();
+   } else {
+    toast("已完成並簽到，謝謝", "ok", 3500);
+    render();
+   }
   })).catch((function(e) {
    busyOff();
    toast(esc(e.message), "err", 4500);
@@ -2605,7 +2636,7 @@ PLAT_PAGES.eduPost = function() {
   return '<button class="' + (b.cat === c ? "on" : "") + '" onclick="S.ep.cat=' + jsq(c) + ";S.ep.needAck=" + (c === "教育訓練") + ';render()">' + c + "</button>";
  })).join("") + "</div>" + '<div class="muted sm2">' + (course ? "教育訓練＝要簽到表：同仁看完按「我已完成」自動簽到；全員完成後您確認，電腦產生 P-05-01-A 簽到表放 NAS。" : "衛教文宣＝不出簽到表：只在「閱讀紀錄」看誰還沒看過。") + "</div>";
  h += '<div class="sec">2. 內容</div><div class="card ev"><label class="nl" for="epT">標題</label><input id="epT" class="field" maxlength="60" placeholder="例：有機溶劑危害告知" value="' + esc(b.title) + '" oninput="S.ep.title=this.value;epBar()">' + '<label class="nl" for="epB">說明</label><textarea id="epB" class="note plain" maxlength="3000" placeholder="重點、要注意的事" oninput="S.ep.body=this.value;epBar()">' + esc(b.body) + "</textarea>";
- if (course) h += '<div class="btns r3"><div><label class="nl" for="epH">時數</label><input id="epH" class="field" inputmode="decimal" placeholder="1" value="' + esc(b.hours) + '" oninput="S.ep.hours=this.value;epBar()"></div>' + '<div><label class="nl" for="epR">講師</label><input id="epR" class="field" value="' + esc(b.teacher) + '" oninput="S.ep.teacher=this.value"></div>' + '<div><label class="nl" for="epD">完成期限</label><input id="epD" class="field" type="date" value="' + esc(b.due) + '" onchange="S.ep.due=this.value"></div></div>';
+ if (course) h += '<div class="btns r3"><div><label class="nl" for="epH">上課時間（分鐘）</label><input id="epH" class="field" inputmode="numeric" placeholder="例：30、40、60" value="' + esc(b.hours) + '" oninput="S.ep.hours=this.value.replace(/[^0-9]/g,\'\');epBar()">' + eduMinsChips("epH") + "</div>" + '<div><label class="nl" for="epR">講師</label><input id="epR" class="field" value="' + esc(b.teacher) + '" oninput="S.ep.teacher=this.value"></div>' + '<div><label class="nl" for="epD">完成期限</label><input id="epD" class="field" type="date" value="' + esc(b.due) + '" onchange="S.ep.due=this.value"></div></div>';
  if (course) h += '<label class="nl" for="epTp">主題（NAS 歷年教育訓練資料裡的資料夾名稱）</label><input id="epTp" class="field" list="eduTopics" placeholder="例：一般安全衛生教育訓練" value="' + esc(b.topic) + '" oninput="S.ep.topic=this.value">' + '<datalist id="eduTopics">' + EDU_TOPICS.map((function(x) {
   return '<option value="' + esc(x) + '">';
  })).join("") + '</datalist><div class="muted sm2">簽到表與教材會放在 歷年教育訓練資料／民國年／主題；同主題的課會放同一個資料夾。</div>';
@@ -2655,7 +2686,7 @@ function epBar() {
  })), miss = [];
  if (!b.title.trim()) miss.push("標題");
  if (!(b.body.trim() || b.files.length || b.link.trim() || vs.length)) miss.push("說明或教材");
- if (b.cat === "教育訓練" && vs.length && !(Number(b.hours) > 0)) miss.push("時數（影片課要填）");
+ if (b.cat === "教育訓練" && vs.length && !(Number(b.hours) > 0)) miss.push("上課時間（影片課要填）");
  if (b.cat === "教育訓練" && b.quiz.some((function(q) {
   return !String(q.q).trim() || q.opts.filter((function(o) {
    return String(o).trim();
@@ -2728,7 +2759,7 @@ function epSend() {
   to,
   needAck: b.needAck,
   mail: b.mail,
-  hours: b.hours,
+  hours: minsToH(b.hours),
   teacher: b.teacher,
   due: b.due,
   quiz: b.quiz,
@@ -4748,7 +4779,7 @@ PLAT_PAGES.classNew = function() {
     depts: r.depts,
     pick: {},
     topic: "",
-    hours: "1",
+    hours: "60",
     teacher: S.me.person.name,
     place: "會議室",
     start: "13:00",
@@ -4761,7 +4792,7 @@ PLAT_PAGES.classNew = function() {
   return;
  }
  var c = S.cn, t = today();
- var h = '<div class="lead">勾選要上課的同仁 → 按「開始上課」。同仁的 App 首頁會出現「我在現場，簽到」，按下就沿用他在系統裡的簽名；也可以掃您手機上的 QR 打開。下課按「完成上課」，產生 P-05-01-A 內訓簽到表，出席的人自動登記時數。</div>' + '<div class="sec">1. 課程</div><div class="card ev">' + '<label class="nl req" for="cnT">課程名稱</label><input class="field" id="cnT" maxlength="40" placeholder="例：堆高機安全作業" value="' + esc(c.topic) + '" oninput="S.cn.topic=this.value;cnBar()">' + '<div class="btns r3"><div><label class="nl req" for="cnH">時數</label><input class="field" id="cnH" inputmode="decimal" value="' + esc(c.hours) + '" oninput="S.cn.hours=this.value;cnBar()"></div>' + '<div><label class="nl" for="cnR">講師</label><input class="field" id="cnR" maxlength="20" value="' + esc(c.teacher) + '" oninput="S.cn.teacher=this.value"></div>' + '<div><label class="nl" for="cnP">地點</label><input class="field" id="cnP" maxlength="30" value="' + esc(c.place) + '" oninput="S.cn.place=this.value"></div></div>' + '<div class="btns r3"><div><label class="nl req" for="cnD">日期</label><input class="field" id="cnD" type="date" max="' + t + '" value="' + t + '"></div>' + '<div><label class="nl req" for="cnS">開始</label><input class="field" id="cnS" type="time" value="' + esc(c.start) + '" onchange="S.cn.start=this.value"></div>' + '<div><label class="nl req" for="cnE">結束</label><input class="field" id="cnE" type="time" value="' + esc(c.end) + '" onchange="S.cn.end=this.value"></div></div></div>';
+ var h = '<div class="lead">勾選要上課的同仁 → 按「開始上課」。同仁的 App 首頁會出現「我在現場，簽到」，按下就沿用他在系統裡的簽名；也可以掃您手機上的 QR 打開。下課按「完成上課」，產生 P-05-01-A 內訓簽到表，出席的人自動登記時數。</div>' + '<div class="sec">1. 課程</div><div class="card ev">' + '<label class="nl req" for="cnT">課程名稱</label><input class="field" id="cnT" maxlength="40" placeholder="例：堆高機安全作業" value="' + esc(c.topic) + '" oninput="S.cn.topic=this.value;cnBar()">' + '<div class="btns r3"><div><label class="nl req" for="cnH">上課時間（分鐘）</label><input class="field" id="cnH" inputmode="numeric" value="' + esc(c.hours) + '" oninput="S.cn.hours=this.value.replace(/[^0-9]/g,\'\');cnBar()">' + eduMinsChips("cnH") + "</div>" + '<div><label class="nl" for="cnR">講師</label><input class="field" id="cnR" maxlength="20" value="' + esc(c.teacher) + '" oninput="S.cn.teacher=this.value"></div>' + '<div><label class="nl" for="cnP">地點</label><input class="field" id="cnP" maxlength="30" value="' + esc(c.place) + '" oninput="S.cn.place=this.value"></div></div>' + '<div class="btns r3"><div><label class="nl req" for="cnD">日期</label><input class="field" id="cnD" type="date" max="' + t + '" value="' + t + '"></div>' + '<div><label class="nl req" for="cnS">開始</label><input class="field" id="cnS" type="time" value="' + esc(c.start) + '" onchange="S.cn.start=this.value"></div>' + '<div><label class="nl req" for="cnE">結束</label><input class="field" id="cnE" type="time" value="' + esc(c.end) + '" onchange="S.cn.end=this.value"></div></div></div>';
  h += '<div class="sec">2. 上課的同仁<small>可以先勾名單，現場再加人</small></div>' + c.depts.map((function(d) {
   var all = d.people.every((function(x) {
    return c.pick[x.name];
@@ -4792,7 +4823,7 @@ function cnNames() {
 function cnBar() {
  if (S.page !== "classNew" || !S.cn) return;
  var n = cnNames().length, ok = n && S.cn.topic.trim().length >= 2 && Number(S.cn.hours) > 0;
- bar('<button class="btn" id="cnBtn"' + (ok ? "" : " disabled") + ' onclick="cnGo()">' + ic("check", 22, 2.6) + (ok ? "開始上課（" + n + " 人）" : !n ? "先勾上課的同仁" : "填好課程名稱和時數") + "</button>");
+ bar('<button class="btn" id="cnBtn"' + (ok ? "" : " disabled") + ' onclick="cnGo()">' + ic("check", 22, 2.6) + (ok ? "開始上課（" + n + " 人）" : !n ? "先勾上課的同仁" : "填好課程名稱和上課時間") + "</button>");
 }
 
 function cnGo() {
@@ -4804,7 +4835,7 @@ function cnGo() {
  api("meetCreate", {
   kind: "class",
   topic: v("cnT"),
-  hours: v("cnH"),
+  hours: minsToH(v("cnH")),
   teacher: v("cnR"),
   place: v("cnP"),
   date: v("cnD"),
@@ -4832,7 +4863,7 @@ function classRoomHtml(st, id) {
    return x.name === a.name;
   }));
  }));
- var h = '<div class="card"><div class="fh"><b>' + esc(m.topic) + '</b></div><div class="muted">' + esc(md(m.date) + " " + m.start + "～" + m.end + "・" + (m.place || "") + "・" + m.hours + " 小時" + (m.teacher ? "・講師 " + m.teacher : "")) + "</div></div>";
+ var h = '<div class="card"><div class="fh"><b>' + esc(m.topic) + '</b></div><div class="muted">' + esc(md(m.date) + " " + m.start + "～" + m.end + "・" + (m.place || "") + "・" + eduDur(m.hours) + (m.teacher ? "・講師 " + m.teacher : "")) + "</div></div>";
  if (m.status !== "進行中") {
   h += '<div class="box ok"><div class="r">' + ic("check", 22) + '<div class="bt"><b>這堂課' + esc(m.status) + "</b>" + (m.sent ? '<div class="m">簽到表已寄給：' + esc(m.sent) + "；出席的人已登記 " + esc(m.hours) + " 小時</div>" : "") + "</div></div></div>";
  } else {
@@ -4984,7 +5015,7 @@ function eduVideoInit(x) {
    document.head.appendChild(sc);
   }
  }
- if (x.done || isEhs() && !S.dev || !eduLeft(x)) return;
+ if (x.done || eduPreview(x) || !eduLeft(x)) return;
  Y.tick = setInterval((function() {
   if (S.yt !== Y || S.page !== "eduItem" || S.eduItem !== x) return eduVideoStop();
   var left = eduLeft(x), pg = $("ytPg"), b = $("ytBar"), lk = $("eduLockT");
@@ -4994,19 +5025,64 @@ function eduVideoInit(x) {
   if (!left) {
    clearInterval(Y.tick);
    Y.tick = null;
-   bar(x.quiz.length ? '<button class="btn" onclick="eduQuizShow()">' + ic("check", 22, 3) + "上課時間到了，開始考試</button>" : '<button class="btn" id="doneBtn" onclick="eduDone()">' + ic("check", 22, 3) + "我已完成（帶入簽名）</button>");
+   bar(x.quiz.length ? eduGoQuizBtn() : '<button class="btn" id="doneBtn" onclick="eduDone()">' + ic("check", 22, 3) + "我已完成（帶入簽名）</button>");
   }
  }), 1e3);
 }
 
-function eduQuizShow() {
+function eduGoQuizBtn() {
+ return '<button class="btn" onclick="eduQuizGo()">' + ic("check", 22, 3) + "我已上課完成，去考試</button>";
+}
+
+function eduQuizGo() {
  eduVideoStop();
+ S.eq = {
+  ans: [],
+  i: 0
+ };
+ go("eduQuiz");
+}
+
+PLAT_PAGES.eduQuiz = function() {
+ var x = S.eduItem;
+ if (!x || !x.course || !x.quiz.length) return back();
+ var q = S.eq || (S.eq = {
+  ans: [],
+  i: 0
+ }), n = x.quiz.length, need = x.pass || 100, ehs = eduPreview(x);
+ setTitle(ehs ? "預覽考題" : "考試");
+ if (q.res) {
+  var R = q.res, h0 = '<div class="card qres">';
+  if (R.pass && !R.dry) h0 += '<div class="ok">' + ic("check", 56, 3) + '</div><div class="big ok">' + (R.score ? esc(String(R.score).replace(/（.*$/, "")) : "及格") + '</div><b>及格，已完成並簽到</b><div class="muted">已用您的簽名寫進教育訓練簽到表，時數已登記。</div>'; else if (R.dry) h0 += '<div class="big ' + (R.pass ? "ok" : "ng") + '">' + R.score + ' 分</div><b>預覽批改（不簽到）</b><div class="muted">答對 ' + R.right + " / " + R.total + " 題，及格 " + R.need + " 分。" + (R.wrong.length ? "答錯：第 " + R.wrong.join("、") + " 題（同仁考試時不會顯示哪題錯）" : "全部答對") + "</div>"; else h0 += '<div class="big ng">' + R.score + ' 分</div><b>還沒及格，請整份重考</b><div class="muted">及格是 ' + R.need + " 分（答對 " + R.right + " / " + R.total + " 題，已考 " + R.tries + " 次）。可以回課程再看一下影片或教材。</div>";
+  $("app").innerHTML = h0 + "</div>";
+  bar(R.pass && !R.dry ? '<button class="btn" onclick="S.eq=null;back()">' + ic("check", 22, 3) + "回到課程</button>" : '<button class="btn ghost" onclick="S.eq=null;back()">' + ic("back", 20, 2.4) + '回課程複習</button><button class="btn" onclick="S.eq={ans:[],i:0};render()">' + ic("refresh", 20, 2.4) + (R.dry ? "再預覽一次" : "重新作答") + "</button>");
+  return;
+ }
+ var i = Math.min(Math.max(0, q.i || 0), n - 1), y = x.quiz[i], left = 0;
+ for (var k = 0; k < n; k++) if (q.ans[k] == null) left++;
+ var h = '<div class="qhead"><div class="qt">' + esc(x.title) + '</div><div class="qprog"><span>第 <b>' + (i + 1) + "</b> / " + n + " 題</span><span>" + need + " 分及格</span></div>" + '<div class="ytbar"><i style="width:' + Math.round(100 * (n - left) / n) + '%"></i></div></div>';
+ h += '<div class="card qcard"><div class="qq">' + esc(y.q) + "</div>" + y.opts.map((function(o, k) {
+  return '<button class="qo' + (q.ans[i] === k ? " on" : "") + '" onclick="eqPick(' + k + ')"><span class="qk">' + "ABCDEFGH".charAt(k) + "</span><span>" + esc(o) + "</span></button>";
+ })).join("") + "</div>";
+ h += '<div class="qdots">' + x.quiz.map((function(_, k) {
+  return '<button class="qd' + (k === i ? " cur" : "") + (q.ans[k] != null ? " ok" : "") + '" aria-label="第 ' + (k + 1) + ' 題" onclick="S.eq.i=' + k + ';render()">' + (k + 1) + "</button>";
+ })).join("") + "</div>";
+ h += '<div class="muted sm2" style="text-align:center">' + (left ? "還有 " + left + " 題沒作答，可以點上面的題號跳題" : "全部作答完了，可以交卷") + "</div>";
+ $("app").innerHTML = h;
+ var last = i === n - 1;
+ bar('<div class="qnav"><button class="btn ghost"' + (i ? "" : " disabled") + ' onclick="S.eq.i--;render()">' + ic("back", 20, 2.4) + "上一題</button>" + (last ? '<button class="btn"' + (left ? " disabled" : "") + ' onclick="eduDone(' + (ehs ? "true" : "") + ')">' + ic("check", 22, 3) + (left ? "還有 " + left + " 題沒答" : ehs ? "交卷（預覽批改）" : "交卷") + "</button>" : '<button class="btn"' + (q.ans[i] == null ? " disabled" : "") + ' onclick="S.eq.i++;render()">下一題' + ic("right", 20, 2.4) + "</button>") + "</div>");
+};
+
+function eqPick(k) {
+ var q = S.eq, n = S.eduItem.quiz.length;
+ q.ans[q.i] = k;
  render();
- var tp = $("quizTop");
- if (tp) tp.scrollIntoView({
-  behavior: "smooth",
-  block: "start"
- });
+ if (q.i < n - 1) setTimeout((function() {
+  if (S.page === "eduQuiz" && S.eq === q && q.ans[q.i] === k) {
+   q.i++;
+   render();
+  }
+ }), 350);
 }
 
 function eduVideoStop() {

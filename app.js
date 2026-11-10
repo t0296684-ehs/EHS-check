@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.37.2";
+var APP_VERSION = "0.37.3";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -2574,7 +2574,7 @@ function splashDone() {
 
 var SW_RELOAD = false;
 
-var SAFE_PAGES = [ "home", "menu", "edu", "eduItem", "eduRead", "eduStats", "chem", "cons", "envMonth", "patrol", "login", "url", "notice", "months", "claim", "claimReview", "pick", "mine", "team", "track", "guide", "settings", "remind", "packages" ];
+var SAFE_PAGES = [ "home", "menu", "edu", "eduItem", "eduQuiz", "eduRead", "eduStats", "chem", "cons", "envMonth", "patrol", "login", "url", "notice", "months", "claim", "claimReview", "pick", "mine", "team", "track", "guide", "settings", "remind", "packages" ];
 
 function appUpdate() {
  if (S.updating) return;
