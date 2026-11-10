@@ -1,4 +1,4 @@
-var PLAT_VER = "0.37.6";
+var PLAT_VER = "0.37.7";
 
 function platHeal() {
  try {
@@ -2770,7 +2770,7 @@ function epBar() {
   return !String(q.q).trim() || q.opts.filter((function(o) {
    return String(o).trim();
   })).length < 2 || !String(q.opts[q.ans] || "").trim();
- }))) miss.push("考題（題目、至少 2 個選項、正確答案）");
+ }))) miss.push("考題（題目，兩個以上選項，正確答案）");
  if (b.cat === "教育訓練" && b.quiz.length && !(Number(b.pass) >= 1 && Number(b.pass) <= 100)) miss.push("及格分數");
  if (!n) miss.push("要發給誰");
  var ok = !miss.length && !b.up;

@@ -2426,7 +2426,7 @@ function monthRender() {
  if (S.mErr) h += errBox(S.mErr.t, S.mErr.m, S.mErr.btn || "");
  var p0 = h.length;
  if (v.overview) h += crewCard(v);
- h += '<div class="card"><div class="mr"><b>' + (v.who ? esc(v.who) + " 的送審" : "本月狀態") + "</b>" + statusPill(v.status) + "</div>" + (v.status === "退回" ? '<div class="box err" role="alert"><div class="r">' + ic("ret", 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(v.reason) + "</div></div></div></div>" : "") + (v.sheetUrl ? slBox(v) : "") + "</div>";
+ h += '<div class="card"><div class="mr"><b>' + (v.who ? "送審・" + esc(v.who) : "本月狀態") + "</b>" + statusPill(v.status) + "</div>" + (v.status === "退回" ? '<div class="box err" role="alert"><div class="r">' + ic("ret", 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(v.reason) + "</div></div></div></div>" : "") + (v.sheetUrl ? slBox(v) : "") + "</div>";
  if (!rev) {
   h += confirmBlock(v);
   h += bfButton(v);
@@ -3104,7 +3104,7 @@ PAGES.shareMake = function() {
   }));
  }));
  if (!S.arg.dept && ds.length === 1) S.arg.dept = ds[0].id;
- var h = '<div class="box info"><div class="r">' + ic("info", 22) + '<div class="bt"><b>休假或沒辦法檢點時用</b><div class="m">' + "① 選哪一天　② 選同事，直接分享到他的 App（他會收到通知，用他自己的電子簽名送出）。<br>同事沒有 App 帳號，才用最下面的「代填連結」傳 LINE。只能填<b>那一天</b>的每日檢點表。</div></div></div></div>";
+ var h = '<div class="box info"><div class="r">' + ic("info", 22) + '<div class="bt"><b>休假或沒辦法檢點時用</b><div class="m">' + "① 選哪一天　② 選同事，直接分享到他的 App（他會收到通知，用他自己的電子簽名送出）。<br>同事沒有 App 帳號，才用最下面的「代填連結」傳 LINE。只能填那一天的每日檢點表。</div></div></div></div>";
  if (ds.length > 1) h += '<div class="sec">哪一課</div><div class="depts">' + ds.map((function(d) {
   var on = S.arg.dept === d.id;
   return '<button class="dept' + (on ? " on" : "") + '" aria-pressed="' + on + '" onclick="S.arg={dept:' + jsq(d.id) + '};render()">' + (on ? ic("check", 16, 3.2) : "") + esc(d.id) + "</button>";
@@ -3310,6 +3310,10 @@ function shareMe(d) {
 PAGES.proxy = function() {
  setTitle("代填每日檢點");
  var sh = S.share;
+ if (!sh) {
+  S.stack = [];
+  return go(S.me ? "home" : "login", {}, true);
+ }
  if (!sh.d) {
   $("app").innerHTML = loading("讀取連結中…");
   (sh.member ? api("shareOpenM", {
