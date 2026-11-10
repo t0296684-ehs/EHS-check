@@ -2812,6 +2812,23 @@ function submitMonth() {
  var pend = (S.outbox || []).filter((function(j) {
   return j.status === "pending" && j.body.deptId === v.dept && j.body.date.slice(0, 7) === v.period;
  }));
+ if (pend.length && !v._autoUp && navigator.onLine) {
+  v._autoUp = true;
+  toast("先把手機裡的 " + pend.length + " 筆檢點上傳，請稍候…", "", 3e3);
+  var wait = function() {
+   return S.flushing ? new Promise((function(ok) {
+    setTimeout(ok, 800);
+   })).then(wait) : flush();
+  };
+  var again = function() {
+   if (S.view === v) submitMonth();
+  };
+  wait().then((function() {
+   return obRefresh();
+  })).then(again, again);
+  return;
+ }
+ v._autoUp = false;
  if (pend.length) {
   S.mErr = {
    t: "還不能送審",
