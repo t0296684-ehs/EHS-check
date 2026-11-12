@@ -552,11 +552,22 @@ function xeFab() {
   f = document.createElement("div");
   f.id = "xefab";
   f.className = "xefab";
-  f.innerHTML = '<button class="xego" aria-label="問小恩" onclick="xeOpen()">' + xeAv() + "<b>問小恩</b></button>" + '<button class="xemin" aria-label="收起小恩" onclick="xeMin(1)">' + ic("x", 16, 3) + "</button>" + '<button class="xetab" aria-label="叫出小恩" onclick="xeMin(0)">' + xeAv() + "</button>";
+  f.innerHTML = '<button class="xego" aria-label="問小恩" onclick="xeOpen()">' + xeAv() + "<b>問小恩</b></button>" + '<button class="xemin" aria-label="收起小恩" onclick="xeMin(1)">' + ic("x", 16, 3) + "</button>" + '<button class="xetab" aria-label="叫出小恩" onclick="xeTab()">' + xeAv() + "</button>";
   document.body.appendChild(f);
  }
  f.hidden = !xeOk() || !!$("xepanel");
- f.classList.toggle("mini", xeIsMin());
+ f.classList.toggle("mini", xeIsMin() || xeBusyPage());
+}
+
+function xeBusyPage() {
+ var b = $("bar");
+ return !!(b && b.firstChild);
+}
+
+function xeTab() {
+ if (xeBusyPage()) {
+  if (window.xeOpen) xeOpen();
+ } else xeMin(0);
 }
 
 function xeIsMin() {

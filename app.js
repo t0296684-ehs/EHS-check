@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.40.3";
+var APP_VERSION = "0.40.4";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -277,6 +277,12 @@ function toast(msg, type, ms) {
  d.setAttribute("role", "status");
  d.innerHTML = (type === "ok" ? ic("check", 20, 3) : type === "err" ? ic("err", 20) : "") + "<span>" + msg + "</span>";
  document.body.appendChild(d);
+ var len = (d.textContent || "").length;
+ if (type === "err") ms = Math.max(ms || 0, Math.min(12e3, 2500 + len * 125));
+ d.onclick = function() {
+  clearTimeout(toastTimer);
+  d.remove();
+ };
  clearTimeout(toastTimer);
  toastTimer = setTimeout((function() {
   d.remove();
@@ -1276,6 +1282,7 @@ function setTitle(t) {
 function bar(html) {
  $("bar").innerHTML = html ? '<div class="bar"><div class="in">' + html + "</div></div>" : "";
  padBar();
+ if (window.xeFab && $("xefab")) xeFab();
 }
 
 function padBar() {
@@ -2287,7 +2294,8 @@ PAGES.home = function() {
    return window.I18N ? I18N.tr(x.title) : x.title;
   })).join(window.I18N && I18N.lang() !== "zh" ? " · " : "、"),
   btn: "查看通知",
-  on: "go('notice')"
+  on: "go('notice')",
+  low: true
  });
  var bfq = bfGet();
  if (bfq && !ehs) tasks.push({
@@ -2551,6 +2559,13 @@ PAGES.home = function() {
   };
   if (late) tasks.unshift(task); else tasks.push(task);
  }));
+ if (tasks.some((function(x) {
+  return !x.low;
+ }))) tasks = tasks.filter((function(x) {
+  return !x.low;
+ })).concat(tasks.filter((function(x) {
+  return x.low;
+ })));
  var say, sub;
  if (ehs) {
   say = m.pendingReview ? "有 <b>" + m.pendingReview + "</b> 份等您歸檔" : "目前沒有要歸檔的";
