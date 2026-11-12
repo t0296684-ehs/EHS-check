@@ -6171,3 +6171,263 @@ function teamHandover(dept, name) {
   }, "ghost" ];
  })));
 }
+
+function vdState() {
+ var v = S.vd;
+ if (!v) {
+  try {
+   v = JSON.parse(localStorage.getItem("chk.vd") || "null");
+  } catch (e) {
+   v = null;
+  }
+ }
+ return S.vd = v || {
+  date: today(),
+  sel: {},
+  pages: []
+ };
+}
+
+function vdSave() {
+ try {
+  var v = Object.assign({}, S.vd);
+  delete v.info;
+  localStorage.setItem("chk.vd", JSON.stringify(v));
+ } catch (e) {}
+}
+
+function vdForm(v) {
+ var d = v.info && v.info.depts.filter((function(x) {
+  return x.dept === v.dept;
+ }))[0];
+ return d ? d.forms.filter((function(f) {
+  return f.id === v.form;
+ }))[0] || null : null;
+}
+
+PAGES.vendor = function() {
+ setTitle("登錄廠商檢查");
+ var v = vdState();
+ if (!v.info) {
+  $("app").innerHTML = loading("讀取本課的設備…");
+  api("vendorInfo", {}).then((function(r) {
+   v.info = r;
+   if (S.page === "vendor") render();
+  })).catch((function(e) {
+   $("app").innerHTML = errBox("讀不到本課的設備", e.message);
+  }));
+  return;
+ }
+ var ds = v.info.depts;
+ if (!ds.length) {
+  $("app").innerHTML = '<div class="empty">本課沒有要做定期檢查的設備</div>';
+  return;
+ }
+ if (!ds.some((function(d) {
+  return d.dept === v.dept;
+ }))) {
+  v.dept = ds[0].dept;
+  v.form = "";
+  v.sel = {};
+ }
+ var dep = ds.filter((function(d) {
+  return d.dept === v.dept;
+ }))[0], f = vdForm(v);
+ var h = '<div class="muted upnote">廠商做的定期檢查，報告交到您手上時在這裡登錄：同一次檢查的設備一次勾完，報告每頁拍一張。每台設備會各自留一份紀錄（結果寫「詳附件」、附廠商報告），下月您送審時直接送環安衛。</div>';
+ if (ds.length > 1) h += '<div class="chips">' + ds.map((function(d) {
+  return '<button class="chip' + (d.dept === v.dept ? " on" : "") + "\" onclick=\"vdSet('dept'," + jsq(d.dept) + ')">' + esc(d.dept) + "</button>";
+ })).join("") + "</div>";
+ h += '<div class="sec">① 選檢查表</div><div class="list">' + dep.forms.map((function(x) {
+  return '<button class="li' + (x.id === v.form ? " on" : "") + "\" onclick=\"vdSet('form'," + jsq(x.id) + ')"><span class="mn"><span class="nm">' + esc(x.name) + '</span><span class="mt">' + esc(x.equip + " " + x.eq.length + " 台") + "</span></span>" + (x.id === v.form ? pill("ok", "check", "已選") : "") + "</button>";
+ })).join("") + "</div>";
+ if (!f) {
+  $("app").innerHTML = h;
+  bar("");
+  return;
+ }
+ if (f.kinds.length) {
+  if (f.kinds.indexOf(v.kind) < 0) v.kind = f.kinds[f.kinds.length - 1];
+  h += '<div class="sec">檢查類別</div><div class="chips">' + f.kinds.map((function(k) {
+   return '<button class="chip' + (k === v.kind ? " on" : "") + "\" onclick=\"vdSet('kind'," + jsq(k) + ')">' + esc(k) + "</button>";
+  })).join("") + "</div>";
+ } else v.kind = "";
+ h += '<div class="sec">② 廠商實際來檢查的日期與公司</div><div class="card">' + '<label class="nl req" for="vdDate">實際檢查日期</label><input id="vdDate" type="date" class="field" max="' + today() + '" value="' + esc(v.date || "") + '" onchange="S.vd.date=this.value;vdSave();vdBar()">' + '<label class="nl req" for="vdVen" style="margin-top:10px">檢查廠商（公司名稱）</label><input id="vdVen" class="field" list="vdVens" placeholder="例：○○堆高機有限公司" value="' + esc(v.vendor || "") + '" oninput="S.vd.vendor=this.value;vdSave();vdBar()">' + '<datalist id="vdVens">' + (v.info.vendors || []).map((function(x) {
+  return '<option value="' + esc(x) + '">';
+ })).join("") + "</datalist></div>";
+ var ids = f.eq.map((function(e) {
+  return e.id;
+ })), nSel = ids.filter((function(id) {
+  return v.sel[id];
+ })).length;
+ h += '<div class="sec">③ 勾選這次檢查的' + esc(f.equip) + "<small>可以多台</small></div>" + '<div class="card"><label style="display:flex;align-items:center;gap:10px"><input type="checkbox" style="width:22px;height:22px" ' + (nSel === ids.length ? "checked " : "") + 'onchange="vdAll(this.checked)">全部 ' + ids.length + " 台（已選 " + nSel + " 台）</label></div>";
+ h += '<div class="list">' + f.eq.map((function(e) {
+  var s = v.sel[e.id], ls = e.last[v.kind || ""];
+  var r = '<div class="li" style="flex-wrap:wrap"><label style="display:flex;align-items:center;gap:10px;flex:1;min-width:0"><input type="checkbox" style="width:24px;height:24px;flex:none" ' + (s ? "checked " : "") + 'onchange="vdPick(' + jsq(e.id) + ',this.checked)">' + '<span class="mn"><span class="nm">' + esc(e.id + (e.name ? " " + e.name : "")) + '</span><span class="mt">' + esc(ls ? "上次 " + ls.date + (ls.vendor ? "（" + ls.vendor + "）" : "") : "還沒有紀錄") + "</span></span></label>";
+  if (s) r += '<div style="flex-basis:100%;display:flex;gap:8px;margin-top:8px;padding-left:34px"><button class="btn sm' + (s.ng ? " ghost" : "") + '" onclick="vdNg(' + jsq(e.id) + ',false)">合格</button><button class="btn sm' + (s.ng ? " red" : " ghost") + '" onclick="vdNg(' + jsq(e.id) + ',true)">有異常</button></div>' + (s.ng ? '<div style="flex-basis:100%;padding-left:34px;margin-top:6px"><textarea class="note" placeholder="照廠商報告寫異常情形，例：右後輪胎磨損需更換" oninput="S.vd.sel[' + jsq(e.id) + '].note=this.value;vdSave();vdBar()">' + esc(s.note || "") + "</textarea></div>" : "");
+  return r + "</div>";
+ })).join("") + "</div>";
+ h += '<div class="sec">④ 上傳廠商檢查報告<small>每頁一張，最多 20 頁</small></div><div class="card ev"><div class="pics">' + v.pages.map((function(p, i) {
+  return '<div class="pic"><img src="' + esc(p.t) + '" alt="報告第 ' + (i + 1) + ' 頁"><button class="px" aria-label="移除這頁" onclick="vdDel(' + i + ')">' + ic("x", 16, 3) + "</button></div>";
+ })).join("") + (v.pages.length < 20 ? '<label class="pic add">' + ic("plus", 26, 2.6) + '<span>拍照／選檔</span><input type="file" accept="image/*" multiple hidden onchange="vdPickFiles(this)"></label>' : "") + "</div>" + '<div class="hint">拍整頁、字要看得清楚；掃描檔請存成 JPG 再選（可以一次選多頁）。一份報告包含多台設備沒關係，每台的紀錄都會附上整份。</div></div>';
+ $("app").innerHTML = h;
+ vdBar();
+};
+
+function vdMiss() {
+ var v = S.vd, f = vdForm(v);
+ if (!f) return "請選檢查表";
+ if (!v.date) return "請填實際檢查日期";
+ if (String(v.vendor || "").replace(/\s/g, "").length < 2) return "請填檢查廠商";
+ var sel = f.eq.filter((function(e) {
+  return v.sel[e.id];
+ }));
+ if (!sel.length) return "請勾選設備";
+ var bad = sel.filter((function(e) {
+  return v.sel[e.id].ng && String(v.sel[e.id].note || "").replace(/\s/g, "").length < 2;
+ }));
+ if (bad.length) return bad[0].id + " 要寫異常情形";
+ if (!v.pages.length) return "請上傳廠商報告";
+ return "";
+}
+
+function vdBar() {
+ if (S.page !== "vendor") return;
+ var v = S.vd, f = vdForm(v), n = f ? f.eq.filter((function(e) {
+  return v.sel[e.id];
+ })).length : 0, miss = vdMiss();
+ bar('<button class="btn"' + (miss ? " disabled" : "") + ' onclick="vdSubmit()">' + ic("check", 22, 3) + esc(miss || "登錄 " + n + " 台設備的廠商檢查") + "</button>");
+}
+
+function vdSet(k, val) {
+ var v = S.vd;
+ v[k] = val;
+ if (k === "dept") {
+  v.form = "";
+  v.sel = {};
+  v.pages = [];
+ }
+ if (k === "form") {
+  v.sel = {};
+  v.pages = [];
+  v.kind = "";
+ }
+ vdSave();
+ keepY(render);
+}
+
+function vdAll(on) {
+ var v = S.vd, f = vdForm(v);
+ if (!f) return;
+ f.eq.forEach((function(e) {
+  if (on) v.sel[e.id] = v.sel[e.id] || {
+   ng: false,
+   note: ""
+  }; else delete v.sel[e.id];
+ }));
+ vdSave();
+ keepY(render);
+}
+
+function vdPick(id, on) {
+ var v = S.vd;
+ if (on) v.sel[id] = v.sel[id] || {
+  ng: false,
+  note: ""
+ }; else delete v.sel[id];
+ vdSave();
+ keepY(render);
+}
+
+function vdNg(id, ng) {
+ var s = S.vd.sel[id];
+ if (!s) return;
+ s.ng = ng;
+ vdSave();
+ keepY(render);
+}
+
+function vdDel(i) {
+ if (!confirm("移除這一頁？")) return;
+ S.vd.pages.splice(i, 1);
+ vdSave();
+ keepY(render);
+}
+
+function vdPickFiles(inp) {
+ var files = Array.prototype.slice.call(inp.files || []), v = S.vd;
+ inp.value = "";
+ files = files.slice(0, 20 - v.pages.length);
+ var next = function() {
+  var file = files.shift();
+  if (!file) {
+   toast("報告共 " + v.pages.length + " 頁", "ok", 1800);
+   return;
+  }
+  photoUp(file, {
+   deptId: v.dept,
+   formId: v.form,
+   purpose: "vendor",
+   __dup: v.pages.map((function(p) {
+    return p.t;
+   }))
+  }, (function(p) {
+   if (S.vd !== v) return;
+   v.pages.push(p);
+   vdSave();
+   if (S.page === "vendor") keepY(render);
+   next();
+  }));
+ };
+ next();
+}
+
+function vdSubmit() {
+ var v = S.vd, f = vdForm(v), miss = vdMiss();
+ if (miss) return toast(miss, "err", 3e3);
+ var sel = f.eq.filter((function(e) {
+  return v.sel[e.id];
+ })), ng = sel.filter((function(e) {
+  return v.sel[e.id].ng;
+ }));
+ if (!navigator.onLine) return toast("沒有網路，要連上網路才能登錄", "err", 3500);
+ dlg("<b>登錄 " + sel.length + " 台的廠商檢查？</b><p>" + esc(f.name + (v.kind ? "・" + v.kind : "")) + "<br>" + esc(v.date + "・" + v.vendor) + "<br>" + esc(sel.map((function(e) {
+  return e.id;
+ })).join("、")) + "<br>報告 " + v.pages.length + " 頁" + (ng.length ? "・<b>有異常 " + ng.length + " 台（會開異常追蹤）</b>" : "・全部合格") + '</p><p class="sm">每台各留一份紀錄，檢查人員欄帶入您的簽名。</p>', [ [ "確認登錄", function() {
+  busyOn("登錄中（" + sel.length + " 台）…");
+  v.sid = v.sid || "V" + Date.now().toString(36);
+  vdSave();
+  api("vendorCheck", {
+   deptId: v.dept,
+   formId: v.form,
+   kind: v.kind || "",
+   date: v.date,
+   vendor: v.vendor,
+   pages: v.pages.map((function(p) {
+    return p.id;
+   })),
+   submitId: v.sid,
+   eq: sel.map((function(e) {
+    return {
+     id: e.id,
+     ng: !!v.sel[e.id].ng,
+     note: v.sel[e.id].note || ""
+    };
+   }))
+  }).then((function(r) {
+   busyOff();
+   S.vd = {
+    date: v.date,
+    vendor: v.vendor,
+    dept: v.dept,
+    sel: {},
+    pages: []
+   };
+   vdSave();
+   toast("已登錄 " + r.n + " 台" + (r.tracks && r.tracks.length ? "，異常 " + r.tracks.length + " 件已開異常追蹤" : ""), "ok", 4e3);
+   go("home", {}, true);
+  })).catch((function(e) {
+   busyOff();
+   toast(esc(e.message), "err", 5e3);
+  }));
+ }, "" ] ]);
+}

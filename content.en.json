@@ -1,5 +1,5 @@
 {
- "version": "0.38.0",
+ "version": "0.39.0",
  "chapters": [
   {
    "no": 1,
@@ -506,6 +506,21 @@
       "<b>\"Export to Excel\"</b> saves what you see as an Excel file for meetings or printing."
      ],
      "tip": "The \"Assignment table\" tab is the person × form checkbox grid, handy for changing many people at once; the overview is for seeing the whole picture and spotting problems. The phone has the same overview: equipment as cards, one row per person, with the same filters and edits.",
+     "warn": false
+    },
+    {
+     "no": "3-6",
+     "title": "Record vendor inspections (several machines at once)",
+     "lead": "For inspections done by vendors (forklift annual, cranes, lifts, boilers…), record the report in the App when it reaches you; no need to pass it to a coworker to photograph and submit.",
+     "shots": [],
+     "steps": [
+      "On the workbench tap <b>\"Record vendor inspection\"</b> and choose the form; if it has monthly/annual types, choose this <b>inspection type</b>.",
+      "Enter the <b>actual inspection date</b> and the <b>company name</b> (companies you entered before are suggested).",
+      "Tick the machines inspected; <b>\"All\"</b> ticks them at once. Each is \"Pass\" by default; for problems in the report tap <b>\"Problem found\"</b> and describe it as written.",
+      "Upload the vendor report: one photo per page, or pick several JPGs at once. One report covering several machines is fine.",
+      "Tap <b>\"Record vendor inspection for N machines\"</b> and confirm. Each machine gets its own record (results \"see attachment\", full report attached) signed by you as inspector; problems open a follow-up automatically. When you submit next month it skips the manager step and goes straight to EHS."
+     ],
+     "tip": "Made a mistake? Record again with the same form, date and machine; it replaces the earlier record.",
      "warn": false
     }
    ]

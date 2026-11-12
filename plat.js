@@ -1,4 +1,4 @@
-var PLAT_VER = "0.38.0";
+var PLAT_VER = "0.39.0";
 
 function platHeal() {
  try {
@@ -4559,6 +4559,7 @@ function sideKey(p, a) {
   trackFix: "track",
   claim: "claim",
   claimReview: "team",
+  vendor: "vendor",
   teamEq: "team",
   teamEdit: "team",
   teamPerson: "team",
@@ -4641,6 +4642,7 @@ function drawSide() {
   } else h += sItem("month", "cal", "月結紀錄", "go('months',{},true)");
   if (mgr || ehs) h += sItem("review", "review", "審核", "go('packages',{},true)", m.pendingReview || 0);
   if (mgr || ehs) h += sItem("team", "swap", "部門管理", "S.team=null;go('team',{},true)");
+  if (mgr && !ehs) h += sItem("vendor", "pdf", "登錄廠商檢查", "S.vd=null;go('vendor',{},true)");
   if (!ehs && !mgr && (m.claimable || []).length) h += sItem("claim", "plus", "申請表單", "go('claim',{},true)");
   if (!ehs && dd.length) h += sItem("share", "chat", "請人代填", "go('shareMake',{},true)");
   h += sItem("track", "warn", "異常追蹤", "S.tk=null;go('track',{},true)", m.tracksOpen || 0);

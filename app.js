@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.38.0";
+var APP_VERSION = "0.39.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -2523,6 +2523,7 @@ PAGES.home = function() {
  if (!ehs && !mgr && m.claimable.length) tl += tile("plus", "申請表單", "go('claim')", "", "想多負責本課其他表或設備");
  if (mgr || ehs) tl += tile("review", "審核紀錄", "go('packages')");
  if (mgr || ehs) tl += tile("swap", "部門管理", "S.team=null;go('team')", "", "人員、表單、設備與負責人");
+ if (mgr && !ehs) tl += tile("pdf", "登錄廠商檢查", "S.vd=null;go('vendor')", "", "廠商報告交給您時，一次登錄多台設備");
  if (ehs) tl += tile("bell", "廣播", "S.bc=null;go('bc')", "", "發通知給指定的人");
  tl += tile("warn", "異常追蹤", "S.tk=null;go('track')", m.tracksOpen ? pill("ng", "", m.tracksOpen + " 件待改善") : "", "異常改善與結案");
  if (!ehs) {
@@ -2577,7 +2578,7 @@ function splashDone() {
 
 var SW_RELOAD = false;
 
-var SAFE_PAGES = [ "home", "menu", "edu", "eduItem", "eduQuiz", "eduRead", "eduStats", "chem", "cons", "envMonth", "patrol", "login", "url", "notice", "months", "claim", "claimReview", "pick", "mine", "team", "track", "guide", "settings", "remind", "packages" ];
+var SAFE_PAGES = [ "home", "menu", "edu", "eduItem", "eduQuiz", "eduRead", "eduStats", "chem", "cons", "envMonth", "patrol", "login", "url", "notice", "months", "claim", "claimReview", "pick", "mine", "team", "track", "guide", "settings", "remind", "packages", "vendor" ];
 
 function appUpdate() {
  if (S.updating) return;
