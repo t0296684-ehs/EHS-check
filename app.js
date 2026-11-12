@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.39.1";
+var APP_VERSION = "0.40.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -351,12 +351,83 @@ function api(action, body, opt) {
    })).then(once);
   }));
  }
- return once();
+ var t0 = Date.now();
+ return once().then((function(d) {
+  perfAdd(action, Date.now() - t0);
+  return d;
+ }));
+}
+
+var PERF = null, PERF_BUSY = false, PERF_WAIT = 0, PERF_LS = "chk.perf", PERF_SKIP = {
+ perfLog: 1,
+ clientLog: 1,
+ ping: 1
+};
+
+function perfAdd(action, ms) {
+ try {
+  if (PERF_SKIP[action] || S && (S.dev || S.share) || !(ms >= 0) || ms > 6e5) return;
+  if (!PERF) {
+   try {
+    PERF = JSON.parse(localStorage.getItem(PERF_LS) || "null");
+   } catch (e) {
+    PERF = null;
+   }
+  }
+  var day = today();
+  if (!PERF || !PERF.days) PERF = {
+   days: {},
+   sent: 0
+  };
+  var d = PERF.days[day] = PERF.days[day] || {}, c = d[action] = d[action] || [ 0, 0, 0, 0 ];
+  c[0]++;
+  c[1] += ms;
+  if (ms > c[2]) c[2] = ms;
+  if (ms > 5e3) c[3]++;
+  try {
+   localStorage.setItem(PERF_LS, JSON.stringify(PERF));
+  } catch (e) {}
+  perfFlush();
+ } catch (e) {}
+}
+
+function perfFlush() {
+ if (!PERF || PERF_BUSY || Date.now() < PERF_WAIT || !navigator.onLine || !lsGet(LS.TOKEN, "") || S && (S.dev || S.share)) return;
+ var day = today(), ks = Object.keys(PERF.days).sort(), pick = "";
+ for (var i = 0; i < ks.length && !pick; i++) {
+  if (ks[i] < day) pick = ks[i]; else {
+   var n = 0, d = PERF.days[ks[i]];
+   Object.keys(d).forEach((function(a) {
+    n += d[a][0];
+   }));
+   if (n >= 40 && Date.now() - (PERF.sent || 0) > 144e5) pick = ks[i];
+  }
+ }
+ if (!pick) return;
+ var stats = PERF.days[pick];
+ PERF_BUSY = true;
+ api("perfLog", {
+  day: pick,
+  stats
+ }, {
+  quiet: true,
+  noRetry: true
+ }).then((function() {
+  PERF_BUSY = false;
+  delete PERF.days[pick];
+  PERF.sent = Date.now();
+  try {
+   localStorage.setItem(PERF_LS, JSON.stringify(PERF));
+  } catch (e) {}
+ })).catch((function() {
+  PERF_BUSY = false;
+  PERF_WAIT = Date.now() + 18e5;
+ }));
 }
 
 var RC_ACT = [ "monthView", "packages", "tracks", "eduList", "eduStats", "team", "nextList", "envMe", "envMonth", "consCases", "chemList", "patrolInfo", "bcPeople", "bcList", "exportOpts", "supportMine" ];
 
-var RC_KEEP = RC_ACT.concat([ "exportPeople", "me", "overview", "bootstrap", "ping", "clientLog", "photoGet", "eduFile", "getPdf", "exportPdf", "dayView", "devLogs", "meetHome", "meetState", "meetDeck", "meetList", "meetPdf", "meetChecks", "meetOpen", "meetPagesPub", "consHome", "consDetail", "consVendors", "consPubForm", "consPubCase", "consPubWorkerOpen", "consPubHandlerOpen", "consFile", "consDemo", "supportPic", "supportAll", "xeMine", "xeAll", "xeTicket" ]);
+var RC_KEEP = RC_ACT.concat([ "exportPeople", "me", "overview", "bootstrap", "ping", "clientLog", "perfLog", "vendorInfo", "photoGet", "eduFile", "getPdf", "exportPdf", "dayView", "devLogs", "meetHome", "meetState", "meetDeck", "meetList", "meetPdf", "meetChecks", "meetOpen", "meetPagesPub", "consHome", "consDetail", "consVendors", "consPubForm", "consPubCase", "consPubWorkerOpen", "consPubHandlerOpen", "consFile", "consDemo", "supportPic", "supportAll", "xeMine", "xeAll", "xeTicket" ]);
 
 var RC = null, RC_FRESH = 2e4, RC_MAX = 40, RC_LS = "chk.rc";
 
