@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.40.4";
+var APP_VERSION = "0.41.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();

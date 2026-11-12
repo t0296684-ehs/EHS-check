@@ -1,4 +1,4 @@
-var PLAT_VER = "0.40.4";
+var PLAT_VER = "0.41.0";
 
 function platHeal() {
  try {
@@ -383,7 +383,38 @@ function envNum(v) {
 }
 
 function envNaN(it, v) {
- return (it.type === "累計" || it.type === "數值") && envNorm(v) !== "" && !isFinite(envNum(v));
+ return (it.type === "累計" || it.type === "數值" || it.type === "存量") && envNorm(v) !== "" && !isFinite(envVal(it, v));
+}
+
+function envQtyNorm(v) {
+ return String(v == null ? "" : v).replace(/[０-９]/g, (function(c) {
+  return String.fromCharCode(c.charCodeAt(0) - 65248);
+ })).replace(/[×xX＊]/g, "*").replace(/＋/g, "+").replace(/[．。]/g, ".").replace(/[\s,，]|kg|KG|公斤/g, "");
+}
+
+function envQty(v) {
+ var t = envQtyNorm(v);
+ if (!/^\d+(\.\d+)?([*+]\d+(\.\d+)?)*$/.test(t)) return NaN;
+ var sum = 0;
+ t.split("+").forEach((function(term) {
+  sum += term.split("*").reduce((function(a, x) {
+   return a * Number(x);
+  }), 1);
+ }));
+ return Math.round(sum * 1e3) / 1e3;
+}
+
+function envVal(it, v) {
+ return it && it.type === "存量" ? envQty(v) : envNum(v);
+}
+
+function envQtyShow(v) {
+ return envQtyNorm(v).replace(/\*/g, "×").replace(/\+/g, "＋");
+}
+
+function envCtl(it, v) {
+ var q = envQty(v);
+ return it.ctl && isFinite(q) ? Math.round(q / it.ctl * 100) / 100 : NaN;
 }
 
 function envOdd(it, E) {
@@ -399,7 +430,7 @@ function envOdd(it, E) {
 function envOver(it, v, use) {
  if (it.type === "勾選") return v === "x";
  if (it.type === "選項") return it.opts.length && v !== "" && v !== it.opts[0];
- var n = it.type === "累計" ? use : envNum(v);
+ var n = it.type === "累計" ? use : envVal(it, v);
  if (it.type === "累計" && S.env && envOdd(it, S.env)) return true;
  return isFinite(n) && (it.min !== null && n < it.min || it.max !== null && n > it.max);
 }
@@ -495,7 +526,7 @@ function envPend(E) {
 
 function envSent(E, code) {
  var p = envPend(E);
- return p[code] !== undefined ? p[code] : E.d.values[code] ? E.d.values[code].val : undefined;
+ return p[code] !== undefined ? p[code] : E.d.values[code] ? E.d.values[code].expr || E.d.values[code].val : undefined;
 }
 
 function envHas(E, code) {
@@ -503,6 +534,10 @@ function envHas(E, code) {
 }
 
 function envFmt(it, v) {
+ if (it && it.type === "存量" && v !== undefined && v !== null && v !== "") {
+  var q = envQty(v);
+  return isFinite(q) ? /[*+]/.test(envQtyNorm(v)) ? envQtyShow(v) + "＝" + q : String(q) : String(v);
+ }
  if (v === undefined || v === null || v === "" || !isFinite(Number(v))) return v == null ? "" : String(v);
  return it.fmt === "小數2位" ? Number(v).toFixed(2) : it.fmt === "小數1位" ? Number(v).toFixed(1) : String(v);
 }
@@ -646,6 +681,10 @@ function envQList(E) {
   h += '<button class="li eqi' + (has ? " done" : "") + '" onclick="envKey(' + E.d.items.indexOf(it) + ')"><span class="eqc">' + (has ? ic("check", 18, 3) : "") + '</span><span class="mn"><span class="nm">' + esc((it.dev || it.code) + "・" + (it.metric || it.name)) + "</span>" + '<span class="mt">' + esc(String(it.name).replace(it.dev, "").replace(it.metric, "").trim() + (rng ? "・" + rng : "")) + '</span></span><span class="eqv' + (over ? " bad" : "") + '">' + (has ? esc(envFmt(it, v) + (it.unit ? " " + it.unit : "")) + (isFinite(use) ? "<small>用量 " + esc(use) + "</small>" : envStopHint(it, v) ? "<small>停機</small>" : envDepTxt(E.d.calc, it, v) ? "<small>" + esc(envDepTxt(E.d.calc, it, v)) + "</small>" : "") + (loc ? "" : '<small class="okt">已送出</small>') : '<span class="muted">未填</span>') + "</span></button>";
  }));
  if (c0 !== null) h += "</div>";
+ var sameN = its.filter((function(it) {
+  return it.type === "存量" && !envHas(E, it.code) && E.d.last[it.code];
+ })).length;
+ if (sameN && ENV_LK.indexOf(E.d.status) < 0) h = h.replace('<div class="sec">', '<button class="btn ghost" id="envSameAll" style="width:100%;margin:8px 0" onclick="envSameAll()">' + ic("check", 20, 2.6) + "其餘 " + sameN + ' 項跟上次一樣（有變的再點進去改）</button><div class="sec">');
  $("app").innerHTML = h + '<div class="eqsp"></div>';
  var local = Object.keys(E.v).length;
  bar('<button class="btn"' + (local ? "" : " disabled") + " onclick=\"envQ(S.env).view='confirm';render()\">" + ic("check", 22, 2.6) + esc(local ? "送出 " + local + " 項" : "還沒有要送的") + "</button>");
@@ -667,7 +706,7 @@ function envLow(it, E, v) {
 
 function envOverQ(it, E, v) {
  if (envStopHint(it, v)) return false;
- var n = it.type === "累計" ? envUseOf(it, E, v) : envNum(v);
+ var n = it.type === "累計" ? envUseOf(it, E, v) : envVal(it, v);
  return isFinite(n) && (it.min !== null && n < it.min || it.max !== null && n > it.max);
 }
 
@@ -688,19 +727,36 @@ function envQKey(E) {
  }
  var lock = ENV_LK.indexOf(E.d.status) >= 0, buf = q.buf, l = E.d.last[it.code], sent = envSent(E, it.code);
  var use = buf !== "" && it.type === "累計" ? envUseOf(it, E, buf) : NaN, msg = "";
- if (buf !== "" && envStopHint(it, buf)) msg = "0＝當天停機，不算超標"; else if (isFinite(use)) msg = "今日用量 " + use + (it.unit ? " " + it.unit : ""); else msg = envDepTxt(E.d.calc, it, buf);
+ if (it.type === "存量") {
+  var qq = envQty(buf), cm = envCtl(it, buf);
+  msg = buf === "" ? "照紙本寫：桶數 × 單重 ＋ 零散，例 6×160＋20" : isFinite(qq) ? "＝ " + qq + " " + (it.unit || "kg") + (isFinite(cm) ? "・管制量 " + it.ctl + "，倍數 " + cm : "") : "算式還沒打完";
+ } else if (buf !== "" && envStopHint(it, buf)) msg = "0＝當天停機，不算超標"; else if (isFinite(use)) msg = "今日用量 " + use + (it.unit ? " " + it.unit : ""); else msg = envDepTxt(E.d.calc, it, buf);
  msg = '<div class="hint eqhint">' + esc(msg) + "</div>";
- var keys = [ "1", "2", "3", "4", "5", "6", "7", "8", "9", envDec(it) ? "." : "00", "0", "⌫" ];
- var same = l ? '<div class="muted sm2 eqlast">上次（' + esc(md(l.date)) + "）" + esc(envFmt(it, l.val) + (it.unit ? " " + it.unit : "")) + "</div>" : "";
- var h = '<div class="card eqk"><div class="eqkh"><small>' + esc((it.group || "") + "・" + (it.cat || "") + "・" + md(E.date)) + "</small><b>" + esc(it.name) + "</b><span>" + esc(envRng(it) || (it.type === "累計" ? "累計讀數（自動算日用量）" : "未設定標準範圍")) + "</span></div>" + '<div class="eqd">' + (buf === "" ? "<i>—</i>" : esc(buf)) + "<small>" + esc(it.unit || "") + "</small></div>" + msg + (sent !== undefined && E.v[it.code] === undefined ? '<div class="muted sm2">已送出 ' + esc(envFmt(it, sent)) + "；重新輸入會改成新的數字</div>" : "") + "</div>" + '<div class="eqpad">' + keys.map((function(k) {
+ var keys = it.type === "存量" ? [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "×", "0", "＋", ".", "00", "⌫" ] : [ "1", "2", "3", "4", "5", "6", "7", "8", "9", envDec(it) ? "." : "00", "0", "⌫" ];
+ var same = l ? '<div class="muted sm2 eqlast">上次（' + esc(md(l.date)) + "）" + esc(envFmt(it, it.type === "存量" ? l.expr || l.val : l.val) + (it.unit ? " " + it.unit : "")) + "</div>" + (it.type === "存量" && !lock ? '<button class="btn ghost" style="width:100%;margin-top:6px" onclick="envSame()">' + ic("check", 20, 2.6) + "跟上次一樣 → 下一個</button>" : "") : "";
+ var h = '<div class="card eqk"><div class="eqkh"><small>' + esc([ it.group, it.cat, md(E.date) ].filter((function(x) {
+  return x;
+ })).join("・")) + "</small><b>" + esc(it.name) + "</b><span>" + esc(envRng(it) || (it.type === "累計" ? "累計讀數（自動算日用量）" : it.type === "存量" ? "庫存量（" + (it.unit || "kg") + "）" + (it.ctl ? "・管制量 " + it.ctl : "") : "未設定標準範圍")) + "</span></div>" + '<div class="eqd">' + (buf === "" ? "<i>—</i>" : esc(it.type === "存量" ? envQtyShow(buf) : buf)) + "<small>" + esc(it.unit || "") + "</small></div>" + msg + (sent !== undefined && E.v[it.code] === undefined ? '<div class="muted sm2">已送出 ' + esc(envFmt(it, sent)) + "；重新輸入會改成新的數字</div>" : "") + "</div>" + '<div class="eqpad">' + keys.map((function(k) {
   return '<button class="' + (k === "⌫" ? "fn" : "") + '"' + (lock ? " disabled" : "") + ' onclick="envPress(' + jsq(k) + ')">' + k + "</button>";
  })).join("") + "</div>" + same + '<div class="btns">' + (E.v[it.code] !== undefined ? '<button class="btn ghost" onclick="envUnset()">清除這項</button>' : "<span></span>") + '<button class="btn ghost" onclick="envQ(S.env).view=\'list\';render()">先回列表</button></div>' + '<div class="eqsp"></div>';
  $("app").innerHTML = h;
- if (!lock) bar('<button class="btn"' + (buf === "" || !isFinite(envNum(buf)) ? " disabled" : "") + ' onclick="envNext()">' + ic("check", 22, 2.6) + "儲存 → 下一個</button>");
+ if (!lock) bar('<button class="btn"' + (buf === "" || !isFinite(envVal(it, buf)) ? " disabled" : "") + ' onclick="envNext()">' + ic("check", 22, 2.6) + "儲存 → 下一個</button>");
 }
 
 function envPress(k) {
  var q = envQ(S.env), it = S.env.d.items[q.idx], dec = envDec(it), b = q.buf;
+ if (it.type === "存量") {
+  var term = b.split(/[*+]/).pop();
+  if (k === "⌫") b = b.slice(0, -1); else if (k === "×" || k === "＋") {
+   if (/\d$/.test(b)) b += k === "×" ? "*" : "+";
+  } else if (k === ".") {
+   if (term.indexOf(".") < 0) b += (term === "" ? "0" : "") + ".";
+  } else if (b.length >= 40) return; else if (k === "00") {
+   if (term !== "" && term !== "0") b += "00";
+  } else b = term === "0" ? b.slice(0, -1) + k : b + k;
+  q.buf = b;
+  return render();
+ }
  if (k === "⌫") b = b.slice(0, -1); else if (k === ".") {
   if (b.indexOf(".") < 0) b = (b || "0") + ".";
  } else if (k === "00") {
@@ -719,9 +775,31 @@ function envUnset() {
  render();
 }
 
+function envSame() {
+ var E = S.env, q = envQ(E), it = E.d.items[q.idx], l = E.d.last[it.code];
+ if (!l) return;
+ q.buf = envQtyNorm(l.expr || l.val);
+ envNext();
+}
+
+function envSameAll() {
+ var E = S.env, q = envQ(E), n = 0;
+ E.d.items.forEach((function(it) {
+  if ((it.group || "其他") !== q.proc || it.type !== "存量" || envHas(E, it.code)) return;
+  var l = E.d.last[it.code];
+  if (l) {
+   E.v[it.code] = envQtyNorm(l.expr || l.val);
+   n++;
+  }
+ }));
+ envDraftSave(E);
+ toast(n ? "已帶入上次的數量 " + n + " 項；有變的點進去改，再按送出" : "沒有上次的紀錄可以帶入", n ? "ok" : "err", 4e3);
+ render();
+}
+
 function envNext() {
- var E = S.env, q = envQ(E), it = E.d.items[q.idx], v = envNorm(q.buf);
- if (!isFinite(envNum(v))) return;
+ var E = S.env, q = envQ(E), it = E.d.items[q.idx], v = it.type === "存量" ? envQtyNorm(q.buf) : envNorm(q.buf);
+ if (!isFinite(envVal(it, v))) return;
  if (envOverQ(it, E, v) && !confirm(it.name + "：" + envFmt(it, v) + (it.unit ? " " + it.unit : "") + " 超出" + envRng(it) + "。\n\n確定沒抄錯？（按「取消」重新輸入）")) return;
  E.v[it.code] = v;
  envDraftSave(E);
@@ -758,6 +836,16 @@ function envQConfirm(E) {
   if (o) bad++;
   h += '<button class="li" onclick="envKey(' + E.d.items.indexOf(it) + ')"><span class="mn"><span class="nm">' + esc(it.name) + '</span><span class="mt">' + esc((it.group || "") + (isFinite(u) ? "・今日用量 " + u + " " + (it.unit || "") : "")) + '</span></span><span class="eqv' + (o ? " bad" : "") + '">' + esc(envFmt(it, v) + " " + (it.unit || "")) + "</span></button>" + (o ? '<div class="eqnote"><textarea class="note" placeholder="超出' + esc(envRng(it)) + '：原因與處置（選填）" oninput="S.env.n[' + jsq(it.code) + ']=this.value;envDraftSave(S.env)">' + esc(E.n[it.code] || "") + "</textarea></div>" : "");
  }));
+ var cmT = 0, cmN = 0;
+ E.d.items.forEach((function(it) {
+  if (it.type !== "存量" || !it.ctl) return;
+  var v = E.v[it.code] !== undefined ? E.v[it.code] : envSent(E, it.code), c = envCtl(it, v);
+  if (isFinite(c)) {
+   cmT += c;
+   cmN++;
+  }
+ }));
+ if (cmN) h += '<div class="box info"><div class="r">' + ic("info", 22) + '<div class="bt"><div class="m">' + esc("管制倍數合計 " + Math.round(cmT * 100) / 100 + "（有填管制量的 " + cmN + " 項）") + "</div></div></div></div>";
  h += "</div>" + (bad ? '<div class="box warn"><div class="r">' + ic("warn", 22) + '<div class="bt"><div class="m">有 ' + bad + " 項超出範圍，請確認是否要重新量測。</div></div></div></div>" : "") + '<div class="btns"><button class="btn ghost" onclick="envQ(S.env).view=\'home\';render()">再改一下</button><button class="btn ghost" onclick="envCopy()">複製明細</button></div>';
  $("app").innerHTML = h;
  bar('<button class="btn" onclick="envQSend()">' + ic("check", 22, 2.6) + "確認送出 " + ks.length + " 項</button>");
@@ -900,9 +988,9 @@ function envGUse(G, r, c) {
 function envGBad(G, r, c) {
  var it = G.m.items[r], v = envGVal(G, r, c);
  if (v === "") return false;
- if (!isFinite(envNum(v))) return true;
+ if (!isFinite(envVal(it, v))) return true;
  if (envStopHint(it, v)) return false;
- var n = it.type === "累計" ? Number(envGUse(G, r, c) || NaN) : envNum(v);
+ var n = it.type === "累計" ? Number(envGUse(G, r, c) || NaN) : envVal(it, v);
  return isFinite(n) && (it.min !== null && n < it.min || it.max !== null && n > it.max);
 }
 
@@ -1145,8 +1233,9 @@ function envGCommit() {
  var G = S.envG, e = G.edit;
  if (!e) return true;
  var v = envNorm(e.buf);
- if (v !== "" && !isFinite(envNum(v))) {
-  toast(G.m.items[e.r].name + "：這不是數字（小數點用「.」）", "err", 3e3);
+ if (G.m.items[e.r].type === "存量") v = envQtyNorm(e.buf);
+ if (v !== "" && !isFinite(envVal(G.m.items[e.r], v))) {
+  toast(G.m.items[e.r].name + "：這不是數字（小數點用「.」；庫存可寫 6*160+20）", "err", 3e3);
   return false;
  }
  G.edit = null;
@@ -1483,7 +1572,7 @@ PLAT_PAGES.envSys = function() {
   }).then((function(d) {
    var v = {}, n = {};
    Object.keys(d.values || {}).forEach((function(k) {
-    v[k] = d.values[k].val;
+    v[k] = d.values[k].expr || d.values[k].val;
     n[k] = d.values[k].note;
    }));
    S.env = {
@@ -1617,7 +1706,7 @@ function envGo() {
   var it = E.d.items.filter((function(x) {
    return x.code === k;
   }))[0];
-  vals[k] = it && (it.type === "累計" || it.type === "數值") ? envNorm(E.v[k]) : E.v[k];
+  vals[k] = it && (it.type === "累計" || it.type === "數值") ? envNorm(E.v[k]) : it && it.type === "存量" ? envQtyNorm(E.v[k]) : E.v[k];
  }));
  var body = {
   sys: E.sys,
