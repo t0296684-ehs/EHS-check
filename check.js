@@ -6266,7 +6266,7 @@ PAGES.vendor = function() {
   if (s) r += '<div style="flex-basis:100%;display:flex;gap:8px;margin-top:8px;padding-left:34px"><button class="btn sm' + (s.ng ? " ghost" : "") + '" onclick="vdNg(' + jsq(e.id) + ',false)">合格</button><button class="btn sm' + (s.ng ? " red" : " ghost") + '" onclick="vdNg(' + jsq(e.id) + ',true)">有異常</button></div>' + (s.ng ? '<div style="flex-basis:100%;padding-left:34px;margin-top:6px"><textarea class="note" placeholder="照廠商報告寫異常情形，例：右後輪胎磨損需更換" oninput="S.vd.sel[' + jsq(e.id) + '].note=this.value;vdSave();vdBar()">' + esc(s.note || "") + "</textarea></div>" : "");
   return r + "</div>";
  })).join("") + "</div>";
- h += '<div class="sec">④ 上傳廠商檢查報告<small>每頁一張，最多 20 頁</small></div><div class="card ev"><div class="pics">' + v.pages.map((function(p, i) {
+ h += '<div class="sec">④ 上傳廠商檢查報告<small>每頁一張，最多 20 頁</small></div>' + '<div class="box warn"><div class="r">' + ic("warn", 22) + '<div class="bt"><b>請附廠商的檢查證明</b><div class="m">要有廠商名稱、檢查日期、逐台的檢查項目與結果。只附維修單、報價單或發票，會被環安衛退件。</div></div></div></div>' + '<div class="card ev"><div class="pics">' + v.pages.map((function(p, i) {
   return '<div class="pic"><img src="' + esc(p.t) + '" alt="報告第 ' + (i + 1) + ' 頁"><button class="px" aria-label="移除這頁" onclick="vdDel(' + i + ')">' + ic("x", 16, 3) + "</button></div>";
  })).join("") + (v.pages.length < 20 ? '<label class="pic add">' + ic("plus", 26, 2.6) + '<span>拍照／選檔</span><input type="file" accept="image/*" multiple hidden onchange="vdPickFiles(this)"></label>' : "") + "</div>" + '<div class="hint">拍整頁、字要看得清楚；掃描檔請存成 JPG 再選（可以一次選多頁）。一份報告包含多台設備沒關係，每台的紀錄都會附上整份。</div></div>';
  $("app").innerHTML = h;
