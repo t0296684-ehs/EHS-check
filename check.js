@@ -265,7 +265,9 @@ function claimGo(k) {
  if (!confirm("申請負責「" + what + "」？\n送出後要單位負責人核准，核准了首頁才會出現" + (x.kind === "equip" ? "這台設備的檢查表" : "這張表") + "。")) return;
  if (!navigator.onLine) return toast("沒有網路，申請要連上網路才能做", "err", 3500);
  busyOn("送出申請中…");
- api("claim", x.kind === "equip" ? {
+ api("claim", Object.assign({
+  noMe: true
+ }, x.kind === "equip" ? {
   deptId: x.dept,
   kind: "equip",
   cat: x.cat,
@@ -274,10 +276,10 @@ function claimGo(k) {
   deptId: x.dept,
   kind: "form",
   formId: x.form
- }).then((function(r) {
+ })).then((function(r) {
   busyOff();
-  S.me = normMe(r.me);
-  lsSet(LS.ME, r.me);
+  x.pending = true;
+  refreshMe();
   toast("已送出申請：" + what + "，等單位負責人核准", "ok", 3500);
   render();
  })).catch((function(e) {
@@ -339,7 +341,8 @@ function claimDecide(id, d) {
  if (!ids.length) return toast("請先勾選要處理的申請", "err", 2500);
  var b = {
   ids,
-  decision: d
+  decision: d,
+  noMe: true
  };
  if (d === "reject") {
   var why = prompt("退回原因（會通知申請人）" + (ids.length > 1 ? "，" + ids.length + " 件共用同一個原因" : ""), "");
@@ -353,8 +356,12 @@ function claimDecide(id, d) {
   S.cr = {
    list: r.list
   };
-  S.me = normMe(r.me);
-  lsSet(LS.ME, r.me);
+  (S.me.depts || []).forEach((function(dp) {
+   if (dp.claimReq) dp.claimReq = r.list.filter((function(y) {
+    return y.dept === dp.id;
+   })).length;
+  }));
+  refreshMe();
   ids.forEach((function(x) {
    delete sel[x];
   }));
