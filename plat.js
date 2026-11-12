@@ -1,4 +1,4 @@
-var PLAT_VER = "0.40.2";
+var PLAT_VER = "0.40.3";
 
 function platHeal() {
  try {
@@ -121,7 +121,7 @@ function menuBtn() {
 
 function platHero(say) {
  var m = S.me;
- return '<div class="hero-in">' + (window.heroTop ? heroTop() : "") + '<div class="hi"><div class="hn"><div class="h1">' + greet() + "，" + esc(m.person.name) + '</div><div class="hsub">' + esc(whoLine()) + "</div></div></div>" + (say ? '<div class="say">' + say + "</div>" : "") + "</div>";
+ return '<div class="hero-in">' + (window.heroTop ? heroTop() : "") + '<div class="hi"><div class="hn"><div class="h1">' + greet() + "，" + esc(m.person.name) + altTag(m.person.alt) + '</div><div class="hsub">' + esc(whoLine()) + "</div></div></div>" + (say ? '<div class="say">' + say + "</div>" : "") + "</div>";
 }
 
 function checkSub() {

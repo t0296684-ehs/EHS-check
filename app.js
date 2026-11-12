@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.40.2";
+var APP_VERSION = "0.40.3";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -161,6 +161,10 @@ function nameWhy(s) {
 function hm(ts) {
  var d = new Date(ts);
  return pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+
+function altTag(a) {
+ return a ? ' <span class="altn" data-raw>' + esc(a) + "</span>" : "";
 }
 
 function greet() {
@@ -1415,7 +1419,7 @@ PAGES.login = function() {
  S.loginPs = ps;
  if (a.dept || a.mgr) {
   h += step(2, a.i != null, "您是") + (ps.length ? '<div class="list">' + ps.map((function(p, i) {
-   return '<button class="li' + (a.i === i ? " sel" : "") + '" aria-pressed="' + (a.i === i) + '" onclick="S.arg.i=' + i + ';render()"><span class="radio"></span><span class="mn"><span class="nm">' + esc(p.name) + '</span><span class="mt">' + esc(p.role) + (p.needPin ? "・需要啟用碼" : "") + "</span></span></button>";
+   return '<button class="li' + (a.i === i ? " sel" : "") + '" aria-pressed="' + (a.i === i) + '" onclick="S.arg.i=' + i + ';render()"><span class="radio"></span><span class="mn"><span class="nm">' + esc(p.name) + altTag(p.alt) + '</span><span class="mt">' + esc(p.role) + (p.needPin ? "・需要啟用碼" : "") + "</span></span></button>";
   })).join("") + "</div>" : '<div class="box warn"><div class="r">' + ic("info", 22) + '<div class="bt"><b>' + (a.mgr ? "這個部門還沒有單位負責人" : "這個部門的名單還沒建立") + '</b><div class="m">請洽環安衛中心。</div></div></div></div>');
  }
  var sel = a.i != null ? ps[a.i] : null;
@@ -2575,7 +2579,7 @@ PAGES.home = function() {
   if (todo.length) parts.push(todo.length + " 張還沒做");
   hs += '<div class="dbar" aria-hidden="true">' + segs + '</div><div class="hnote">每日檢點 ' + daily.length + " 張：" + parts.join("、") + "</div>";
  }
- S.hero = '<div class="hero-in">' + heroTop() + '<div class="hi"><div class="hn"><div class="h1">' + greet() + "，" + esc(m.person.name) + '</div><div class="hsub">' + esc(sub) + "</div></div></div>" + '<div class="hs">' + hs + "</div></div>";
+ S.hero = '<div class="hero-in">' + heroTop() + '<div class="hi"><div class="hn"><div class="h1">' + greet() + "，" + esc(m.person.name) + altTag(m.person.alt) + '</div><div class="hsub">' + esc(sub) + "</div></div></div>" + '<div class="hs">' + hs + "</div></div>";
  var top = netBlock() + clockBlock() + outboxBlock() + (window.sharedBlock ? sharedBlock() : ""), h = "";
  if (tasks.length) h += '<div class="sec"><span class="sl"><span class="cnt">' + tasks.length + "</span>要做的事</span></div>" + tasks.map(taskHtml).join(""); else h += '<div class="card calm">' + ic("check", 24, 3) + "目前沒有要做的事</div>";
  var main = h;
@@ -2640,7 +2644,7 @@ PAGES.home = function() {
    tasks
   });
   var dt = tasks.length ? '<div class="dcard"><div class="dch"><b>要做的事</b><span class="cnt">' + tasks.length + '</span></div><div class="dtl">' + tasks.map(deskTask).join("") + "</div></div>" : '<div class="dcard calmd">' + ic("check", 22, 3) + "<b>目前沒有要做的事</b></div>";
-  h = top + '<div class="dhead"><div><div class="dh1">' + greet() + "，" + esc(m.person.name) + '</div><div class="dhsub">' + esc(sub) + '</div></div><div class="dsay">' + say + "</div></div>" + kp + '<div class="desk2"><div class="dcol">' + dt + '</div><div class="dcol">' + (window.deskDaily ? deskDaily(m) : "") + h + "</div></div>";
+  h = top + '<div class="dhead"><div><div class="dh1">' + greet() + "，" + esc(m.person.name) + altTag(m.person.alt) + '</div><div class="dhsub">' + esc(sub) + '</div></div><div class="dsay">' + say + "</div></div>" + kp + '<div class="desk2"><div class="dcol">' + dt + '</div><div class="dcol">' + (window.deskDaily ? deskDaily(m) : "") + h + "</div></div>";
  } else h = top + main + h + '<div class="tiles">' + tl + '</div><div class="ver">v' + APP_VERSION + "</div>";
  $("app").innerHTML = h;
 };
