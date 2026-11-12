@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.41.0";
+var APP_VERSION = "0.42.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -1331,12 +1331,27 @@ PAGES.login = function() {
  var b = S.boot;
  if (!b) {
   $("app").innerHTML = loading("讀取名單中…");
-  api("bootstrap").then((function(d) {
+  api("bootstrap", {
+   gate: lsGet("chk.gate", "")
+  }).then((function(d) {
    S.boot = d;
    render();
   })).catch((function(e) {
    $("app").innerHTML = errBox("讀不到名單", e.message) + '<button class="btn navy" onclick="render()">再試一次</button>';
   }));
+  return;
+ }
+ if (b.gate) {
+  if (b.gateBad) lsDel("chk.gate");
+  $("app").innerHTML = '<div class="card"><div class="stepH"><i>1</i><label for="gate">輸入員和的登入通行碼</label></div>' + '<input id="gate" class="field pin" inputmode="numeric" autocomplete="off" placeholder="公告在現場，或問單位負責人">' + '<div class="hint">保護同仁的姓名不被外人看到。這支手機輸入一次就記住，之後不用再輸入。</div>' + (b.gateBad ? errBox("通行碼不對", "請再確認一次；不知道的話請問單位負責人或環安衛中心") : "") + "</div>";
+  bar('<button class="btn" onclick="gateGo()">下一步</button>');
+  var gi = $("gate");
+  if (gi) {
+   gi.focus();
+   gi.onkeydown = function(e) {
+    if (e.key === "Enter") gateGo();
+   };
+  }
   return;
  }
  var a = S.arg;
@@ -1436,6 +1451,18 @@ PAGES.login = function() {
  if (sel) bar('<button class="btn" id="bindBtn" onclick="doBind()">確認，我是 ' + esc(sel.name) + "</button>");
 };
 
+function gateGo() {
+ var v = ($("gate") && $("gate").value || "").trim();
+ if (!v) {
+  $("gate").classList.add("bad");
+  $("gate").focus();
+  return;
+ }
+ lsSet("chk.gate", v);
+ S.boot = null;
+ render();
+}
+
 function doBind() {
  var btn = $("bindBtn");
  btn.disabled = true;
@@ -1457,7 +1484,8 @@ function doBind() {
   name: sel.name,
   pin,
   device: navigator.userAgent.slice(0, 80),
-  lite: true
+  lite: true,
+  gate: lsGet("chk.gate", "")
  }).then((function(d) {
   setClock(d.me.serverNow);
   rcClear();
