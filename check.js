@@ -299,25 +299,55 @@ PAGES.claimReview = function() {
   }));
   return;
  }
- var h = '<div class="muted upnote">同仁申請負責的表或設備。核准後馬上出現在他的手機上，環安衛中心會收到異動通知；退回請寫原因。</div>';
+ var sel = S.crSel = S.crSel || {};
+ cr.list.forEach((function(x) {
+  if (!(x.id in sel)) sel[x.id] = true;
+ }));
+ var ids = cr.list.filter((function(x) {
+  return sel[x.id];
+ })).map((function(x) {
+  return x.id;
+ }));
+ var h = '<div class="muted upnote">同仁申請負責的表或設備。核准後馬上出現在他的手機上，環安衛中心會收到異動通知；退回請寫原因。環安衛或您已經直接派給他的，系統會自動結案，不用再按。</div>';
+ if (cr.list.length > 1) h += '<div class="card" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">' + '<label style="display:flex;align-items:center;gap:6px;margin-right:auto"><input type="checkbox" ' + (ids.length === cr.list.length ? "checked " : "") + 'onchange="claimSelAll(this.checked)">全選（已選 ' + ids.length + " / " + cr.list.length + " 件）</label>" + '<button class="btn sm"' + (ids.length ? "" : " disabled") + ' onclick="claimDecide(null,' + jsq("approve") + ')">核准勾選的 ' + ids.length + " 件</button>" + '<button class="btn sm ghost"' + (ids.length ? "" : " disabled") + ' onclick="claimDecide(null,' + jsq("reject") + ')">退回勾選的</button></div>';
  h += cr.list.length ? '<div class="list">' + cr.list.map((function(x) {
-  return '<div class="li"><span class="mn"><span class="nm">' + esc(x.name + "：" + x.what) + '</span><span class="mt">' + esc(x.dept + "・" + x.time.slice(5) + " 申請") + "</span>" + '<span class="mt">' + esc(x.users.length ? "目前負責：" + x.users.join("、") : "目前沒有人負責") + "</span>" + '<span class="btns"><button class="btn sm" onclick="claimDecide(' + jsq(x.id) + "," + jsq("approve") + ')">核准</button><button class="btn sm ghost" onclick="claimDecide(' + jsq(x.id) + "," + jsq("reject") + ')">退回</button></span></span></div>';
+  return '<div class="li">' + (cr.list.length > 1 ? '<input type="checkbox" style="width:22px;height:22px;margin-right:10px;flex:none" ' + (sel[x.id] ? "checked " : "") + 'onchange="claimSel(' + jsq(x.id) + ',this.checked)">' : "") + '<span class="mn"><span class="nm">' + esc(x.name + "：" + x.what) + '</span><span class="mt">' + esc(x.dept + "・" + x.time.slice(5) + " 申請") + "</span>" + '<span class="mt">' + esc(x.users.length ? "目前負責：" + x.users.join("、") : "目前沒有人負責") + "</span>" + '<span class="btns"><button class="btn sm" onclick="claimDecide(' + jsq(x.id) + "," + jsq("approve") + ')">核准</button><button class="btn sm ghost" onclick="claimDecide(' + jsq(x.id) + "," + jsq("reject") + ')">退回</button></span></span></div>';
  })).join("") + "</div>" : '<div class="empty">目前沒有待核准的表單申請</div>';
  $("app").innerHTML = h;
 };
 
+function claimSel(id, on) {
+ (S.crSel = S.crSel || {})[id] = on;
+ keepY(render);
+}
+
+function claimSelAll(on) {
+ var sel = S.crSel = S.crSel || {};
+ (S.cr && S.cr.list || []).forEach((function(x) {
+  sel[x.id] = on;
+ }));
+ keepY(render);
+}
+
 function claimDecide(id, d) {
+ var list = S.cr && S.cr.list || [], sel = S.crSel || {};
+ var ids = id ? [ id ] : list.filter((function(x) {
+  return sel[x.id];
+ })).map((function(x) {
+  return x.id;
+ }));
+ if (!ids.length) return toast("請先勾選要處理的申請", "err", 2500);
  var b = {
-  id,
+  ids,
   decision: d
  };
  if (d === "reject") {
-  var why = prompt("退回原因（會通知申請人）", "");
+  var why = prompt("退回原因（會通知申請人）" + (ids.length > 1 ? "，" + ids.length + " 件共用同一個原因" : ""), "");
   if (why === null) return;
   b.reason = why;
  }
  if (!navigator.onLine) return toast("沒有網路，要連上網路才能核准", "err", 3500);
- busyOn(d === "approve" ? "核准中…" : "退回中…");
+ busyOn((d === "approve" ? "核准中" : "退回中") + (ids.length > 1 ? "（" + ids.length + " 件）" : "") + "…");
  api("claimDecide", b).then((function(r) {
   busyOff();
   S.cr = {
@@ -325,7 +355,11 @@ function claimDecide(id, d) {
   };
   S.me = normMe(r.me);
   lsSet(LS.ME, r.me);
-  toast(d === "approve" ? "已核准" : "已退回", "ok", 2500);
+  ids.forEach((function(x) {
+   delete sel[x];
+  }));
+  var msg = (d === "approve" ? "已核准 " : "已退回 ") + (r.done == null ? ids.length : r.done) + " 件";
+  if (r.skipped && r.skipped.length) toast(esc(msg + "；略過：" + r.skipped.join("；")), "err", 6e3); else toast(msg, "ok", 2500);
   render();
  })).catch((function(e) {
   busyOff();
