@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.40.0";
+var APP_VERSION = "0.40.1";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -1035,12 +1035,18 @@ function normMe(m) {
 
 function refreshMe() {
  if (!lsGet(LS.TOKEN, "")) return Promise.resolve();
+ var wasLite = !!(S.me && S.me.loading);
  return api("me", {}, {
   quiet: true
  }).then((function(m) {
   setClock(m.serverNow);
   S.me = normMe(m);
   lsSet(LS.ME, m);
+  S.meErr = "";
+  if (wasLite && S.page !== "sign") {
+   render();
+   if (window.prefetch) prefetch();
+  }
   if (m.pendingReview) loadPkgs(true); else S.pkgs = [];
   if (m.person && m.person.role !== "檢點人員") ovLoad(true);
   if (!S.landed) {
@@ -1051,8 +1057,25 @@ function refreshMe() {
   if ([ "home", "menu", "settings", "pick", "months", "notice", "claim", "mine" ].indexOf(S.page) >= 0) render();
  })).catch((function(e) {
   if (S.dev) return toast(esc(e.message), "err", 4e3);
-  if (e.biz && AUTH_RE.test(e.message)) kickToLogin(e.message);
+  if (e.biz && AUTH_RE.test(e.message)) return kickToLogin(e.message);
+  if (wasLite) {
+   S.meErr = e.message || "連線不穩";
+   if (PAGES[S.page] && LITE_PAGES.indexOf(S.page) < 0) render();
+  }
  }));
+}
+
+var LITE_PAGES = [ "menu", "sign", "guide", "login", "url" ];
+
+function meRetry() {
+ S.meErr = "";
+ render();
+ refreshMe();
+}
+
+function meLoadingPage() {
+ setTitle("員和環安衛系統");
+ $("app").innerHTML = S.meErr ? errBox("還沒讀到您的表單與待辦", S.meErr) + '<button class="btn" onclick="meRetry()">再讀一次</button>' : loading("已登入，正在讀取您的表單與待辦…");
 }
 
 var pkgLoading = false;
@@ -1190,6 +1213,7 @@ function render() {
   }
  }
  var fn = PAGES[p] || PAGES.home;
+ if (S.me && S.me.loading && !S.cpub && !S.meet && !S.share && lsGet(LS.TOKEN, "") && LITE_PAGES.indexOf(p) < 0) fn = meLoadingPage;
  if (window.trailPush) trailPush(p);
  S.cur = p;
  S.hero = null;
@@ -1421,7 +1445,8 @@ function doBind() {
  api("bind", {
   name: sel.name,
   pin,
-  device: navigator.userAgent.slice(0, 80)
+  device: navigator.userAgent.slice(0, 80),
+  lite: true
  }).then((function(d) {
   setClock(d.me.serverNow);
   rcClear();
@@ -1431,11 +1456,13 @@ function doBind() {
   S.me = normMe(d.me);
   S.stack = [];
   S.pf = false;
+  S.meErr = "";
   lsSet("chk.coach.menu", "todo");
   S.landed = true;
   go(d.me.signature ? landing() : "sign", {}, true);
   toast("歡迎，" + esc(d.me.person.name), "ok");
   rebindJobs(d.me.person.name, d.token);
+  if (d.me.loading) refreshMe();
  })).catch((function(e) {
   $("loginErr").innerHTML = errBox("登入沒有成功", e.message);
   if ($("pin")) $("pin").classList.add("bad");
