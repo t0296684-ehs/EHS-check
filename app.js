@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.42.0";
+var APP_VERSION = "0.42.1";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -60,6 +60,17 @@ function esc(s) {
 
 function jsq(s) {
  return esc(JSON.stringify(String(s == null ? "" : s)));
+}
+
+function devId() {
+ var v = lsGet("chk.did", "");
+ if (!v) {
+  v = Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+  try {
+   localStorage.setItem("chk.did", JSON.stringify(v));
+  } catch (e) {}
+ }
+ return v;
 }
 
 function lsGet(k, d) {
@@ -1484,6 +1495,7 @@ function doBind() {
   name: sel.name,
   pin,
   device: navigator.userAgent.slice(0, 80),
+  did: devId(),
   lite: true,
   gate: lsGet("chk.gate", "")
  }).then((function(d) {

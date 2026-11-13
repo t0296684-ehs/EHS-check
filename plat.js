@@ -1,4 +1,4 @@
-var PLAT_VER = "0.42.0";
+var PLAT_VER = "0.42.1";
 
 function platHeal() {
  try {
@@ -3423,7 +3423,7 @@ function chemOpen(i) {
   return "<span>" + esc(f) + "</span>";
  })).join("") + "</div>" : "") + '<div class="chsec">危害分類</div>' + (x.haz.length ? '<ul class="chz">' + x.haz.map((function(h) {
   return "<li>" + esc(h) + "</li>";
- })).join("") + "</ul>" + (x.hazSrc ? '<div class="chs">' + esc(x.hazSrc) + "</div>" : "") : x.hazNone ? '<div class="chok">' + esc(x.hazSrc || "SDS 載明非危害物質") + "，不需危害圖式。仍請依 SDS 第八項穿戴防護具。</div>" : '<div class="muted">' + (x.hazSrc ? esc(x.hazSrc) + "。" : "") + "危害重點請看現場 SDS 第二項（索引碼 " + esc(x.idx || "—") + "）。</div>") + chemPts(x) + '<div class="chsec">基本資料</div>' + row("CAS No.", x.cas) + row("使用情形", x.use) + row("製造商／供應商", x.maker) + '<div class="tip">不舒服、皮膚或眼睛有異狀，馬上告訴主管。現場 SDS 依索引碼 ' + esc(x.idx || "—") + " 找。</div></div>";
+ })).join("") + "</ul>" + (x.hazSrc ? '<div class="chs">' + esc(x.hazSrc) + "</div>" : "") : x.hazNone ? '<div class="chok">' + esc(x.hazSrc || "SDS 載明非危害物質") + "，不需危害圖式。仍請依 SDS 第八項穿戴防護具。</div>" : '<div class="muted">' + (x.hazSrc ? esc(x.hazSrc) + "。" : "") + "危害重點請看現場 SDS 第二項（索引碼 " + esc(x.idx || "—") + "）。</div>") + chemPts(x) + '<div class="chsec">基本資料</div>' + row("CAS No.", x.cas) + row("使用情形", x.use) + '<div class="tip">不舒服、皮膚或眼睛有異狀，馬上告訴主管。現場 SDS 依索引碼 ' + esc(x.idx || "—") + " 找。</div></div>";
  document.body.appendChild(dd);
  dd.addEventListener("click", (function(e) {
   if (e.target === dd) dd.remove();
