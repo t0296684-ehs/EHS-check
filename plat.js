@@ -1,4 +1,4 @@
-var PLAT_VER = "0.46.0";
+var PLAT_VER = "0.47.0";
 
 function platHeal() {
  try {
@@ -2073,6 +2073,41 @@ function consLink(form, how) {
   run(form2Url(false), F2_MSG);
  }, "ghost" ] ]);
 }
+
+var WAIT_T0 = 0, WAIT_LAST = "";
+
+function waitTick() {
+ var on = Array.prototype.some.call(document.querySelectorAll(".spin"), (function(e) {
+  return e.offsetParent !== null && !/sm/.test(e.className) && !(e.closest && e.closest(".rdi"));
+ }));
+ var el = document.getElementById("waitTip");
+ if (!on || document.hidden) {
+  WAIT_T0 = 0;
+  WAIT_LAST = "";
+  if (el) el.remove();
+  return;
+ }
+ if (!WAIT_T0) {
+  WAIT_T0 = Date.now();
+  return;
+ }
+ var sec = Math.round((Date.now() - WAIT_T0) / 1e3);
+ if (sec < 3) return;
+ var msg = sec < 15 ? "系統正在處理，通常要 5～15 秒，這是正常的" : sec < 40 ? "還在處理中，網路比較慢時會久一點，請再等一下" : "比平常久，系統還在處理，請不要關掉；資料不會不見";
+ var html = "<b>" + msg + "</b><span>已等 " + sec + " 秒</span>";
+ if (html === WAIT_LAST && el) return;
+ if (!el) {
+  el = document.createElement("div");
+  el.id = "waitTip";
+  el.setAttribute("role", "status");
+  el.setAttribute("aria-live", "polite");
+  document.body.appendChild(el);
+ }
+ el.innerHTML = html;
+ WAIT_LAST = html;
+}
+
+setInterval(waitTick, 1e3);
 
 function dlg(html, buttons) {
  var d = $("pDlg");

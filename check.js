@@ -24,6 +24,7 @@ function ovLoad(force) {
   S.ovErr = false;
   OV_AT = Date.now();
   S.ovBusy = false;
+  ovKeep(r);
   if (S.page === "home") render();
  })).catch((function() {
   S.ovBusy = false;
@@ -31,6 +32,24 @@ function ovLoad(force) {
   OV_AT = Date.now();
   if (S.page === "home") render();
  }));
+}
+
+function ovKeep(r) {
+ try {
+  localStorage.setItem("chk_ov_last", JSON.stringify({
+   who: S.me.person.name,
+   at: Date.now(),
+   r
+  }));
+ } catch (e) {}
+}
+
+function ovStale() {
+ try {
+  var o = JSON.parse(localStorage.getItem("chk_ov_last") || "null");
+  if (o && o.r && o.who === S.me.person.name && o.r.today === today()) return o;
+ } catch (e) {}
+ return null;
 }
 
 function ovSum(d) {
@@ -65,7 +84,12 @@ function overviewHtml() {
   }));
   return ms.length ? '<div class="sec">各部門月結進度<small>連上網路後顯示各課今天的檢點</small></div><div class="list">' + ms.map(monthRow).join("") + "</div>" : "";
  }
- if (!ov) return '<div class="sec">各課執行狀況</div>' + loading("讀取各課今天的檢點…");
+ var stale = null;
+ if (!ov) {
+  stale = ovStale();
+  if (!stale) return '<div class="sec">各課執行狀況</div>' + loading("讀取各課今天的檢點…");
+  ov = stale.r;
+ }
  var open = ovOpenGet(), many = ov.depts.length > 3;
  var isOpenOf = function(id) {
   return id in open ? open[id] : !many;
@@ -87,7 +111,7 @@ function overviewHtml() {
   if (c.ng) tot.ng++;
   if (c.todo) tot.todo++; else if (c.n) tot.ok++;
  }));
- var h = '<div class="sec">各課執行狀況<small>' + md(t) + "（" + wk(t) + "）・" + (ov.today === t ? "" : "更新中・") + '<button class="lnk" onclick="ovAll()">' + (ov.depts.some((function(d) {
+ var h = '<div class="sec">各課執行狀況<small>' + md(t) + "（" + wk(t) + "）・" + (stale ? '<span class="spin sm"></span>顯示 ' + Math.max(1, Math.round((Date.now() - stale.at) / 6e4)) + " 分鐘前的資料，更新中・" : ov.today === t ? "" : "更新中・") + '<button class="lnk" onclick="ovAll()">' + (ov.depts.some((function(d) {
   return isOpenOf(d.id);
  })) ? "全部收合" : "全部展開") + "</button></small></div>";
  if (list.length > 1) h += '<div class="ovsum">' + list.length + " 個課：" + [ tot.ok ? "今日完成 " + tot.ok : "", tot.todo ? "未完成 " + tot.todo : "", tot.ng ? '<b class="ngt">有異常 ' + tot.ng + "</b>" : "" ].filter(String).join("・") + "</div>";
@@ -219,12 +243,23 @@ PAGES.pick = function() {
    h += '<div class="li"><span class="mn"><span class="mt">後台還沒建立這個部門的' + esc(a.missingEquip) + "編號，請洽環安衛中心。</span></span></div>";
    return;
   }
-  h += '<button class="li" onclick="openFill(' + jsq(a.key) + ')"><span class="mn"><span class="nm">' + esc([ a.object ? a.object + (a.objectName ? " " + a.objectName : "") : "", a.kind ].filter(String).join("｜") || f.name) + "</span>" + '<span class="mt">' + esc(dueMeta(a)) + "</span></span>" + duePill(a) + "</button>";
+  h += '<button class="li" onclick="' + (a.due && a.due.state === "ok" && a.due.last ? "perDoneAsk(" + jsq(a.key) + ")" : "openFill(" + jsq(a.key) + ")") + '"><span class="mn"><span class="nm">' + esc([ a.object ? a.object + (a.objectName ? " " + a.objectName : "") : "", a.kind ].filter(String).join("｜") || f.name) + "</span>" + '<span class="mt">' + esc(dueMeta(a)) + "</span></span>" + duePill(a) + "</button>";
  }));
  if (open) h += "</div>";
  if (!list.length) h += '<div class="empty">這個部門沒有其他檢查表</div>';
  $("app").innerHTML = h;
 };
+
+function perDoneAsk(key) {
+ var a = (S.me.assigns || []).filter((function(x) {
+  return x.key === key;
+ }))[0];
+ if (!a) return;
+ var d = a.due || {}, mine = S.me && d.lastBy === S.me.person.name, who = mine ? "您" : d.lastBy || "同事";
+ dlg("<b>" + (a.freq === "每月" ? "這個月" : "這一期") + "已經做過了，不用再填</b><p>" + esc("「" + pickName(a) + (a.kind ? "（" + a.kind + "）" : "") + "」已經由 " + who + " 在 " + mdTxt(d.last) + " 檢查送出。") + "</p>" + (d.due ? "<p>" + esc("下次要在 " + mdTxt(d.due) + " 前完成。") + "</p>" : "") + (mine ? '<p class="muted">' + esc("要改內容：按「改 " + mdTxt(d.last) + " 那筆」，日期選 " + mdTxt(d.last) + "。") + "</p>" : ""), mine ? [ [ "改 " + mdTxt(d.last) + " 那筆", function() {
+  openFill(key);
+ }, "ghost" ] ] : []);
+}
 
 PAGES.claim = function() {
  setTitle("申請表單");

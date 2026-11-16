@@ -409,6 +409,10 @@ padding:12px 18px;border-radius:14px;font-size:15px;font-weight:700;z-index:50;m
 #busy p{margin:0;color:var(--sub);font-size:16px}
 #busy .sec2{font-size:14px;color:var(--mute)}
 .spin.big{width:44px;height:44px;border-width:5px}
+.spin.sm{width:12px;height:12px;border-width:2px;vertical-align:-1px;margin-right:4px}
+#waitTip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:10050;max-width:min(92vw,460px);background:#1C2B45;color:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 6px 24px rgba(0,0,0,.25);font-size:14px;line-height:1.45;display:flex;gap:10px;align-items:center}
+#waitTip b{font-weight:600;flex:1}
+#waitTip span{font-size:12px;opacity:.8;white-space:nowrap}
 .cprow{display:flex;gap:8px;align-items:stretch;margin-top:8px}
 .cprow .field{flex:1;min-width:0;margin:0}
 .cprow .btn{width:auto;flex-shrink:0;padding:0 14px;min-height:48px;white-space:nowrap}
