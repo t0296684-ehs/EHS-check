@@ -1,4 +1,4 @@
-var PLAT_VER = "0.44.0";
+var PLAT_VER = "0.44.1";
 
 function platHeal() {
  try {
@@ -3618,6 +3618,10 @@ var PTS_K = {
  fire: [ [ "滅火劑", "滅火劑" ] ]
 };
 
+function chemLines(s) {
+ return esc(s).replace(/([^\d\s])\s*(?=\d{1,2}[.．、](?!\d))/g, "$1<br>");
+}
+
 function chemPts(x) {
  var p = x.pts;
  if (!p) return "";
@@ -3626,7 +3630,7 @@ function chemPts(x) {
   return PTS_K[sec].filter((function(k) {
    return d[k[0]];
   })).map((function(k) {
-   return '<div class="chr"><b>' + esc(k[1]) + "</b><span>" + esc(d[k[0]]) + "</span></div>";
+   return '<div class="chr"><b>' + esc(k[1]) + "</b><span>" + chemLines(d[k[0]]) + "</span></div>";
   })).join("");
  };
  var work = blk("handle") + blk("ppe"), act = (blk("firstaid") ? '<div class="chsub">急救</div>' + blk("firstaid") : "") + (blk("leak") ? '<div class="chsub">洩漏</div>' + blk("leak") : "") + (blk("fire") ? '<div class="chsub">火災</div>' + blk("fire") : "");

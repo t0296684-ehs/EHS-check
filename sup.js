@@ -561,7 +561,7 @@ function xeFab() {
 
 function xeBusyPage() {
  var b = $("bar");
- return !!(b && b.firstChild);
+ return !!(b && b.firstChild) || [ "menu", "home" ].indexOf(S.page) < 0;
 }
 
 function xeTab() {
