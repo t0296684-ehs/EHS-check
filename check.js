@@ -2556,7 +2556,7 @@ function monthRender() {
  } else if (v.status === "待主管審核" && boss && !ehs) {
   bar('<label class="nl" for="cm">退回原因：<b>寫要改哪一天、哪一項</b>（核准不用填，本課看得到）</label><textarea id="cm" class="note plain" placeholder="退回時必填，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm) + "</textarea>" + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">先離開</button><button class="btn redline" onclick="doReview(\'return\')">退回本課修改</button><button class="btn" onclick="doReview(\'approve\')">' + ic("pen", 22) + "核准並簽名</button></div>");
  } else if (v.status === "待環安衛審核" && ehs) {
-  bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>" + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">先離開</button><button class="btn redline" onclick="doEhs(\'return\')">退回本課修改</button><button class="btn" onclick="doEhs(\'approve\')">' + ic("check", 22, 2.8) + "核准歸檔</button></div>");
+  bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>" + '<label class="nl" for="cm">退回原因：<b>寫要改哪一天、哪一項</b>（核准不用填，本課與單位負責人看得到）</label><textarea id="cm" class="note plain" placeholder="退回時必填，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm || "") + "</textarea>" + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">先離開</button><button class="btn redline" onclick="doEhs(\'return\')">退回本課修改</button><button class="btn" onclick="doEhs(\'approve\')">' + ic("check", 22, 2.8) + "核准歸檔</button></div>");
  } else if (v.status === "已歸檔" || v.status === "待環安衛審核") {
   bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>");
  }
@@ -2985,7 +2985,8 @@ function doReview(action) {
  if (action === "return" && !confirm("把 " + S.view.dept + " " + ymLabel(S.view.period) + " 整個月退回給本課？\n\n退回後檢點人員可以修改，改好再重新送審。")) return;
  if (action === "approve") {
   if (!S.me.signature) return go("sign");
-  if (!confirm("核准 " + S.view.dept + " " + ymLabel(S.view.period) + " 的檢點紀錄？\n會帶入您的簽名並產生 PDF。")) return;
+  if (!S.rvOk) return rvAsk("mgr");
+  S.rvOk = false;
  }
  bar('<div class="loading" style="padding:14px 0"><span class="spin"></span>' + (action === "approve" ? "簽名並產生 PDF 中，約 10～30 秒…" : "退回中…") + "</div>");
  busyOn(action === "approve" ? "簽名並產生 PDF 中…" : "退回中…", action === "approve" ? "約 10～30 秒" : "");
@@ -3016,17 +3017,100 @@ function doReview(action) {
  }));
 }
 
+function revSum(v) {
+ var mm = v.model || {
+  daily: [],
+  periodic: []
+ }, late = mm.late || {}, m0 = Number(v.period.slice(5)), o = {
+  blank: [],
+  bad: [],
+  late: [],
+  lines: []
+ };
+ var ds = function(a) {
+  return a.slice(0, 12).map((function(d) {
+   return m0 + "/" + d;
+  })).join("、") + (a.length > 12 ? " 等 " + a.length + " 天" : "");
+ };
+ (mm.daily || []).forEach((function(x) {
+  var f = F(x.form, v.period);
+  if (!f) return;
+  var nm = x.name || f.name, work = 0, nw = 0, bad = [];
+  Object.keys(x.days).forEach((function(k) {
+   var r = x.days[k];
+   if (r.noWork) nw++; else work++;
+   if (dayBad(f, r)) bad.push(Number(k));
+  }));
+  bad.sort((function(a, b) {
+   return a - b;
+  }));
+  var bl = blankDays(x, v.period), lt = Object.keys(late[x.form] || {}).map(Number).sort((function(a, b) {
+   return a - b;
+  }));
+  if (bl.length) o.blank.push(nm + "：" + ds(bl));
+  if (bad.length) o.bad.push(nm + "：" + ds(bad));
+  if (lt.length) o.late.push(nm + "：" + ds(lt));
+  o.lines.push(nm + "：檢點 " + work + " 天、無作業 " + nw + " 天" + (bad.length ? "、異常 " + bad.length + " 天" : ""));
+ }));
+ if ((mm.periodic || []).length) o.lines.push("定期檢查 " + mm.periodic.length + " 份");
+ return o;
+}
+
+function rvAsk(role) {
+ if ($("cm")) S.cm = $("cm").value;
+ go("rvConfirm", {
+  role
+ });
+}
+
+function rvGo() {
+ var role = S.arg.role;
+ S.rvOk = true;
+ back();
+ setTimeout((function() {
+  if (role === "ehs") doEhs("approve"); else doReview("approve");
+ }), 0);
+}
+
+PAGES.rvConfirm = function() {
+ var v = S.view;
+ if (!v) return back();
+ var ehs = S.arg.role === "ehs", s = revSum(v), m0 = Number(v.period.slice(5));
+ setTitle("核准 " + ymLabel(v.period));
+ var box = function(cls, icon, title, list, tail) {
+  return list.length ? '<div class="box ' + cls + '"><div class="r">' + ic(icon, 24) + '<div class="bt"><b>' + esc(title) + "</b>" + list.map((function(l) {
+   return '<div class="m">・' + esc(l) + "</div>";
+  })).join("") + (tail ? '<div class="m">' + esc(tail) + "</div>" : "") + "</div></div></div>" : "";
+ };
+ var h = '<div class="h2">核准前請確認</div><div class="lead">' + esc((v.who ? v.who + "・" : "") + v.dept + "・" + ymLabel(v.period)) + "，" + esc(ehs ? v.who ? "核准後全課到齊就整課歸檔，歸檔後不能再改。" : "核准後歸檔，歸檔後不能再改。" : "核准後帶入您的簽名、送環安衛中心。") + "</div>" + box("warn", "warn", "平日沒有紀錄、也沒選「今日無作業」", s.blank, "請確認這幾天確實沒有運作；如果是漏填，請在下一頁寫原因退回補填。") + box("err", "warn", "有異常的日子", s.bad, "請確認異常說明與處置都寫了。") + box("info", "info", "補登的日子（事後才填）", s.late, "") + (!s.blank.length && !s.bad.length ? '<div class="box info"><div class="r">' + ic("info", 22) + '<div class="bt"><div class="m">上班日都有紀錄或已選「今日無作業」，也沒有異常。</div></div></div></div>' : "") + '<div class="card"><div class="muted">各表摘要</div>' + s.lines.map((function(l) {
+  return '<div class="sml">' + esc(l) + "</div>";
+ })).join("") + "</div>" + '<label class="ck smck"><input type="checkbox" id="rvChk" onchange="$(\'rvGo\').disabled=!this.checked">' + esc(s.blank.length ? "上面空白的日子確實沒有運作，異常也看過了，確認核准 " + m0 + " 月的紀錄" : s.bad.length ? "異常都看過了，確認核准 " + m0 + " 月的紀錄" : "我已看過 " + m0 + " 月的紀錄，確認核准") + "</label>";
+ $("app").innerHTML = h;
+ bar('<button class="btn ghost" onclick="back()">' + ic("cal", 20, 2.2) + '回去看紀錄</button><button class="btn" id="rvGo" disabled onclick="rvGo()">' + ic(ehs ? "check" : "pen", 22, 2.6) + esc(ehs ? "確認核准歸檔" : "確認核准並簽名") + "</button>");
+};
+
 function doEhs(action) {
  var why = "";
  if (action === "return") {
-  for (var tries = 0; ;tries++) {
-   why = prompt((tries ? "請寫清楚要改哪一天、哪一項。\n" : "") + "退回原因（必填，本課與單位負責人看得到）？整個月會退回給本課。", why || "");
-   if (why === null) return;
-   if (!txtWhy(why, {
-    want: "x"
-   })) break;
+  why = ($("cm") || {}).value || "";
+  S.cm = why;
+  var rw = txtWhy(why, {
+   want: "請寫要改哪一天、哪一項（例：10/3 第 5 項沒寫異常說明）"
+  });
+  if (rw) {
+   toast(rw === "還沒寫" ? "退回要寫原因：要改哪一天、哪一項" : esc(rw), "err", 4500);
+   var c0 = $("cm");
+   if (c0) {
+    c0.classList.add("bad");
+    c0.focus();
+   }
+   return;
   }
- } else if (!confirm(S.view && S.view.who ? "核准 " + S.view.who + " 的檢點紀錄？（全課到齊後整課歸檔）" : "確認歸檔？")) return;
+  if (!confirm("把 " + (S.view.who ? S.view.who + " 的" : S.view.dept + " ") + ymLabel(S.view.period) + " 檢點紀錄退回？\n\n退回原因：" + why + "\n\n退回後可以修改，改好再重新送審。")) return;
+ } else {
+  if (!S.rvOk) return rvAsk("ehs");
+  S.rvOk = false;
+ }
  bar('<div class="loading" style="padding:14px 0"><span class="spin"></span>' + (action === "approve" ? "歸檔中…" : "退回中…") + "</div>");
  busyOn(action === "approve" ? "歸檔中…" : "退回中…", "");
  var mid = S.view.monthId;
@@ -3050,6 +3134,7 @@ function doEhs(action) {
   if (action === "approve") return archLoop(mid);
   busyOff();
   toast("已退回", "ok");
+  S.cm = "";
   S.stack = [];
   go("home", {}, true);
   refreshMe();
@@ -5162,7 +5247,7 @@ function sfRevBar() {
  if (v.status === "待主管審核" && boss && !ehs) {
   bar('<div class="sfrb"><textarea id="cm" class="note plain" placeholder="意見：核准可不填；退回要寫要改哪一天、哪一項，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm || "") + "</textarea>" + '<button class="btn redline" onclick="doReview(\'return\')">退回</button><button class="btn" onclick="doReview(\'approve\')">' + ic("pen", 22) + "核准並簽名</button></div>");
  } else if (v.status === "待環安衛審核" && ehs) {
-  bar('<div class="sfrb"><button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + '開啟 PDF</button><button class="btn redline" onclick="doEhs(\'return\')">退回</button><button class="btn" onclick="doEhs(\'approve\')">' + ic("check", 22, 2.8) + "核准歸檔</button></div>");
+  bar('<div class="sfrb"><button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + '開啟 PDF</button><textarea id="cm" class="note plain" placeholder="意見：核准可不填；退回要寫要改哪一天、哪一項，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm || "") + '</textarea><button class="btn redline" onclick="doEhs(\'return\')">退回</button><button class="btn" onclick="doEhs(\'approve\')">' + ic("check", 22, 2.8) + "核准歸檔</button></div>");
  } else if (v.status === "已歸檔" || v.status === "待環安衛審核") {
   bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>");
  } else bar(v.status === "填寫中" || v.status === "退回" ? '<button class="btn" disabled>本課還沒送審（' + esc(v.status) + "）</button>" : "");

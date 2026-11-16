@@ -1,4 +1,4 @@
-var PLAT_VER = "0.43.0";
+var PLAT_VER = "0.44.0";
 
 function platHeal() {
  try {
@@ -1828,7 +1828,7 @@ PLAT_PAGES.envMonth = function() {
  }
  var t = today(), rows = envCal(M, sys, per, t);
  var act = "", st = M.status;
- if ((st === "填寫中" || st === "退回") && per < t.slice(0, 7)) act = '<button class="btn" onclick="envAct(\'submit\')">' + ic("check", 20, 3) + "檢查並送出 " + Number(per.slice(5)) + " 月抄表紀錄</button>"; else if (st === "待主管確認" && M.canMgr || st === "待環安衛確認" && M.canEhs) act = '<div class="btns"><button class="btn" onclick="envAct(\'approve\')">' + ic("check", 20, 3) + "確認 " + Number(per.slice(5)) + ' 月抄表紀錄</button><button class="btn ghost" onclick="envAct(\'return\')">退回給抄表的人</button></div>';
+ if ((st === "填寫中" || st === "退回") && per < t.slice(0, 7)) act = '<button class="btn" onclick="envAct(\'submit\')">' + ic("check", 20, 3) + "檢查並送出 " + Number(per.slice(5)) + " 月抄表紀錄</button>"; else if (st === "待主管確認" && M.canMgr || st === "待環安衛確認" && M.canEhs) act = '<label class="nl" for="envCm">退回原因：<b>寫要改哪一天、哪一項</b>（確認不用填，抄表的人看得到）</label><textarea id="envCm" class="note plain" placeholder="退回時必填，例：11/5 放流流量計讀數不對，請補 11/12">' + esc(S.envCm || "") + "</textarea>" + '<div class="btns"><button class="btn redline" onclick="envAct(\'return\')">退回給抄表的人</button><button class="btn" onclick="envAct(\'approve\')">' + ic("check", 20, 3) + "確認 " + Number(per.slice(5)) + " 月抄表紀錄</button></div>";
  $("app").innerHTML = '<div class="card"><div class="mr"><b>本月狀態</b>' + pill(st === "已歸檔" ? "ok" : st === "退回" ? "ng" : "info", "", st) + "</div>" + '<div class="muted sm2">' + esc(M.layers === 3 ? "流程：抄表人送出 → 單位負責人（" + (M.mgr || "未設定") + "）確認 → 環安衛確認" : "流程：抄表人送出 → 環安衛確認") + "</div>" + (per < t.slice(0, 7) && (st === "填寫中" || st === "退回") ? '<div class="muted sm2">' + esc("沒抄到的日子先點那一天補填，補好再送出。確認的人就是送出的人時，那一關自動跳過；歸檔後隔天把操作紀錄 PDF 存到 NAS。") + "</div>" : "") + (st === "退回" && M.reason ? '<div class="box err"><div class="r">' + ic("ret", 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(M.reason) + "</div></div></div></div>" : "") + "</div>" + rows;
  if (act) bar(act);
 };
@@ -1882,21 +1882,88 @@ function envCal(M, sys, per, t) {
  return h;
 }
 
+function envSum(M) {
+ var n = new Date(Number(M.period.slice(0, 4)), Number(M.period.slice(5)), 0).getDate(), m0 = Number(M.period.slice(5)), t = today();
+ var items = (M.items || []).filter((function(it) {
+  return it.type !== "計算";
+ })), o = {
+  miss: [],
+  part: [],
+  bad: [],
+  days: 0
+ };
+ for (var d = 1; d <= n; d++) {
+  var ds = M.period + "-" + pad(d), w = new Date(ds + "T12:00:00").getDay(), x = M.days[d];
+  if (!x) {
+   if (ds <= t && w > 0 && w < 6) o.miss.push(m0 + "/" + d);
+   continue;
+  }
+  o.days++;
+  var lack = items.filter((function(it) {
+   return !x.v[it.code];
+  }));
+  if (lack.length) o.part.push(m0 + "/" + d + " 少 " + lack.length + " 項（" + lack.slice(0, 3).map((function(it) {
+   return it.name;
+  })).join("、") + (lack.length > 3 ? "…" : "") + "）");
+  items.forEach((function(it) {
+   var r = x.v[it.code];
+   if (r && r.over) o.bad.push(m0 + "/" + d + " " + it.name + "：" + envFmt(it, r.val) + (it.unit ? " " + it.unit : "") + (r.note ? "（" + r.note + "）" : "（沒寫說明）"));
+  }));
+ }
+ return o;
+}
+
+function envAskPage(a) {
+ if ($("envCm")) S.envCm = $("envCm").value;
+ go("envConfirm", {
+  act: a
+ });
+}
+
+function envConfirmGo() {
+ var a = S.arg.act;
+ S.envOk = true;
+ back();
+ setTimeout((function() {
+  envAct(a);
+ }), 0);
+}
+
+PLAT_PAGES.envConfirm = function() {
+ var M = S.envM;
+ if (!M) return back();
+ var a = S.arg.act, s = envSum(M), m0 = Number(M.period.slice(5)), sub = a === "submit";
+ setTitle((sub ? "送出 " : "確認 ") + ymLabel(M.period));
+ var box = function(cls, icon, title, list, tail) {
+  return list.length ? '<div class="box ' + cls + '"><div class="r">' + ic(icon, 24) + '<div class="bt"><b>' + esc(title) + "</b>" + list.slice(0, 40).map((function(l) {
+   return '<div class="m">・' + esc(l) + "</div>";
+  })).join("") + (list.length > 40 ? '<div class="m">' + esc("…還有 " + (list.length - 40) + " 筆") + "</div>" : "") + (tail ? '<div class="m">' + esc(tail) + "</div>" : "") + "</div></div></div>" : "";
+ };
+ var h = '<div class="h2">' + esc(sub ? "送出前請確認" : "確認前請看過") + '</div><div class="lead">' + esc(M.sys + "抄表・" + ymLabel(M.period) + "，" + (sub ? "送出後這個月就鎖定，不能再修改，除非確認的人退回。" : "確認後" + (a === "approve" && M.status === "待主管確認" ? "送環安衛中心。" : "歸檔，隔天操作紀錄 PDF 存到 NAS。"))) + "</div>" + box("warn", "warn", "這幾天是平日，但沒有抄表紀錄（共 " + s.miss.length + " 天）", s.miss.length ? [ s.miss.join("、") ] : [], sub ? "請確認這幾天確實沒有運轉；如果是漏抄，請回去點那一天補。" : "請確認這幾天確實沒有運轉；漏抄請寫原因退回。") + box("warn", "warn", "只抄了一部分的日子", s.part, "") + box("err", "warn", "超出範圍或異常", s.bad, sub ? "" : "請確認說明與處置合理。") + (!s.miss.length && !s.part.length && !s.bad.length ? '<div class="box info"><div class="r">' + ic("info", 22) + '<div class="bt"><div class="m">平日都有抄、項目都齊，也沒有異常。</div></div></div></div>' : "") + '<div class="card"><div class="sml">' + esc("這個月抄了 " + s.days + " 天・平日沒抄 " + s.miss.length + " 天・異常 " + s.bad.length + " 項") + "</div></div>" + '<label class="ck smck"><input type="checkbox" id="evChk" onchange="$(\'evGo\').disabled=!this.checked">' + esc(s.miss.length ? "上面沒抄的日子確實沒有運轉（不是漏抄），" + (sub ? "仍要送出 " : "確認 ") + m0 + " 月的紀錄" : sub ? "我已確認 " + m0 + " 月的紀錄沒有漏抄，要送出" : "我已看過 " + m0 + " 月的紀錄，確認無誤") + "</label>";
+ $("app").innerHTML = h;
+ bar('<button class="btn ghost" onclick="back()">' + ic("cal", 20, 2.2) + esc(sub ? "回去修改" : "回去看紀錄") + '</button><button class="btn" id="evGo" disabled onclick="envConfirmGo()">' + ic("check", 22, 2.6) + esc(sub ? "確認送出" : "確認") + "</button>");
+};
+
 function envAct(a) {
  var M = S.envM, reason = "";
  if (a === "return") {
-  reason = prompt("退回原因（可不填，要改哪裡請當面說明）：", "");
-  if (reason === null) return;
- }
- if (a === "submit") {
-  var n = new Date(Number(M.period.slice(0, 4)), Number(M.period.slice(5)), 0).getDate(), miss = [];
-  for (var d = 1; d <= n; d++) {
-   var ds = M.period + "-" + pad(d), w = new Date(ds + "T12:00:00").getDay();
-   if (w > 0 && w < 6 && !M.days[d]) miss.push(md(ds));
+  reason = ($("envCm") || {}).value || "";
+  S.envCm = reason;
+  var rw = txtWhy(reason, {
+   want: "請寫要改哪一天、哪一項"
+  });
+  if (rw) {
+   toast(rw === "還沒寫" ? "退回要寫原因：要改哪一天、哪一項" : esc(rw), "err", 4500);
+   var c0 = $("envCm");
+   if (c0) {
+    c0.classList.add("bad");
+    c0.focus();
+   }
+   return;
   }
-  var msg = miss.length ? "這幾個平日沒有抄：" + miss.join("、") + "\n\n要補填請按「取消」，回清單點那一天補。\n這幾天確實沒有運轉，才按「確定」送出。" : "送出 " + ymLabel(M.period) + " 的抄表紀錄？\n送出後這個月就鎖定，要改請確認的人退回。";
-  if (!confirm(msg)) return;
- }
+  if (!confirm("把 " + ymLabel(M.period) + " " + M.sys + "抄表紀錄退回給抄表的人？\n\n退回原因：" + reason)) return;
+ } else if (!S.envOk) return envAskPage(a);
+ S.envOk = false;
  busyOn("處理中…");
  api("envMonthAct", {
   sys: M.sys,
@@ -1905,6 +1972,7 @@ function envAct(a) {
   reason
  }).then((function(r) {
   busyOff();
+  S.envCm = "";
   toast(r.status === "已歸檔" ? "已歸檔，操作紀錄 PDF 明天存到 NAS" : "已更新：" + r.status, "ok");
   S.envM = null;
   if (S.me) S.me.envDue = (S.me.envDue || []).filter((function(x) {
