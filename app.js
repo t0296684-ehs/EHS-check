@@ -2722,11 +2722,33 @@ window.addEventListener("offline", (function() {
  render();
 }));
 
+var APP_DAY = null, APP_HID = 0;
+
+function appReset() {
+ APP_DAY = today();
+ S.stack = [];
+ S.fill = null;
+ S.env = null;
+ S.envM = null;
+ S.envG = null;
+ S.view = null;
+ try {
+  sessionStorage.removeItem("chk_lobby");
+ } catch (e) {}
+ go(window.landing ? landing() : "home", {}, true);
+}
+
 document.addEventListener("visibilitychange", (function() {
- if (document.visibilityState === "visible" && !S.share && !S.meet) {
-  flush();
-  refreshMe();
+ if (document.visibilityState === "hidden") {
+  APP_HID = Date.now();
+  return;
  }
+ if (S.share || S.meet) return;
+ var stale = APP_DAY && APP_DAY !== today() || APP_HID && Date.now() - APP_HID > 30 * 6e4;
+ APP_DAY = APP_DAY || today();
+ if (stale && S.me && !document.querySelector("#busy")) appReset();
+ flush();
+ refreshMe();
 }));
 
 function splashDone() {
@@ -2925,6 +2947,9 @@ function bfAfterSave(key, date) {
   dept: b.dept,
   period: b.period
  }, true);
+ if (window.todayAsk) todayAsk(b.list.map((function(x) {
+  return x.key;
+ })), b.list[b.list.length - 1].date);
  return true;
 }
 

@@ -2067,7 +2067,7 @@ PAGES.fill = function() {
   S.topExtra = '<div class="prog"><div class="prog-in"><div class="pt"><span>已勾 <b>' + st.cnt + "</b> / " + st.total + " 項</span>" + (st.todo.length ? '<span class="pr">還有 ' + st.todo.length + " 項</span>" : '<span class="pr okt">全部勾完了</span>') + "</div>" + '<div class="pbar" role="progressbar" aria-valuemin="0" aria-valuemax="' + st.total + '" aria-valuenow="' + st.cnt + '"><i class="' + (st.todo.length ? "" : "full") + '" style="width:' + pct + '%"></i></div>' + '<div class="seg" role="tablist"><button role="tab" aria-selected="' + (ff === "all") + '" class="' + (ff === "all" ? "on" : "") + '" onclick="fillFilter(\'all\')">全部 ' + st.total + "</button>" + '<button role="tab" aria-selected="' + (ff === "todo") + '" class="' + (ff === "todo" ? "on" : "") + '" onclick="fillFilter(\'todo\')">未勾 ' + st.todo.length + "</button>" + '<button role="tab" aria-selected="' + (ff === "bad") + '" class="ngc' + (ff === "bad" ? " on" : "") + '" onclick="fillFilter(\'bad\')">異常 ' + st.bad.length + "</button></div></div></div>";
  }
  var metaTxt = [ deptOf(a.dept), a.object, a.kind ].filter(String).join("｜");
- var h = bfBanner() + '<div class="meta">' + esc(metaTxt) + "</div>" + (S.share || demoDept(a.dept) || bfCur() ? '<div class="dwrap"><div class="lbl">檢查日期 ' + pill("ok", "", md(fm.date) + "（" + wk(fm.date) + "）") + "</div></div>" : '<div class="dwrap"><div class="lbl"><label for="dt">檢查日期</label>' + (fm.date === t ? pill("ok", "", "今天") : pill("warn", "", "補登")) + "</div>" + '<input type="date" class="field" id="dt" value="' + esc(fm.date) + '" max="' + t + '" min="' + minD + '" onchange="fillDate(this.value)">' + '<div class="hint">補填其他天：回首頁按「月曆・補填」，再點日期（最早可補到 ' + md(minD) + "）</div></div>" + (fm.date !== t ? '<div class="box warn"><div class="r">' + ic("warn", 22) + '<div class="bt"><b>補填 ' + md(fm.date) + "（" + wk(fm.date) + "）的紀錄</b>" + '<div class="m">請確認這天確實有做檢查。建議當天檢查、當天填寫，檢查表才有實際作用；補填會記下填寫時間，單位負責人與環安衛看得到。</div></div></div></div>' : ""));
+ var h = bfBanner() + '<div class="meta">' + esc(metaTxt) + "</div>" + (S.share || demoDept(a.dept) || bfCur() ? '<div class="dwrap"><div class="lbl">檢查日期 ' + (fm.date === t ? pill("ok", "", md(fm.date) + "（" + wk(fm.date) + "）今天") : pill("warn", "", "補填 " + md(fm.date) + "（" + wk(fm.date) + "），不是今天")) + "</div></div>" : '<div class="dwrap"><div class="lbl"><label for="dt">檢查日期</label>' + (fm.date === t ? pill("ok", "", "今天") : pill("warn", "", "補登")) + "</div>" + '<input type="date" class="field" id="dt" value="' + esc(fm.date) + '" max="' + t + '" min="' + minD + '" onchange="fillDate(this.value)">' + '<div class="hint">補填其他天：回首頁按「月曆・補填」，再點日期（最早可補到 ' + md(minD) + "）</div></div>" + (fm.date !== t ? '<div class="box warn"><div class="r">' + ic("warn", 22) + '<div class="bt"><b>補填 ' + md(fm.date) + "（" + wk(fm.date) + "）的紀錄，不是今天</b>" + '<div class="m">請確認這天確實有做檢查。建議當天檢查、當天填寫，檢查表才有實際作用；補填會記下填寫時間，單位負責人與環安衛看得到。</div></div></div></div>' : ""));
  if (a.daily) {
   h += '<div class="btns r21"><button class="btn navy" onclick="allOk()">' + ic("check", 22, 3) + "全部正常</button>" + '<button class="btn ghost" onclick="noWork()">' + (fm.noWork ? "↺ 取消無作業" : "今日無作業") + "</button></div>";
  } else {
@@ -2235,6 +2235,18 @@ function noWork() {
  render();
 }
 
+function fillConfirm(a, f, fm) {
+ var t = today(), isT = fm.date === t, bad = fm.noWork ? 0 : f.items.filter((function(it) {
+  return isBad(f, fm.r[it.seq]);
+ })).length, ok = fm.noWork ? 0 : f.items.length - bad;
+ var dateLine = isT ? '<div class="fcd ok">今天 ' + esc(md(fm.date) + "（" + wk(fm.date) + "）") + "</div>" : '<div class="fcd ng">補填 ' + esc(md(fm.date) + "（" + wk(fm.date) + "）") + "<small>不是今天（今天是 " + esc(md(t) + "（" + wk(t) + "）") + "）</small></div>";
+ var res = fm.noWork ? '<div class="m">這天<b>無作業</b>（沒有使用）</div>' : '<div class="m">正常 <b>' + ok + "</b> 項" + (bad ? '・<b style="color:var(--ngT)">異常 ' + bad + " 項</b>（會轉到「異常追蹤」）" : "") + "</div>";
+ dlg("<b>確認要送出這一張？</b>" + dateLine + '<div class="m"><b>' + esc(f.name) + "</b>" + (a.object ? "・" + esc(a.object) : "") + "</div>" + res + '<div class="m muted">送出後主管就看得到；要改可以再打開這一天修改重送。</div>', [ [ isT ? "確認送出" : "確認送出 " + md(fm.date) + " 的補填", function() {
+  S.fillOk = true;
+  submitFill();
+ }, "" ] ]);
+}
+
 function submitFill() {
  var a = A(S.arg.key), fm = S.fill, f = F(a.form, fm && fm.date);
  if (!fm.noWork) {
@@ -2262,6 +2274,8 @@ function submitFill() {
   });
  }
  if (S.dev) return devBlock("這張檢點表");
+ if (!S.fillOk && !window.__E2E_FILLOK) return fillConfirm(a, f, fm);
+ S.fillOk = false;
  var btn = $("fillBtn");
  if (btn) {
   btn.disabled = true;
@@ -2345,6 +2359,7 @@ function submitFill() {
   }
   toast((navigator.onLine ? "已送出 " : "已存在手機，有網路自動上傳：") + msg, "ok", nBad ? 5e3 : 3500);
   flush();
+  todayAsk([ a.key ], body.date);
  })).catch((function(e) {
   toast("手機存檔失敗：" + esc(e.message), "err", 5e3);
   if (btn) {
@@ -2353,6 +2368,21 @@ function submitFill() {
    btn.textContent = "再送一次";
   }
  }));
+}
+
+function todayAsk(keys, date) {
+ var t = today();
+ if (S.share || date === t || !workDay(t)) return;
+ var left = (S.me.assigns || []).filter((function(x) {
+  return keys.indexOf(x.key) >= 0 && x.daily && x.due && !x.due.todayDone && !pendingFor(x, t);
+ }));
+ if (!left.length) return;
+ var x = left[0];
+ setTimeout((function() {
+  dlg("<b>剛剛送的是 " + esc(md(date) + "（" + wk(date) + "）") + " 的補填</b><p>" + esc("今天 " + md(t) + "（" + wk(t) + "）的「" + F(x.form).name + (x.object ? " " + x.object : "") + "」還沒填。") + "</p>", [ [ "填今天的", function() {
+   openFill(x.key);
+  }, "" ] ]);
+ }), 600);
 }
 
 PAGES.month = function() {

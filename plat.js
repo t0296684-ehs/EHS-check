@@ -138,6 +138,56 @@ function lobbyItems() {
  var m = S.me;
  if (!m || S.share || S.dev) return [];
  var t = today(), sDay = m.submitDay || 5, rDay = m.reviewDay || 15, out = [];
+ try {
+  var dr = lsGet(LS.DRAFT, {});
+  Object.keys(dr).forEach((function(k) {
+   var d = dr[k], a = d && window.A ? A(d.key) : null;
+   if (!a || !d.date || !d.noWork && !Object.keys(d.r || {}).length) return;
+   if (window.fillMin && d.date < fillMin() + "-01") return;
+   out.push({
+    red: true,
+    title: "上次填到一半還沒送出：" + F(a.form).name + (a.object ? " " + a.object : ""),
+    sub: md(d.date) + "（" + wk(d.date) + "）" + (d.date === t ? "・今天" : "・不是今天"),
+    btn: "繼續填",
+    on: "openFill(" + jsq(d.key) + "," + jsq(d.date) + ")"
+   });
+  }));
+  var ob = (S.outbox || []).filter((function(j) {
+   return j.status !== "done";
+  })).length;
+  if (ob) out.push({
+   red: true,
+   title: "手機裡還有 " + ob + " 筆沒上傳",
+   sub: navigator.onLine ? "按下去馬上上傳；上傳完主管才看得到" : "目前沒有網路，連上網路會自動上傳",
+   btn: "立即上傳",
+   on: "flush().then(function(){render()})"
+  });
+  for (var i = 0; i < localStorage.length; i++) {
+   var lk = localStorage.key(i), mm = /^ehs\.envd\.(.+)\.(\d{4}-\d\d-\d\d)$/.exec(lk || "");
+   if (!mm) continue;
+   var nv = Object.keys((JSON.parse(localStorage.getItem(lk)) || {}).v || {}).length;
+   if (nv) out.push({
+    red: true,
+    title: mm[1] + "抄表還有 " + nv + " 項抄了沒送出",
+    sub: md(mm[2]) + "（" + wk(mm[2]) + "）",
+    btn: "去送出",
+    on: "S.env=null;go('envSys',{sys:" + jsq(mm[1]) + ",date:" + jsq(mm[2]) + "})"
+   });
+  }
+  var todo = (m.assigns || []).filter((function(x) {
+   return x.daily && x.due && !x.due.todayDone && !(window.pendingFor && pendingFor(x, t));
+  }));
+  if (todo.length && window.workDay && workDay(t) && !(window.mgrOf && todo.every((function(x) {
+   return mgrOf(x.dept);
+  })))) out.push({
+   title: "今天 " + md(t) + "（" + wk(t) + "）還有 " + todo.length + " 張每日檢點沒做",
+   sub: todo.slice(0, 3).map((function(x) {
+    return F(x.form).name + (x.object ? " " + x.object : "");
+   })).join("、") + (todo.length > 3 ? " 等" : ""),
+   btn: "去做",
+   on: todo.length === 1 ? "openFill(" + jsq(todo[0].key) + ")" : "go('mine')"
+  });
+ } catch (e) {}
  var when = function(due) {
   var n = dDays(due);
   return n == null ? "" : n < 0 ? "已逾時 " + -n + " 天" : n === 0 ? "今天到期" : "期限 " + md(due) + "・剩 " + n + " 天";
