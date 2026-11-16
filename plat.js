@@ -1,4 +1,4 @@
-var PLAT_VER = "0.45.0";
+var PLAT_VER = "0.46.0";
 
 function platHeal() {
  try {
@@ -153,7 +153,7 @@ function lobbyItems() {
    });
   }));
   var ob = (S.outbox || []).filter((function(j) {
-   return j.status !== "done";
+   return j.status !== "done" && (j.status === "error" || j.status === "auth" || Date.now() - (j.created || 0) > 10 * 6e4);
   })).length;
   if (ob) out.push({
    red: true,
@@ -174,19 +174,6 @@ function lobbyItems() {
     on: "S.env=null;go('envSys',{sys:" + jsq(mm[1]) + ",date:" + jsq(mm[2]) + "})"
    });
   }
-  var todo = (m.assigns || []).filter((function(x) {
-   return x.daily && x.due && !x.due.todayDone && !(window.pendingFor && pendingFor(x, t));
-  }));
-  if (todo.length && window.workDay && workDay(t) && !(window.mgrOf && todo.every((function(x) {
-   return mgrOf(x.dept);
-  })))) out.push({
-   title: "今天 " + md(t) + "（" + wk(t) + "）還有 " + todo.length + " 張每日檢點沒做",
-   sub: todo.slice(0, 3).map((function(x) {
-    return F(x.form).name + (x.object ? " " + x.object : "");
-   })).join("、") + (todo.length > 3 ? " 等" : ""),
-   btn: "去做",
-   on: todo.length === 1 ? "openFill(" + jsq(todo[0].key) + ")" : "go('mine')"
-  });
  } catch (e) {}
  var when = function(due) {
   var n = dDays(due);
