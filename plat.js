@@ -1,4 +1,4 @@
-var PLAT_VER = "0.42.1";
+var PLAT_VER = "0.43.0";
 
 function platHeal() {
  try {
@@ -534,6 +534,7 @@ function envHas(E, code) {
 }
 
 function envFmt(it, v) {
+ if (it && it.type === "勾選" && (v === "ok" || v === "x")) return v === "ok" ? "✓ 正常" : "✕ 異常";
  if (it && it.type === "存量" && v !== undefined && v !== null && v !== "") {
   var q = envQty(v);
   return isFinite(q) ? /[*+]/.test(envQtyNorm(v)) ? envQtyShow(v) + "＝" + q : String(q) : String(v);
@@ -589,7 +590,8 @@ function envQuick(E) {
  if (wind.length && done) h += '<div class="box info"><div class="r">' + ic("wind", 22) + '<div class="bt"><b>風速還有 ' + wind.length + ' 項沒量</b><div class="m">' + esc(wind.slice(0, 4).map((function(it) {
   return it.dev || it.code;
  })).join("、") + (wind.length > 4 ? " 等" : "")) + "。今天沒量就留空白，不要補數字。</div></div></div></div>";
- h += '<div class="sec">選擇製造程序</div><div class="mcards">' + envProcs(d).map((function(g) {
+ var air = E.sys === "空污";
+ h += '<div class="sec">' + (air ? "選擇製造程序" : "選擇區塊（抄完一項自動跳下一項）") + '</div><div class="mcards">' + envProcs(d).map((function(g) {
   var its = items.filter((function(it) {
    return (it.group || "其他") === g;
   })), n = its.filter((function(it) {
@@ -598,11 +600,11 @@ function envQuick(E) {
   its.forEach((function(it) {
    cats[it.cat || ""] = (cats[it.cat || ""] || 0) + 1;
   }));
-  return '<button class="mcard' + (n === its.length ? " eqdone" : "") + '" style="--c:#1C5FB0" onclick="envProc(' + jsq(g) + ')"><span class="mi eqg">' + esc(g) + '</span><span class="mx"><b>' + esc(g) + " 製造程序</b><small>" + esc(Object.keys(cats).map((function(k) {
+  return '<button class="mcard' + (n === its.length ? " eqdone" : "") + '" style="--c:#1C5FB0" onclick="envProc(' + jsq(g) + ')"><span class="mi eqg">' + esc(air ? g : g.slice(0, 2)) + '</span><span class="mx"><b>' + esc(g + (air ? " 製造程序" : "")) + "</b><small>" + esc(Object.keys(cats).map((function(k) {
    return (k || "其他") + " " + cats[k];
   })).join("・")) + '</small></span><span class="eqn">' + n + "/" + its.length + "</span>" + ic("chev", 20, 2.4) + "</button>";
  })).join("") + "</div>";
- h += '<div class="btns"><button class="btn ghost" onclick="go(\'envMonth\',{sys:' + jsq(E.sys) + ",period:" + jsq(E.date.slice(0, 7)) + '})">' + ic("cal", 18, 2.2) + "本月紀錄</button>" + (window.innerWidth >= 900 ? '<button class="btn ghost" onclick="S.envG=null;go(\'envGrid\',{sys:' + jsq(E.sys) + ",period:" + jsq(E.date.slice(0, 7)) + '})">' + ic("grid", 18, 2.2) + "整月表格（補登）</button>" : '<button class="btn ghost" onclick="goMenu()">' + ic("grid", 18, 2.2) + "回主選單</button>") + "</div>" + '<div class="eqsp"></div>';
+ h += '<div class="btns"><button class="btn ghost" onclick="go(\'envMonth\',{sys:' + jsq(E.sys) + ",period:" + jsq(E.date.slice(0, 7)) + '})">' + ic("cal", 18, 2.2) + "本月紀錄</button>" + (window.innerWidth >= 900 && envGridOk(d) ? '<button class="btn ghost" onclick="S.envG=null;go(\'envGrid\',{sys:' + jsq(E.sys) + ",period:" + jsq(E.date.slice(0, 7)) + '})">' + ic("grid", 18, 2.2) + "整月表格（補登）</button>" : '<button class="btn ghost" onclick="goMenu()">' + ic("grid", 18, 2.2) + "回主選單</button>") + "</div>" + '<div class="eqsp"></div>';
  $("app").innerHTML = h;
  if (!lock) bar('<button class="btn"' + (local ? "" : " disabled") + " onclick=\"envQ(S.env).view='confirm';render()\">" + ic("check", 22, 2.6) + esc(local ? "送出 " + local + " 項" : done === items.length ? "今天已全部送出" : sent ? "其餘項目還沒抄" : "還沒抄") + "</button>");
 }
@@ -664,7 +666,7 @@ function envProc(g) {
 function envQList(E) {
  var q = envQ(E), its = E.d.items.filter((function(it) {
   return (it.group || "其他") === q.proc;
- })), c0 = null, h = '<div class="card"><div class="mr"><b>' + esc(q.proc + " 製造程序・" + md(E.date)) + '</b><button class="btn ghost sm" onclick="goMenu()">' + ic("grid", 18, 2.2) + "回主選單</button></div></div>";
+ })), c0 = null, h = '<div class="card"><div class="mr"><b>' + esc(q.proc + (E.sys === "空污" ? " 製造程序" : "") + "・" + md(E.date)) + '</b><button class="btn ghost sm" onclick="goMenu()">' + ic("grid", 18, 2.2) + "回主選單</button></div></div>";
  its.forEach((function(it) {
   if (it.cat !== c0) {
    if (c0 !== null) h += "</div>";
@@ -684,6 +686,10 @@ function envQList(E) {
  var sameN = its.filter((function(it) {
   return it.type === "存量" && !envHas(E, it.code) && E.d.last[it.code];
  })).length;
+ var okN = its.filter((function(it) {
+  return envChoice(it) && !envHas(E, it.code);
+ })).length;
+ if (okN && ENV_LK.indexOf(E.d.status) < 0) h = h.replace('<div class="sec">', '<button class="btn ghost" id="envAllOk" style="width:100%;margin:8px 0" onclick="envAllOk()">' + ic("check", 20, 2.6) + "其餘 " + okN + ' 項全部正常（有異常的再點進去改）</button><div class="sec">');
  if (sameN && ENV_LK.indexOf(E.d.status) < 0) h = h.replace('<div class="sec">', '<button class="btn ghost" id="envSameAll" style="width:100%;margin:8px 0" onclick="envSameAll()">' + ic("check", 20, 2.6) + "其餘 " + sameN + ' 項跟上次一樣（有變的再點進去改）</button><div class="sec">');
  $("app").innerHTML = h + '<div class="eqsp"></div>';
  var local = Object.keys(E.v).length;
@@ -705,6 +711,8 @@ function envLow(it, E, v) {
 }
 
 function envOverQ(it, E, v) {
+ if (it.type === "勾選") return v === "x";
+ if (it.type === "選項") return !!(it.opts && it.opts.length && v !== it.opts[0]);
  if (envStopHint(it, v)) return false;
  var n = it.type === "累計" ? envUseOf(it, E, v) : envVal(it, v);
  return isFinite(n) && (it.min !== null && n < it.min || it.max !== null && n > it.max);
@@ -725,6 +733,7 @@ function envQKey(E) {
   q.view = "list";
   return envQList(E);
  }
+ if (envChoice(it)) return envQPick(E, it);
  var lock = ENV_LK.indexOf(E.d.status) >= 0, buf = q.buf, l = E.d.last[it.code], sent = envSent(E, it.code);
  var use = buf !== "" && it.type === "累計" ? envUseOf(it, E, buf) : NaN, msg = "";
  if (it.type === "存量") {
@@ -766,6 +775,52 @@ function envPress(k) {
  render();
 }
 
+function envChoice(it) {
+ return !!it && (it.type === "勾選" || it.type === "選項");
+}
+
+function envChoiceOpts(it) {
+ return it.type === "勾選" ? [ [ "ok", "✓ 正常" ], [ "x", "✕ 異常" ] ] : (it.opts || []).map((function(o) {
+  return [ o, o ];
+ }));
+}
+
+function envGridOk(d) {
+ return !(d.items || []).some(envChoice);
+}
+
+function envQPick(E, it) {
+ var q = envQ(E), lock = ENV_LK.indexOf(E.d.status) >= 0, cur = E.v[it.code] !== undefined ? E.v[it.code] : envSent(E, it.code);
+ var h = '<div class="card eqk"><div class="eqkh"><small>' + esc([ it.group, md(E.date) ].filter((function(x) {
+  return x;
+ })).join("・")) + "</small><b>" + esc(it.name) + "</b><span>" + esc(it.note && it.note.length < 40 ? it.note : "點一下就存，接著下一項") + "</span></div></div>" + '<div class="eqpick">' + envChoiceOpts(it).map((function(o, k) {
+  return '<button class="btn' + (k ? " ghost" : "") + (cur === o[0] ? " on" : "") + '" style="width:100%;margin:6px 0;min-height:64px;font-size:20px' + (k && cur === o[0] ? ";background:var(--ng);color:#fff" : "") + '"' + (lock ? " disabled" : "") + ' onclick="envPick(' + jsq(o[0]) + ')">' + esc(o[1]) + "</button>";
+ })).join("") + "</div>" + '<div class="btns">' + (E.v[it.code] !== undefined ? '<button class="btn ghost" onclick="envUnset()">清除這項</button>' : "<span></span>") + '<button class="btn ghost" onclick="envQ(S.env).view=\'list\';render()">先回列表</button></div><div class="eqsp"></div>';
+ $("app").innerHTML = h;
+ bar("");
+}
+
+function envPick(v) {
+ var q = envQ(S.env);
+ q.buf = v;
+ envNext();
+}
+
+function envAllOk() {
+ var E = S.env, q = envQ(E), n = 0;
+ E.d.items.forEach((function(it) {
+  if ((it.group || "其他") !== q.proc || !envChoice(it) || envHas(E, it.code)) return;
+  var o = envChoiceOpts(it)[0];
+  if (o) {
+   E.v[it.code] = o[0];
+   n++;
+  }
+ }));
+ envDraftSave(E);
+ toast(n + " 項已填正常；有異常的點進去改，再按送出", "ok", 4e3);
+ render();
+}
+
 function envUnset() {
  var q = envQ(S.env), it = S.env.d.items[q.idx];
  delete S.env.v[it.code];
@@ -798,9 +853,9 @@ function envSameAll() {
 }
 
 function envNext() {
- var E = S.env, q = envQ(E), it = E.d.items[q.idx], v = it.type === "存量" ? envQtyNorm(q.buf) : envNorm(q.buf);
- if (!isFinite(envVal(it, v))) return;
- if (envOverQ(it, E, v) && !confirm(it.name + "：" + envFmt(it, v) + (it.unit ? " " + it.unit : "") + " 超出" + envRng(it) + "。\n\n確定沒抄錯？（按「取消」重新輸入）")) return;
+ var E = S.env, q = envQ(E), it = E.d.items[q.idx], ch = envChoice(it), v = ch ? q.buf : it.type === "存量" ? envQtyNorm(q.buf) : envNorm(q.buf);
+ if (ch ? v === "" : !isFinite(envVal(it, v))) return;
+ if (!ch && envOverQ(it, E, v) && !confirm(it.name + "：" + envFmt(it, v) + (it.unit ? " " + it.unit : "") + " 超出" + envRng(it) + "。\n\n確定沒抄錯？（按「取消」重新輸入）")) return;
  E.v[it.code] = v;
  envDraftSave(E);
  var its = E.d.items, nx = -1;
@@ -809,6 +864,23 @@ function envNext() {
   if ((its[j].group || "其他") === q.proc && !envHas(E, its[j].code)) {
    nx = j;
    break;
+  }
+ }
+ if (nx < 0 && E.sys !== "空污") {
+  var gs = envProcs(E.d), ng = "";
+  for (var g = 1; g <= gs.length && !ng; g++) {
+   var cand = gs[(gs.indexOf(q.proc) + g) % gs.length];
+   if (its.some((function(x) {
+    return (x.group || "其他") === cand && !envHas(E, x.code);
+   }))) ng = cand;
+  }
+  if (ng && ng !== q.proc) {
+   for (var m = 0; m < its.length; m++) if ((its[m].group || "其他") === ng && !envHas(E, its[m].code)) {
+    nx = m;
+    break;
+   }
+   toast(q.proc + " 抄完了，接著 " + ng, "ok");
+   q.proc = ng;
   }
  }
  if (nx < 0) {
@@ -834,7 +906,7 @@ function envQConfirm(E) {
  ks.forEach((function(it) {
   var v = E.v[it.code], o = envOverQ(it, E, v), u = it.type === "累計" ? envUseOf(it, E, v) : NaN;
   if (o) bad++;
-  h += '<button class="li" onclick="envKey(' + E.d.items.indexOf(it) + ')"><span class="mn"><span class="nm">' + esc(it.name) + '</span><span class="mt">' + esc((it.group || "") + (isFinite(u) ? "・今日用量 " + u + " " + (it.unit || "") : "")) + '</span></span><span class="eqv' + (o ? " bad" : "") + '">' + esc(envFmt(it, v) + " " + (it.unit || "")) + "</span></button>" + (o ? '<div class="eqnote"><textarea class="note" placeholder="超出' + esc(envRng(it)) + '：原因與處置（選填）" oninput="S.env.n[' + jsq(it.code) + ']=this.value;envDraftSave(S.env)">' + esc(E.n[it.code] || "") + "</textarea></div>" : "");
+  h += '<button class="li" onclick="envKey(' + E.d.items.indexOf(it) + ')"><span class="mn"><span class="nm">' + esc(it.name) + '</span><span class="mt">' + esc((it.group || "") + (isFinite(u) ? "・今日用量 " + u + " " + (it.unit || "") : "")) + '</span></span><span class="eqv' + (o ? " bad" : "") + '">' + esc(envFmt(it, v) + " " + (it.unit || "")) + "</span></button>" + (o ? '<div class="eqnote"><textarea class="note" placeholder="' + esc(envChoice(it) ? "異常：寫狀況與處置" : "超出" + envRng(it) + "：原因與處置（選填）") + '" oninput="S.env.n[' + jsq(it.code) + ']=this.value;envDraftSave(S.env)">' + esc(E.n[it.code] || "") + "</textarea></div>" : "");
  }));
  var cmT = 0, cmN = 0;
  E.d.items.forEach((function(it) {
@@ -1599,7 +1671,7 @@ PLAT_PAGES.envSys = function() {
   }));
   return;
  }
- if (E.d.partial && isDesk() && !S.arg.date) {
+ if (E.d.partial && isDesk() && !S.arg.date && envGridOk(E.d)) {
   S.envG = null;
   return go("envGrid", {
    sys,
@@ -1754,21 +1826,61 @@ PLAT_PAGES.envMonth = function() {
   }));
   return;
  }
- var n = new Date(Number(per.slice(0, 4)), Number(per.slice(5)), 0).getDate(), t = today(), rows = "";
- for (var d = 1; d <= n; d++) {
-  var date = per + "-" + pad(d);
-  if (date > t) break;
-  var x = M.days[d], dow = new Date(date + "T12:00:00").getDay();
-  var over = x ? Object.keys(x.v).filter((function(k) {
-   return x.v[k].over;
-  })).length : 0;
-  rows += '<button class="li" onclick="S.env=null;go(\'envSys\',{sys:' + jsq(sys) + ",date:" + jsq(date) + '})"><span class="mn"><span class="nm">' + esc(md(date) + "（" + wk(date) + "）") + "</span>" + '<span class="mt">' + esc(x ? x.who + " " + String(x.at).slice(11, 16) + (over ? "・" + over + " 項超出範圍" : "") : dow === 0 || dow === 6 ? "假日" : "還沒抄") + "</span></span>" + (x ? pill(over ? "ng" : "ok", over ? "" : "check", over ? "有異常" : "已抄") : pill("na", "", "—")) + "</button>";
- }
+ var t = today(), rows = envCal(M, sys, per, t);
  var act = "", st = M.status;
  if ((st === "填寫中" || st === "退回") && per < t.slice(0, 7)) act = '<button class="btn" onclick="envAct(\'submit\')">' + ic("check", 20, 3) + "檢查並送出 " + Number(per.slice(5)) + " 月抄表紀錄</button>"; else if (st === "待主管確認" && M.canMgr || st === "待環安衛確認" && M.canEhs) act = '<div class="btns"><button class="btn" onclick="envAct(\'approve\')">' + ic("check", 20, 3) + "確認 " + Number(per.slice(5)) + ' 月抄表紀錄</button><button class="btn ghost" onclick="envAct(\'return\')">退回給抄表的人</button></div>';
- $("app").innerHTML = '<div class="card"><div class="mr"><b>本月狀態</b>' + pill(st === "已歸檔" ? "ok" : st === "退回" ? "ng" : "info", "", st) + "</div>" + '<div class="muted sm2">' + esc(M.layers === 3 ? "流程：抄表人送出 → 單位負責人（" + (M.mgr || "未設定") + "）確認 → 環安衛確認" : "流程：抄表人送出 → 環安衛確認") + "</div>" + (per < t.slice(0, 7) && (st === "填寫中" || st === "退回") ? '<div class="muted sm2">' + esc("沒抄到的日子先點那一天補填，補好再送出。確認的人就是送出的人時，那一關自動跳過；歸檔後隔天把操作紀錄 PDF 存到 NAS。") + "</div>" : "") + (st === "退回" && M.reason ? '<div class="box err"><div class="r">' + ic("ret", 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(M.reason) + "</div></div></div></div>" : "") + "</div>" + '<div class="list">' + rows + "</div>";
+ $("app").innerHTML = '<div class="card"><div class="mr"><b>本月狀態</b>' + pill(st === "已歸檔" ? "ok" : st === "退回" ? "ng" : "info", "", st) + "</div>" + '<div class="muted sm2">' + esc(M.layers === 3 ? "流程：抄表人送出 → 單位負責人（" + (M.mgr || "未設定") + "）確認 → 環安衛確認" : "流程：抄表人送出 → 環安衛確認") + "</div>" + (per < t.slice(0, 7) && (st === "填寫中" || st === "退回") ? '<div class="muted sm2">' + esc("沒抄到的日子先點那一天補填，補好再送出。確認的人就是送出的人時，那一關自動跳過；歸檔後隔天把操作紀錄 PDF 存到 NAS。") + "</div>" : "") + (st === "退回" && M.reason ? '<div class="box err"><div class="r">' + ic("ret", 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(M.reason) + "</div></div></div></div>" : "") + "</div>" + rows;
  if (act) bar(act);
 };
+
+function envCal(M, sys, per, t) {
+ var y = Number(per.slice(0, 4)), mo = Number(per.slice(5)), n = new Date(y, mo, 0).getDate(), first = new Date(y, mo - 1, 1).getDay();
+ var need = (M.items || []).filter((function(it) {
+  return it.type !== "計算";
+ })).map((function(it) {
+  return it.code;
+ }));
+ var h = '<div class="card"><div class="calw">' + wkNames().map((function(c) {
+  return "<span>" + c + "</span>";
+ })).join("") + '</div><div class="cal">', cnt = {
+  ok: 0,
+  bad: 0,
+  part: 0,
+  miss: 0
+ };
+ for (var i = 0; i < first; i++) h += "<span></span>";
+ for (var d = 1; d <= n; d++) {
+  var date = per + "-" + pad(d), dow = (first + d - 1) % 7, fut = date > t, x = M.days[d], cls = "cd", mark = "", lab = "";
+  var over = x ? Object.keys(x.v).filter((function(k) {
+   return x.v[k].over;
+  })).length : 0, got = x ? need.filter((function(c) {
+   return x.v[c];
+  })).length : 0;
+  if (x && over) {
+   cls += " bad";
+   mark = "<small>" + over + " 異常</small>";
+   lab = over + " 項異常";
+   cnt.bad++;
+  } else if (x && got < need.length) {
+   cls += " ok late";
+   mark = '<small class="lt">' + got + "/" + need.length + "</small>";
+   lab = "抄了 " + got + "／" + need.length + " 項";
+   cnt.part++;
+  } else if (x) {
+   cls += " ok";
+   mark = ic("check", 12, 3.6);
+   lab = "已抄";
+   cnt.ok++;
+  } else if (!fut && dow > 0 && dow < 6) {
+   cls += " miss";
+   lab = "還沒抄";
+   cnt.miss++;
+  } else lab = fut ? "" : "假日";
+  h += '<button class="' + cls + '" aria-label="' + mo + "/" + d + " " + lab + '"' + (fut ? " disabled" : " onclick=\"S.env=null;go('envSys',{sys:" + jsq(sys) + ",date:" + jsq(date) + '})"') + ">" + d + mark + "</button>";
+ }
+ h += '</div><div class="legend"><span><i style="background:var(--okbg)"></i>✓ 已抄</span><span><i style="background:var(--ng)"></i>有異常</span>' + (cnt.part ? '<span><i style="box-shadow:inset 0 0 0 2px var(--orange)"></i>只抄一部分</span>' : "") + (cnt.miss ? '<span><i style="border:2px dashed #B5BEC9"></i>平日還沒抄</span>' : "") + "</div>" + '<div class="muted sm2">' + esc("已抄 " + (cnt.ok + cnt.part + cnt.bad) + " 天・有異常 " + cnt.bad + " 天・平日還沒抄 " + cnt.miss + " 天") + '</div><div class="muted sm2">點日期可以看或補那一天</div></div>';
+ return h;
+}
 
 function envAct(a) {
  var M = S.envM, reason = "";
