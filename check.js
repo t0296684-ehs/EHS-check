@@ -243,7 +243,7 @@ PAGES.pick = function() {
    h += '<div class="li"><span class="mn"><span class="mt">後台還沒建立這個部門的' + esc(a.missingEquip) + "編號，請洽環安衛中心。</span></span></div>";
    return;
   }
-  h += '<button class="li" onclick="' + (a.due && a.due.state === "ok" && a.due.last && !/每年|每兩年/.test(a.freq || "") ? "perDoneAsk(" + jsq(a.key) + ")" : "openFill(" + jsq(a.key) + ")") + '"><span class="mn"><span class="nm">' + esc([ a.object ? a.object + (a.objectName ? " " + a.objectName : "") : "", a.kind ].filter(String).join("｜") || f.name) + "</span>" + '<span class="mt">' + esc(dueMeta(a)) + "</span></span>" + duePill(a) + "</button>";
+  h += '<button class="li" onclick="' + (a.due && a.due.state === "ok" && a.due.last && !/每年|每兩年/.test(a.freq || "") ? "perDoneAsk(" + jsq(a.key) + ")" : "openFill(" + jsq(a.key) + ")") + '"><span class="mn"><span class="nm">' + esc([ a.object ? a.object + (a.objectName ? " " + a.objectName : "") : "", a.kind ].filter(String).join("｜") || f.name) + "</span>" + '<span class="mt">' + esc((a.vendor ? "廠商檢查：報告交到您手上後點這裡登錄｜" : "") + dueMeta(a)) + "</span></span>" + duePill(a) + "</button>";
  }));
  if (open) h += "</div>";
  if (!list.length) h += '<div class="empty">這個部門沒有其他檢查表</div>';
@@ -1969,6 +1969,23 @@ function openFill(key, date) {
  }
  var a = A(key);
  if (!a) return;
+ if (a.vendor) {
+  var sel = {};
+  if (a.object) sel[a.object] = {
+   ng: false,
+   note: ""
+  };
+  S.vd = {
+   date: today(),
+   sel,
+   pages: [],
+   dept: a.dept,
+   form: a.form,
+   kind: a.kind || ""
+  };
+  go("vendor");
+  return;
+ }
  var d = date || today();
  S.fill = !S.share && lsGet(LS.DRAFT, {})[key + "@" + d] || {
   key,

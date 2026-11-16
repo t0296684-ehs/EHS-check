@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.47.2";
+var APP_VERSION = "0.47.3";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -1025,6 +1025,7 @@ function normMe(m) {
     kind: x.kind,
     freq: x.freq,
     pick: true,
+    vendor: !!x.vendor,
     warnDays: 30,
     due: {
      last: x.last,
