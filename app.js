@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.44.1";
+var APP_VERSION = "0.45.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -360,6 +360,7 @@ function api(action, body, opt) {
     if (j.info) err.info = j.info;
     throw err;
    }
+   if (j.srv >= 0) perfAdd(action + "Srv", j.srv);
    if (RC_KEEP.indexOf(action) < 0) rcClear();
    return j.data;
   })).catch((function(e) {
@@ -372,12 +373,20 @@ function api(action, body, opt) {
    })).then(once);
   }));
  }
- var t0 = Date.now();
+ var t0 = Date.now(), h0 = PERF_HID;
  return once().then((function(d) {
-  perfAdd(action, Date.now() - t0);
+  if (PERF_HID === h0) perfAdd(i ? action + "Retry" : action, Date.now() - t0);
   return d;
  }));
 }
+
+var PERF_HID = 0;
+
+try {
+ document.addEventListener("visibilitychange", (function() {
+  if (document.hidden) PERF_HID++;
+ }));
+} catch (e) {}
 
 var PERF = null, PERF_BUSY = false, PERF_WAIT = 0, PERF_LS = "chk.perf", PERF_SKIP = {
  perfLog: 1,
