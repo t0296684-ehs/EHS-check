@@ -2083,7 +2083,7 @@ function fillState(f, fm) {
    return;
   }
   if (isBad(f, v)) bad.push(it.seq);
-  if (f.noteFor.indexOf(v) >= 0 && noteWhy(f, fm, it.seq)) noNote.push(it.seq);
+  if (needN(f, v) && noteWhy(f, fm, it.seq)) noNote.push(it.seq);
  }));
  return {
   total: f.items.length,
@@ -2094,9 +2094,13 @@ function fillState(f, fm) {
  };
 }
 
+function needN(f, v) {
+ return !!v && (f.noteFor.indexOf(v) >= 0 || !!f.noteAll);
+}
+
 function noteWhy(f, fm, seq) {
  var v = fm.r[seq];
- return f.noteFor.indexOf(v) >= 0 ? txtWhy(fm.n[seq], {
+ return needN(f, v) ? txtWhy(fm.n[seq], {
   bad: isBad(f, v)
  }) : "";
 }
@@ -2144,7 +2148,7 @@ PAGES.fill = function() {
     g = it.group;
     h += '<div class="grp">' + esc(g) + "</div>";
    }
-   var opts = it.opts || f.opts, needNote = v && f.noteFor.indexOf(v) >= 0;
+   var opts = it.opts || f.opts, needNote = needN(f, v);
    var cls = "item" + (v && isBad(f, v) ? " bad" : it.seq === nextSeq && st.cnt ? " next" : "");
    h += '<div class="' + cls + '" id="it' + esc(it.seq) + '"><div class="q"><span class="no">' + esc(it.seq) + '</span><div class="qt">' + esc(it.text) + (it.method ? " <small>（" + esc(it.method) + "）</small>" : "") + "</div>" + (!v && st.cnt ? '<span class="tag">未勾</span>' : "") + "</div>" + '<div class="opts n' + Math.min(opts.length, 3) + '">' + opts.map((function(o) {
     var on = v === o.k;
@@ -2261,7 +2265,7 @@ function pick(seq, k) {
  render();
  window.scrollTo(0, y);
  var f = F(A(S.arg.key).form, S.fill && S.fill.date);
- if (f.noteFor.indexOf(k) >= 0 && !String(S.fill.n[seq] || "").trim()) {
+ if (needN(f, k) && !String(S.fill.n[seq] || "").trim()) {
   var ta = $("n" + seq);
   if (ta) ta.focus({
    preventScroll: true
