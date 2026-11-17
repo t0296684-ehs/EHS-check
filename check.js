@@ -3068,7 +3068,19 @@ function doReview(action) {
  if (action === "approve") {
   if (!S.me.signature) return go("sign");
   if (!S.rvOk) return rvAsk("mgr");
+  var ne = noEhsSum(S.view);
+  if (ne.all && !S.neOk && !neSkipGet()) {
+   S._neSkip = false;
+   S.rvOk = false;
+   return dlg("<b>該表單不需經環安衛審核，是否直接完成？</b><p>這 " + ne.n + " 份是 BU 自主保養表，您核准後就完成歸檔，不會再送環安衛中心。</p>" + '<label class="ck"><input type="checkbox" onchange="S._neSkip=this.checked"> 不要再顯示這個訊息</label>', [ [ "直接完成", function() {
+    if (S._neSkip) neSkipSet();
+    S.neOk = true;
+    S.rvOk = true;
+    doReview("approve");
+   }, "" ] ]);
+  }
   S.rvOk = false;
+  S.neOk = false;
  }
  bar('<div class="loading" style="padding:14px 0"><span class="spin"></span>' + (action === "approve" ? "簽名並產生 PDF 中，約 10～30 秒…" : "退回中…") + "</div>");
  busyOn(action === "approve" ? "簽名並產生 PDF 中…" : "退回中…", action === "approve" ? "約 10～30 秒" : "");
@@ -3077,9 +3089,9 @@ function doReview(action) {
   monthId: v0.monthId,
   decision: action,
   comment: cm
- }, action === "approve" ? "核准" : "退回", action === "approve" ? [ "待環安衛審核", "已歸檔" ] : [ "退回" ]).then((function(r) {
+ }, action === "approve" ? "核准" : "退回", action === "approve" ? [ "待環安衛審核", "已歸檔", "已核准" ] : [ "退回" ]).then((function(r) {
   busyOff();
-  toast(action === "approve" ? "已核准，PDF 已產生" : "已退回", "ok", 3e3);
+  toast(action === "approve" ? r && r.direct ? "已核准完成（不需環安衛審核）" : "已核准，PDF 已產生" : "已退回", "ok", 3e3);
   S.stack = [];
   S.cm = "";
   go("home", {}, true);
@@ -3138,6 +3150,43 @@ function revSum(v) {
  return o;
 }
 
+function noEhsSum(v) {
+ var mm = v && v.model || {
+  daily: [],
+  periodic: []
+ }, n = 0, t = 0;
+ var c = function(fid) {
+  t++;
+  var f = F(fid, v.period);
+  if (f && f.noEhs) n++;
+ };
+ (mm.daily || []).forEach((function(x) {
+  if (Object.keys(x.days || {}).length) c(x.form);
+ }));
+ (mm.periodic || []).forEach((function(x) {
+  c(x.form);
+ }));
+ return {
+  n,
+  total: t,
+  all: t > 0 && n === t
+ };
+}
+
+function neSkipGet() {
+ try {
+  return localStorage.getItem("chk_noehs_skip_" + S.me.person.name) === "1";
+ } catch (e) {
+  return false;
+ }
+}
+
+function neSkipSet() {
+ try {
+  localStorage.setItem("chk_noehs_skip_" + S.me.person.name, "1");
+ } catch (e) {}
+}
+
 function rvAsk(role) {
  if ($("cm")) S.cm = $("cm").value;
  go("rvConfirm", {
@@ -3164,7 +3213,7 @@ PAGES.rvConfirm = function() {
    return '<div class="m">・' + esc(l) + "</div>";
   })).join("") + (tail ? '<div class="m">' + esc(tail) + "</div>" : "") + "</div></div></div>" : "";
  };
- var h = '<div class="h2">核准前請確認</div><div class="lead">' + esc((v.who ? v.who + "・" : "") + v.dept + "・" + ymLabel(v.period)) + "，" + esc(ehs ? v.who ? "核准後全課到齊就整課歸檔，歸檔後不能再改。" : "核准後歸檔，歸檔後不能再改。" : "核准後帶入您的簽名、送環安衛中心。") + "</div>" + box("warn", "warn", "平日沒有紀錄、也沒選「今日無作業」", s.blank, "請確認這幾天確實沒有運作；如果是漏填，請在下一頁寫原因退回補填。") + box("err", "warn", "有異常的日子", s.bad, "請確認異常說明與處置都寫了。") + box("info", "info", "補登的日子（事後才填）", s.late, "") + (!s.blank.length && !s.bad.length ? '<div class="box info"><div class="r">' + ic("info", 22) + '<div class="bt"><div class="m">上班日都有紀錄或已選「今日無作業」，也沒有異常。</div></div></div></div>' : "") + '<div class="card"><div class="muted">各表摘要</div>' + s.lines.map((function(l) {
+ var h = '<div class="h2">核准前請確認</div><div class="lead">' + esc((v.who ? v.who + "・" : "") + v.dept + "・" + ymLabel(v.period)) + "，" + esc(ehs ? (v.who ? "核准後全課到齊就整課歸檔，歸檔後不能再改。" : "核准後歸檔，歸檔後不能再改。") + (noEhsSum(v).n ? "其中 " + noEhsSum(v).n + " 份是 BU 自主保養表，主管已確認，不需您審核。" : "") : noEhsSum(v).all ? "核准後帶入您的簽名就完成，這些表不需環安衛審核。" : "核准後帶入您的簽名、送環安衛中心。" + (noEhsSum(v).n ? "（其中 " + noEhsSum(v).n + " 份自主保養表不需環安衛審核）" : "")) + "</div>" + box("warn", "warn", "平日沒有紀錄、也沒選「今日無作業」", s.blank, "請確認這幾天確實沒有運作；如果是漏填，請在下一頁寫原因退回補填。") + box("err", "warn", "有異常的日子", s.bad, "請確認異常說明與處置都寫了。") + box("info", "info", "補登的日子（事後才填）", s.late, "") + (!s.blank.length && !s.bad.length ? '<div class="box info"><div class="r">' + ic("info", 22) + '<div class="bt"><div class="m">上班日都有紀錄或已選「今日無作業」，也沒有異常。</div></div></div></div>' : "") + '<div class="card"><div class="muted">各表摘要</div>' + s.lines.map((function(l) {
   return '<div class="sml">' + esc(l) + "</div>";
  })).join("") + "</div>" + '<label class="ck smck"><input type="checkbox" id="rvChk" onchange="$(\'rvGo\').disabled=!this.checked">' + esc(s.blank.length ? "上面空白的日子確實沒有運作，異常也看過了，確認核准 " + m0 + " 月的紀錄" : s.bad.length ? "異常都看過了，確認核准 " + m0 + " 月的紀錄" : "我已看過 " + m0 + " 月的紀錄，確認核准") + "</label>";
  $("app").innerHTML = h;
@@ -5672,7 +5721,7 @@ function crewCard(v) {
   return c.days || c.monthId;
  }));
  var ok = function(c) {
-  return c.status === "環安衛已核准";
+  return c.status === "環安衛已核准" || c.status === "主管已核准完成";
  };
  var miss = cr.filter((function(c) {
   return !ok(c);
