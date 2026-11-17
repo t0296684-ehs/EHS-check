@@ -1,4 +1,4 @@
-var PLAT_VER = "0.49.0";
+var PLAT_VER = "0.49.1";
 
 function platHeal() {
  try {

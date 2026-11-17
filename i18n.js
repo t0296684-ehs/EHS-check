@@ -58,7 +58,7 @@ var I18N = function() {
      vals[n] = m[j + 1];
     }));
     hit = pats[i].to.replace(/\{(s?\d)\}/g, (function(x, n) {
-     return vals[n] !== undefined ? n.charAt(0) === "s" ? tr(vals[n]) : vals[n] : x;
+     return vals[n] !== undefined ? n.charAt(0) === "s" ? trList(vals[n]) : vals[n] : x;
     }));
     break;
    }
@@ -71,6 +71,14 @@ var I18N = function() {
    return s;
   }
   return raw.replace(t, hit);
+ }
+ function trList(v) {
+  var t = tr(v);
+  if (t !== v || String(v).indexOf("、") < 0) return t;
+  var sep = lang === "th" ? ", " : ", ";
+  return String(v).split("、").map((function(x) {
+   return tr(x.replace(/（新表）$/, "")) + (/（新表）$/.test(x) ? tr("（新表）") : "");
+  })).join(sep);
  }
  function skip(el) {
   for (var e = el; e && e.nodeType === 1; e = e.parentNode) {
