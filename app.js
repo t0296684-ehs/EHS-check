@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.49.1";
+var APP_VERSION = "0.50.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -676,18 +676,24 @@ var AUTH_RE = /失效|名單|選擇您的身分/;
 
 var GONE_RE = /不用再送|沒有開放給這個部門/;
 
+var TAKEN_RE = /已經由 .+ (檢點|檢查)?送出.*(不能蓋掉|不用再填)/;
+
+function isTaken(e) {
+ return !!(e && (e.info && e.info.taken || TAKEN_RE.test(e.message || "")));
+}
+
 function flush() {
  if (S.dev) return Promise.resolve();
  if (S.flushing || !navigator.onLine || !gasUrl() || !lsGet(LS.TOKEN, "")) return Promise.resolve();
  S.flushing = true;
  if (S.page === "home") render();
- var sent = 0, failed = 0, relogin = "", dropped = [], revised = 0;
+ var sent = 0, failed = 0, relogin = "", dropped = [], revised = 0, taken = [];
  return obAll().then((function(jobs) {
   var stale = jobs.filter((function(j) {
-   return j.status === "error" && GONE_RE.test(j.message || "");
+   return j.status === "error" && (GONE_RE.test(j.message || "") || TAKEN_RE.test(j.message || ""));
   }));
   stale.forEach((function(j) {
-   dropped.push(j.label || "檢點表");
+   if (TAKEN_RE.test(j.message || "")) taken.push(j.message); else dropped.push(j.label || "檢點表");
   }));
   return Promise.all(stale.map((function(j) {
    return obDel(j.id);
@@ -759,6 +765,14 @@ function flush() {
       }
       return obDel(j.id);
      }
+     if (e.biz && isTaken(e)) {
+      taken.push(e.message);
+      var a2 = S.me && A(j.key);
+      if (a2 && a2.due && j.body.date === today()) {
+       a2.due.todayDone = true;
+      }
+      return obDel(j.id);
+     }
      if (e.biz && GONE_RE.test(e.message || "")) {
       dropped.push(j.label || "檢點表");
       var a0 = S.me && A(j.key);
@@ -791,9 +805,10 @@ function flush() {
   if (relogin) return kickToLogin(relogin);
   if (sent) toast(sent === 1 && S.sentMsg ? S.sentMsg : "已上傳 " + sent + " 筆檢點", "ok", S.sentMsg ? 3500 : undefined);
   S.sentMsg = null;
+  if (taken.length) toast(esc(taken[0]) + (taken.length > 1 ? "（共 " + taken.length + " 張）" : "") + " 手機上這份已收掉，內容另存在系統備查。", "", 9e3);
   if (dropped.length) toast(dropped.length + " 筆檢點的表單已調整或改版，舊紀錄已自動移除，請照「我的表單」重新填", "", 6e3);
   if (revised) toast("表單改版了：原本的勾選已幫你帶入，請到首頁黃色提示補勾新增的項目", "", 6e3);
-  if (sent || failed || dropped.length || revised) refreshMe();
+  if (sent || failed || dropped.length || revised || taken.length) refreshMe();
   return obRefresh();
  })).then((function() {
   if (S.page === "home") render();

@@ -2015,16 +2015,25 @@ function openFill(key, date) {
 function loadDay() {
  if (S.share) return;
  var a = A(S.fill.key), fm = S.fill;
- if (!a.daily || Object.keys(fm.r).length || fm.noWork) return;
+ if (!a || !navigator.onLine) return;
  api("dayView", {
   deptId: a.dept,
   formId: a.form,
-  date: fm.date
+  date: fm.date,
+  object: a.object || "",
+  kind: a.kind || "",
+  slot: 1
  }, {
   quiet: true,
   noRetry: true
  }).then((function(d) {
-  if (!d || S.page !== "fill" || S.fill !== fm || Object.keys(fm.r).length) return;
+  if (!d || S.page !== "fill" || S.fill !== fm) return;
+  if (d.taken) {
+   fm.taken = d.taken;
+   render();
+   return;
+  }
+  if (!a.daily || Object.keys(fm.r).length || fm.noWork) return;
   fm.r = d.results || {};
   fm.n = d.notes || {};
   fm.noWork = d.noWork;
@@ -2124,6 +2133,13 @@ PAGES.fill = function() {
  }
  var metaTxt = [ deptOf(a.dept), a.object, a.kind ].filter(String).join("｜");
  var h = bfBanner() + '<div class="meta">' + esc(metaTxt) + "</div>" + (S.share || demoDept(a.dept) || bfCur() ? '<div class="dwrap"><div class="lbl">檢查日期 ' + (fm.date === t ? pill("ok", "", md(fm.date) + "（" + wk(fm.date) + "）今天") : pill("warn", "", "補填 " + md(fm.date) + "（" + wk(fm.date) + "），不是今天")) + "</div></div>" : '<div class="dwrap"><div class="lbl"><label for="dt">檢查日期</label>' + (fm.date === t ? pill("ok", "", "今天") : pill("warn", "", "補登")) + "</div>" + '<input type="date" class="field" id="dt" value="' + esc(fm.date) + '" max="' + t + '" min="' + minD + '" onchange="fillDate(this.value)">' + '<div class="hint">補填其他天：回首頁按「月曆・補填」，再點日期（最早可補到 ' + md(minD) + "）</div></div>" + (fm.date !== t ? '<div class="box warn"><div class="r">' + ic("warn", 22) + '<div class="bt"><b>補填 ' + md(fm.date) + "（" + wk(fm.date) + "）的紀錄，不是今天</b>" + '<div class="m">請確認這天確實有做檢查。建議當天檢查、當天填寫，檢查表才有實際作用；補填會記下填寫時間，單位負責人與環安衛看得到。</div></div></div></div>' : ""));
+ if (fm.taken) {
+  h += '<div class="box ok"><div class="r">' + ic("check", 22) + '<div class="bt"><b>已經由 ' + esc(fm.taken.signer) + ' 送出，不用再填</b><div class="m">' + esc(fm.taken.msg || "") + "</div></div></div></div>";
+  $("app").innerHTML = h;
+  S.topExtra = "";
+  bar('<button class="btn" onclick="fillTakenHome()">回首頁</button>');
+  return;
+ }
  if (a.daily) {
   h += '<div class="btns r21"><button class="btn navy" onclick="allOk()">' + ic("check", 22, 3) + "全部正常</button>" + '<button class="btn ghost" onclick="noWork()">' + (fm.noWork ? "↺ 取消無作業" : "今日無作業") + "</button></div>";
  } else {
@@ -2168,8 +2184,14 @@ PAGES.fill = function() {
  fillBar();
 };
 
+function fillTakenHome() {
+ S.fill = null;
+ S.stack = [];
+ go("home", {}, true);
+}
+
 function fillBar() {
- if (S.page !== "fill" || !S.fill) return;
+ if (S.page !== "fill" || !S.fill || S.fill.taken) return;
  var a = A(S.arg.key), fm = S.fill, f = F(a.form, fm && fm.date), st = fillState(f, fm), h;
  if (fm.noWork) h = '<button class="btn" id="fillBtn" onclick="submitFill()">' + ic("check", 22, 2.8) + "送出（今日無作業）</button>"; else if (st.todo.length) h = '<button class="btn navy" onclick="jumpTo(' + jsq(st.todo[0]) + ')">還有 ' + st.todo.length + " 項沒勾・跳到第 " + esc(st.todo[0]) + " 項" + ic("down", 20, 2.6) + "</button>"; else if (st.noNote.length) h = '<button class="btn navy" onclick="jumpTo(' + jsq(st.noNote[0]) + ',1)">第 ' + esc(st.noNote[0]) + " 項" + (String(fm.n[st.noNote[0]] || "").trim() ? "的說明要寫清楚" : "要寫說明") + "・跳過去" + ic("down", 20, 2.6) + "</button>"; else if (!a.daily && evNeed(f, fm)) {
   var en = evNeed(f, fm);
@@ -2305,6 +2327,7 @@ function fillConfirm(a, f, fm) {
 
 function submitFill() {
  var a = A(S.arg.key), fm = S.fill, f = F(a.form, fm && fm.date);
+ if (fm.taken) return toast(esc(fm.taken.msg), "err", 6e3);
  if (!fm.noWork) {
   for (var i = 0; i < f.items.length; i++) {
    var it = f.items[i], v = fm.r[it.seq];
