@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.52.0";
+var APP_VERSION = "0.53.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -1068,6 +1068,7 @@ function normMe(m) {
  m.months = [];
  m.confirms = [];
  m.claimable = [];
+ m.miss = [];
  var stale = m.today && m.today !== today();
  m.person.depts = m.depts.map((function(d) {
   return {
@@ -1153,7 +1154,16 @@ function normMe(m) {
     sheetUrl: d.sheetUrl,
     crew: x.crew,
     submitter: x.submitter,
-    submittedAt: x.submittedAt
+    submittedAt: x.submittedAt,
+    mine: x.mine,
+    old: !!x.old
+   });
+  }));
+  (d.miss || []).forEach((function(x) {
+   m.miss.push({
+    dept: d.id,
+    period: x.period,
+    key: [ d.id, x.form, x.object, x.kind ].join("|")
    });
   }));
  }));
@@ -2589,9 +2599,9 @@ PAGES.home = function() {
  }))) tasks.push({
   tag: "還沒有指派給您的檢查表",
   title: "單位負責人指派後，會自動出現在這裡",
-  meta: "不用自己領取；要負責某張表或某台設備，可以送申請給單位負責人",
-  btn: "申請表單",
-  on: "go('claim')"
+  meta: "不用自己領取；要負責某張表或某台設備，請直接找單位負責人在「部門管理」指派",
+  btn: "重新整理",
+  on: "refreshMe()"
  });
  if (mgr && !ehs) {
   var un = [];
@@ -2615,23 +2625,38 @@ PAGES.home = function() {
  var subs = [];
  if (!ehs) m.months.forEach((function(x) {
   if (x.period < t.slice(0, 7) && x.status === "填寫中" && !mgrOf(x.dept)) {
-   var mo = Number(x.period.slice(5)), late = Number(t.slice(8)) > sDay;
-   var sd = monthDue(x.period, sDay);
+   var mo = Number(x.period.slice(5)), sd = monthDue(x.period, sDay), late = dDays(sd) < 0;
+   var mi = x.mine || {}, ttl = mi.daily && mi.periodic ? mo + " 月日檢點（" + mi.daily + " 天）、定期檢查（" + mi.periodic + " 張）還沒送審" : mi.daily ? mo + " 月日檢點（" + mi.daily + " 天）還沒送審" : mi.periodic ? mo + " 月定期檢查（" + mi.periodic + " 張）還沒送審" : "送出 " + mo + " 月的檢點紀錄";
+   var pe = new Date(Number(x.period.slice(0, 4)), Number(x.period.slice(5)) + (m.fillMonths || 3), 0), endTxt = pe.getMonth() + 1 + "/" + pe.getDate();
    if (late) tasks.unshift({
     red: true,
     tag: dn(x.dept) + "送審逾時 " + -dDays(sd) + " 天（期限 " + dueTxt(x.period) + "）",
-    title: "送出 " + mo + " 月的檢點紀錄",
-    meta: "每個人送自己簽的表",
+    title: ttl,
+    meta: x.old ? "最晚 " + endTxt + " 前補完送出，過了就不能再補" : "每個人送自己簽的表",
     btn: "檢查並送出 " + mo + " 月",
     on: goMonth(x.dept, x.period)
    }); else if (dDays(sd) <= 2) tasks.push({
     tag: dn(x.dept) + "送審・" + dueTxt(x.period) + " 前・" + leftTxt(sd),
-    title: "送出 " + mo + " 月的檢點紀錄",
+    title: ttl,
     meta: "先檢查有沒有漏填，再送出您自己簽的表",
     btn: "檢查並送出 " + mo + " 月",
     on: goMonth(x.dept, x.period)
    }); else subs.push(x);
   }
+ }));
+ if (!ehs && !mgr) (m.miss || []).slice(0, 4).forEach((function(x) {
+  var a = (m.assigns || []).filter((function(y) {
+   return y.key === x.key;
+  }))[0];
+  if (!a || !F(a.form)) return;
+  tasks.push({
+   red: true,
+   tag: dn(x.dept) + Number(x.period.slice(5)) + " 月定期檢查沒有紀錄",
+   title: pickName(a) + (a.kind ? "（" + a.kind + "）" : ""),
+   meta: "這個月的定期檢查還沒做或還沒送；做過了請補登，日期選當時檢查的那天",
+   btn: "去補登",
+   on: "openFill(" + jsq(a.key) + ")"
+  });
  }));
  if (mgr || ehs) {
   var lateS = [], lateR = [], rDay = m.reviewDay || 15;
