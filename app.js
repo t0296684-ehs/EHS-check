@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.51.0";
+var APP_VERSION = "0.52.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -733,7 +733,7 @@ function flush() {
  if (S.flushing || !navigator.onLine || !gasUrl() || !lsGet(LS.TOKEN, "")) return Promise.resolve();
  S.flushing = true;
  if (S.page === "home") render();
- var sent = 0, failed = 0, relogin = "", revised = 0, taken = [];
+ var sent = 0, failed = 0, relogin = "", revised = 0, taken = [], queued = 0;
  return obAll().then((function(jobs) {
   var stale = jobs.filter((function(j) {
    return j.status === "error" && TAKEN_RE.test(j.message || "");
@@ -761,8 +761,9 @@ function flush() {
     }, j.body), {
      token: j.token,
      quiet: true
-    }).then((function() {
+    }).then((function(r) {
      sent++;
+     if (r && r.queued) queued++;
      if (j.action === "envSubmit" && window.envSentOk) envSentOk(j);
      return obDel(j.id);
     })).catch((function(e) {
@@ -822,7 +823,10 @@ function flush() {
  })).then((function() {
   S.flushing = false;
   if (relogin) return kickToLogin(relogin);
-  if (sent) toast(sent === 1 && S.sentMsg ? S.sentMsg : "已上傳 " + sent + " 筆檢點", "ok", S.sentMsg ? 3500 : undefined);
+  if (queued) {
+   S.ibAt = 0;
+   toast("系統已收到 " + queued + " 張，整理好會通知你。可以先去工作", "ok", 4e3);
+  } else if (sent) toast(sent === 1 && S.sentMsg ? S.sentMsg : "已上傳 " + sent + " 筆檢點", "ok", S.sentMsg ? 3500 : undefined);
   S.sentMsg = null;
   if (revised) toast("表單改版了：原本的勾選已幫你帶入，請到首頁黃色提示補勾新增的項目", "", 6e3);
   if (sent || failed || revised || taken.length) refreshMe();
@@ -889,8 +893,82 @@ function reviseBlock() {
  })).join("");
 }
 
+function ibLoad() {
+ if (!S.me || S.dev || !navigator.onLine || S.ibAt && Date.now() - S.ibAt < 3e4) return;
+ S.ibAt = Date.now();
+ api("inboxMine", {}, {
+  quiet: true,
+  noRetry: true
+ }).then((function(r) {
+  S.ib = r || null;
+  if (S.page === "home") render();
+ })).catch((function() {}));
+}
+
+function ibBlock() {
+ var r = S.ib;
+ if (!r) return "";
+ var h = "";
+ if (r.pend) h += '<div class="strip info">' + ic("cloud", 24, 2.2) + '<div class="stx"><span><b>系統已收到 ' + r.pend + " 張，整理中</b></span><small>整理好會通知你；App 可以縮到背景，不用一直開著</small></div></div>";
+ (r.back || []).forEach((function(x, i) {
+  h += '<div class="strip warn">' + ic("warn", 24, 2.2) + '<div class="stx"><span><b>' + esc(x.label) + "・沒有寫入</b></span><small>" + esc("原因：" + (x.reason || "系統錯誤")) + "</small></div>" + '<button class="btn sm" onclick="ibReopen(' + i + ')">重新上傳</button></div>';
+ }));
+ return h;
+}
+
+var IB_PIC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="#E8EDF5"/><text x="60" y="66" font-size="14" text-anchor="middle" fill="#55657F">已上傳</text></svg>');
+
+function ibReopen(i) {
+ var x = S.ib && S.ib.back && S.ib.back[i];
+ if (!x) return;
+ var b = x.body || {}, a = (S.me.assigns || []).filter((function(y) {
+  return y.dept === b.deptId && y.form === b.formId && String(y.object || "") === String(b.object || "") && String(y.kind || "") === String(b.kind || "");
+ }))[0];
+ if (!a) return toast("這張表已不在你的清單，請找單位負責人", "err", 5e3);
+ var f = F(a.form, b.date), x2 = {};
+ (f && f.extra || []).forEach((function(lbl, k) {
+  if (b.extra && b.extra[lbl]) x2[k] = b.extra[lbl];
+ }));
+ var np = {};
+ Object.keys(b.ngPhotos || {}).forEach((function(k) {
+  np[k] = (b.ngPhotos[k] || []).map((function(id) {
+   return {
+    id,
+    t: IB_PIC
+   };
+  }));
+ }));
+ var all = lsGet(LS.DRAFT, {});
+ all[a.key + "@" + b.date] = {
+  key: a.key,
+  date: b.date,
+  r: b.results || {},
+  n: b.notes || {},
+  x: x2,
+  noWork: !!b.noWork,
+  sum: b.summary || "",
+  pics: (b.photos || []).map((function(id) {
+   return {
+    id,
+    t: IB_PIC
+   };
+  })),
+  np
+ };
+ lsSet(LS.DRAFT, all);
+ api("inboxReopen", {
+  id: x.id
+ }, {
+  quiet: true
+ }).catch((function() {}));
+ S.ib.back.splice(i, 1);
+ openFill(a.key, b.date);
+ toast("原本填的內容都帶回來了，看原因改好再送出", "", 5e3);
+}
+
 function outboxBlock() {
- var a = S.outbox || [], rv = takenBlock() + reviseBlock();
+ ibLoad();
+ var a = S.outbox || [], rv = ibBlock() + takenBlock() + reviseBlock();
  if (!a.length) return rv;
  var pend = a.filter((function(j) {
   return j.status === "pending";

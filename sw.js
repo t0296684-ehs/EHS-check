@@ -1,4 +1,4 @@
-var CACHE = "chk-v0.51.0";
+var CACHE = "chk-v0.52.0";
 
 var FILES = [ "./", "./index.html", "./qrcode.js", "./plat.js", "./sup.js", "./push.js", "./cons.js", "./app.js", "./check.js", "./manifest.json", "./icon-192.png", "./xiaoen.jpg", "./icon-512.png" ];
 
