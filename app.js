@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.50.1";
+var APP_VERSION = "0.51.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -674,8 +674,6 @@ var flushTimer = null;
 
 var AUTH_RE = /失效|名單|選擇您的身分/;
 
-var GONE_RE = /不用再送|沒有開放給這個部門/;
-
 var TAKEN_RE = /已經由 .+ (檢點|檢查)?送出.*(不能蓋掉|不用再填)/;
 
 function isTaken(e) {
@@ -735,16 +733,14 @@ function flush() {
  if (S.flushing || !navigator.onLine || !gasUrl() || !lsGet(LS.TOKEN, "")) return Promise.resolve();
  S.flushing = true;
  if (S.page === "home") render();
- var sent = 0, failed = 0, relogin = "", dropped = [], revised = 0, taken = [];
+ var sent = 0, failed = 0, relogin = "", revised = 0, taken = [];
  return obAll().then((function(jobs) {
   var stale = jobs.filter((function(j) {
-   return j.status === "error" && (GONE_RE.test(j.message || "") || TAKEN_RE.test(j.message || ""));
+   return j.status === "error" && TAKEN_RE.test(j.message || "");
   }));
   stale.forEach((function(j) {
-   if (TAKEN_RE.test(j.message || "")) {
-    takenAdd(takenOf(j));
-    taken.push(1);
-   } else dropped.push(j.label || "檢點表");
+   takenAdd(takenOf(j));
+   taken.push(1);
   }));
   return Promise.all(stale.map((function(j) {
    return obDel(j.id);
@@ -752,26 +748,6 @@ function flush() {
    return jobs.filter((function(j) {
     return stale.indexOf(j) < 0;
    }));
-  }));
- })).then((function(jobs) {
-  return Promise.all(jobs.filter((function(j) {
-   return j.status !== "pending" && j.status !== "auth" && !j.requeued && /改版前的項目/.test(j.message || "");
-  })).map((function(j) {
-   j.status = "pending";
-   j.requeued = true;
-   return obPut(j);
-  }))).then((function() {
-   return jobs;
-  }));
- })).then((function(jobs) {
-  return Promise.all(jobs.filter((function(j) {
-   return j.status === "error" && !j.rqRev && /項還沒勾|您沒有被指派。/.test(j.message || "");
-  })).map((function(j) {
-   j.status = "pending";
-   j.rqRev = true;
-   return obPut(j);
-  }))).then((function() {
-   return jobs;
   }));
  })).then((function(jobs) {
   var p = Promise.resolve(), stop = false;
@@ -825,15 +801,6 @@ function flush() {
       }
       return obDel(j.id);
      }
-     if (e.biz && GONE_RE.test(e.message || "")) {
-      dropped.push(j.label || "檢點表");
-      var a0 = S.me && A(j.key);
-      if (a0 && a0.due && j.body.date === today() && !a0.due.signer) {
-       a0.due.todayDone = false;
-       a0.due.todayNoWork = false;
-      }
-      return obDel(j.id);
-     }
      if (e.biz) {
       j.status = "error";
       failed++;
@@ -857,9 +824,8 @@ function flush() {
   if (relogin) return kickToLogin(relogin);
   if (sent) toast(sent === 1 && S.sentMsg ? S.sentMsg : "已上傳 " + sent + " 筆檢點", "ok", S.sentMsg ? 3500 : undefined);
   S.sentMsg = null;
-  if (dropped.length) toast(dropped.length + " 筆檢點的表單已調整或改版，舊紀錄已自動移除，請照「我的表單」重新填", "", 6e3);
   if (revised) toast("表單改版了：原本的勾選已幫你帶入，請到首頁黃色提示補勾新增的項目", "", 6e3);
-  if (sent || failed || dropped.length || revised || taken.length) refreshMe();
+  if (sent || failed || revised || taken.length) refreshMe();
   return obRefresh();
  })).then((function() {
   if (S.page === "home") render();
@@ -953,8 +919,7 @@ function outboxBlock() {
  a.filter((function(j) {
   return j.status !== "pending" && j.status !== "auth";
  })).forEach((function(j) {
-  var gone = /不用再送/.test(j.message || "");
-  h += errBox(j.label + " 沒有上傳成功", "原因：" + (j.message || "不明"), '<div class="btns">' + (gone ? "" : '<button class="btn red" onclick="obRetry(' + jsq(j.id) + ')">重試</button>') + '<button class="btn ' + (gone ? "red" : "redline") + '" onclick="obDrop(' + jsq(j.id) + ')">刪除這筆</button></div>');
+  h += errBox(j.label + " 沒有送進系統", "原因：" + (j.message || "不明") + "。這筆還存在手機裡；看不懂原因請找單位負責人。", '<div class="btns"><button class="btn redline" onclick="obDrop(' + jsq(j.id) + ')">刪除這筆</button></div>');
  }));
  return h;
 }
@@ -1012,20 +977,6 @@ function rebindJobs(name, token) {
   }));
  })).then((function(n) {
   if (n) return obRefresh().then(flush);
- }));
-}
-
-function obRetry(id) {
- obAll().then((function(a) {
-  var j = a.filter((function(x) {
-   return x.id === id;
-  }))[0];
-  if (!j) return;
-  j.status = "pending";
-  return obPut(j);
- })).then(obRefresh).then((function() {
-  render();
-  flush();
  }));
 }
 
