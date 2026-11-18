@@ -1,4 +1,4 @@
-var CACHE = "chk-v0.53.0";
+var CACHE = "chk-v0.53.1";
 
 var FILES = [ "./", "./index.html", "./qrcode.js", "./plat.js", "./sup.js", "./push.js", "./cons.js", "./app.js", "./check.js", "./manifest.json", "./icon-192.png", "./xiaoen.jpg", "./icon-512.png" ];
 
@@ -194,4 +194,80 @@ self.addEventListener("notificationclick", (function(e) {
   for (var i = 0; i < ws.length; i++) if ("focus" in ws[i]) return ws[i].focus();
   return self.clients.openWindow("./");
  })));
+}));
+
+function swIdb(store, mode, fn) {
+ return new Promise((function(ok, no) {
+  var q = indexedDB.open("chk_db");
+  q.onsuccess = function() {
+   var d = q.result;
+   if (!d.objectStoreNames.contains(store)) {
+    d.close();
+    return ok(null);
+   }
+   var t = d.transaction(store, mode), r = fn(t.objectStore(store));
+   t.oncomplete = function() {
+    d.close();
+    ok(r && "result" in r ? r.result : null);
+   };
+   t.onerror = function() {
+    d.close();
+    no(t.error);
+   };
+  };
+  q.onerror = function() {
+   no(q.error);
+  };
+ }));
+}
+
+function obSendBg() {
+ return swIdb("kv", "readonly", (function(s) {
+  return s.get("sync");
+ })).then((function(c) {
+  if (!c || !c.url) return;
+  return swIdb("outbox", "readonly", (function(s) {
+   return s.getAll();
+  })).then((function(jobs) {
+   jobs = (jobs || []).filter((function(j) {
+    return j.status === "pending" && j.token && (!j.action || j.action === "submitCheck");
+   })).sort((function(x, y) {
+    return x.created - y.created;
+   }));
+   var busy = false;
+   return jobs.reduce((function(p, j) {
+    return p.then((function() {
+     if (busy) return;
+     var body = JSON.stringify(Object.assign({
+      action: "submitCheck",
+      token: j.token,
+      submitId: j.id
+     }, j.body, {
+      rid: "bg" + Date.now() + Math.random().toString(36).slice(2, 6),
+      appVer: c.ver
+     }));
+     return fetch(c.url, {
+      method: "POST",
+      redirect: "follow",
+      body
+     }).then((function(r) {
+      return r.json();
+     })).then((function(x) {
+      if (x && x.success) return swIdb("outbox", "readwrite", (function(s) {
+       s.delete(j.id);
+      }));
+      if (x && x.retry) busy = true;
+     })).catch((function() {
+      busy = true;
+     }));
+    }));
+   }), Promise.resolve()).then((function() {
+    if (busy) throw new Error("retry later");
+   }));
+  }));
+ }));
+}
+
+self.addEventListener("sync", (function(e) {
+ if (e.tag === "ob") e.waitUntil(obSendBg());
 }));

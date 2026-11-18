@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.53.0";
+var APP_VERSION = "0.53.1";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -662,6 +662,29 @@ function obDel(id) {
  }));
 }
 
+function bgSync() {
+ try {
+  if (S.dev || !navigator.serviceWorker || !("SyncManager" in window) || !gasUrl()) return;
+  kvTx("readwrite", (function(st) {
+   st.put({
+    id: "sync",
+    url: gasUrl(),
+    ver: APP_VERSION
+   });
+  })).then((function() {
+   return navigator.serviceWorker.ready;
+  })).then((function(r) {
+   return r.sync && r.sync.register("ob");
+  })).catch((function() {}));
+ } catch (e) {}
+}
+
+document.addEventListener("visibilitychange", (function() {
+ if (document.visibilityState === "hidden" && (S.outbox || []).some((function(j) {
+  return j.status === "pending";
+ }))) bgSync();
+}));
+
 function obRefresh() {
  return obAll().then((function(a) {
   S.outbox = a;
@@ -751,6 +774,9 @@ function flush() {
   }));
  })).then((function(jobs) {
   var p = Promise.resolve(), stop = false;
+  if (jobs.some((function(j) {
+   return j.status === "pending";
+  }))) bgSync();
   jobs.filter((function(j) {
    return j.status === "pending";
   })).forEach((function(j) {
