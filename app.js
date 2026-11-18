@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.50.0";
+var APP_VERSION = "0.50.1";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -682,6 +682,54 @@ function isTaken(e) {
  return !!(e && (e.info && e.info.taken || TAKEN_RE.test(e.message || "")));
 }
 
+var LS_TAKEN = "chk.taken";
+
+function takenOf(j, e) {
+ var m = e && e.message || j.message || "", inf = e && e.info || {}, y = String(j.body.date || "").slice(0, 4);
+ var who = inf.signer || (/已經由 (\S+)/.exec(m) || [])[1] || "", d = inf.date || "";
+ if (!d) {
+  var x = /在 (\d+)\/(\d+)/.exec(m);
+  d = x ? y + "-" + pad(Number(x[1])) + "-" + pad(Number(x[2])) : j.body.date;
+ }
+ var a = S.me && A(j.key), name = String(j.label || "檢點表").replace(/ \d+\/\d+$/, "") + (j.body.object ? " " + j.body.object : "");
+ return {
+  key: j.key,
+  mine: j.body.date,
+  date: d,
+  who,
+  name,
+  daily: a ? !!a.daily : d === j.body.date
+ };
+}
+
+function takenText(t) {
+ var me = S.me && S.me.person ? S.me.person.name : "";
+ if (t.who && t.who === me) return "你在 " + md(t.date) + " 已經送過這一期，不用再送。要改內容請打開 " + md(t.date) + " 那筆。";
+ if (t.daily) return md(t.date) + " 已由 " + t.who + " 送出。這張表一天只收一筆，你不用再送；內容有問題請直接找 " + t.who + " 確認。";
+ return "這一期已由 " + t.who + " 在 " + md(t.date) + " 送出。這張表一期只收一筆，你不用再送；內容有問題請直接找 " + t.who + " 確認。";
+}
+
+function takenAdd(t) {
+ var l = (lsGet(LS_TAKEN, []) || []).filter((function(x) {
+  return !(x.key === t.key && x.mine === t.mine);
+ }));
+ l.push(t);
+ lsSet(LS_TAKEN, l.slice(-10));
+}
+
+function takenAck(i) {
+ var l = lsGet(LS_TAKEN, []) || [];
+ l.splice(i, 1);
+ lsSet(LS_TAKEN, l);
+ render();
+}
+
+function takenBlock() {
+ return (lsGet(LS_TAKEN, []) || []).map((function(t, i) {
+  return '<div class="strip warn">' + ic("info", 24, 2.2) + '<div class="stx"><span><b>' + esc(t.name) + "</b></span><small>" + esc(takenText(t)) + "</small></div>" + '<button class="btn sm" onclick="takenAck(' + i + ')">知道了</button></div>';
+ })).join("");
+}
+
 function flush() {
  if (S.dev) return Promise.resolve();
  if (S.flushing || !navigator.onLine || !gasUrl() || !lsGet(LS.TOKEN, "")) return Promise.resolve();
@@ -693,7 +741,10 @@ function flush() {
    return j.status === "error" && (GONE_RE.test(j.message || "") || TAKEN_RE.test(j.message || ""));
   }));
   stale.forEach((function(j) {
-   if (TAKEN_RE.test(j.message || "")) taken.push(j.message); else dropped.push(j.label || "檢點表");
+   if (TAKEN_RE.test(j.message || "")) {
+    takenAdd(takenOf(j));
+    taken.push(1);
+   } else dropped.push(j.label || "檢點表");
   }));
   return Promise.all(stale.map((function(j) {
    return obDel(j.id);
@@ -766,7 +817,8 @@ function flush() {
       return obDel(j.id);
      }
      if (e.biz && isTaken(e)) {
-      taken.push(e.message);
+      takenAdd(takenOf(j, e));
+      taken.push(1);
       var a2 = S.me && A(j.key);
       if (a2 && a2.due && j.body.date === today()) {
        a2.due.todayDone = true;
@@ -805,7 +857,6 @@ function flush() {
   if (relogin) return kickToLogin(relogin);
   if (sent) toast(sent === 1 && S.sentMsg ? S.sentMsg : "已上傳 " + sent + " 筆檢點", "ok", S.sentMsg ? 3500 : undefined);
   S.sentMsg = null;
-  if (taken.length) toast(esc(taken[0]) + (taken.length > 1 ? "（共 " + taken.length + " 張）" : "") + " 手機上這份已收掉，內容另存在系統備查。", "", 9e3);
   if (dropped.length) toast(dropped.length + " 筆檢點的表單已調整或改版，舊紀錄已自動移除，請照「我的表單」重新填", "", 6e3);
   if (revised) toast("表單改版了：原本的勾選已幫你帶入，請到首頁黃色提示補勾新增的項目", "", 6e3);
   if (sent || failed || dropped.length || revised || taken.length) refreshMe();
@@ -873,7 +924,7 @@ function reviseBlock() {
 }
 
 function outboxBlock() {
- var a = S.outbox || [], rv = reviseBlock();
+ var a = S.outbox || [], rv = takenBlock() + reviseBlock();
  if (!a.length) return rv;
  var pend = a.filter((function(j) {
   return j.status === "pending";
