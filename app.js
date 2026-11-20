@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.54.0";
+var APP_VERSION = "0.54.1";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -375,7 +375,7 @@ function api(action, body, opt) {
  }
  var t0 = Date.now(), h0 = PERF_HID;
  return once().then((function(d) {
-  if (PERF_HID === h0) perfAdd(i ? action + "Retry" : action, Date.now() - t0);
+  if (PERF_HID === h0) perfAdd(i ? action + "Retry" : opt.quiet ? action + "Bg" : action, Date.now() - t0);
   return d;
  }));
 }
@@ -393,6 +393,23 @@ var PERF = null, PERF_BUSY = false, PERF_WAIT = 0, PERF_LS = "chk.perf", PERF_SK
  clientLog: 1,
  ping: 1
 };
+
+var SPIN_T = 0, SPIN_PG = "", SPIN_H = 0;
+
+setInterval((function() {
+ try {
+  var el = document.querySelector("#app .loading, #busy"), on = !!(el && el.offsetParent !== null) || !!document.getElementById("busy");
+  if (on && !SPIN_T) {
+   SPIN_T = Date.now();
+   SPIN_PG = document.getElementById("busy") ? "Busy" : String(S.page || "page");
+   SPIN_H = PERF_HID;
+  } else if (!on && SPIN_T) {
+   var ms = Date.now() - SPIN_T, pg = SPIN_PG.replace(/[^A-Za-z]/g, "");
+   SPIN_T = 0;
+   if (ms >= 300 && SPIN_H === PERF_HID && pg) perfAdd("wait" + pg.charAt(0).toUpperCase() + pg.slice(1, 25), ms);
+  }
+ } catch (e) {}
+}), 250);
 
 function perfAdd(action, ms) {
  try {
