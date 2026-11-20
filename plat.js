@@ -1,4 +1,4 @@
-var PLAT_VER = "0.53.2";
+var PLAT_VER = "0.54.0";
 
 function platHeal() {
  try {
@@ -128,6 +128,7 @@ function checkSub() {
  var m = S.me, t = today();
  if (isEhs()) return m.pendingReview ? "有 " + m.pendingReview + " 份等您歸檔" : "各課執行狀況、審核、廣播";
  if (isMgr()) return m.pendingReview ? "有 " + m.pendingReview + " 份等您審核" : "各課執行狀況、月結審核";
+ if (m.loading) return "正在讀取今天要做的表單…";
  var todo = (m.assigns || []).filter((function(a) {
   return a.daily && F(a.form) && !(pendingFor(a, t) || a.due.todayDone);
  })).length;

@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.53.2";
+var APP_VERSION = "0.54.0";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -361,7 +361,7 @@ function api(action, body, opt) {
     throw err;
    }
    if (j.srv >= 0) perfAdd(action + "Srv", j.srv);
-   if (RC_KEEP.indexOf(action) < 0) rcClear();
+   rcAfter(action);
    return j.data;
   })).catch((function(e) {
    if (e.biz || i >= waits.length + (e.server ? 2 : 0)) throw e;
@@ -491,10 +491,35 @@ function rcSave() {
 
 function rcClear() {
  RC = {};
+ RC_INF = {};
+ RC_GEN++;
  try {
   localStorage.removeItem(RC_LS);
  } catch (e) {}
 }
+
+var RC_READ = /^(me|inboxMine|ping|bootstrap|roster|overview|notices|dayView|monthView|packages|tracks|photoGet|getPdf|team|nextList|claimList|edu(List|Get|File|Stats|Hours|Pages|Drafts)|cons(Cases|Home|Detail|Vendors|File|Demo|PubForm|PubCase|PubWorkerOpen|PubHandlerOpen)|envMe|envMonth|meet(Home|State|Deck|List|Pdf|Checks|Open|PagesPub)|chemList|patrolInfo|bcPeople|bcList|exportOpts|exportPdf|exportPeople|support(Mine|Pic|All)|xe(Mine|All)|devLogs|pushPeek|archiveList|archivePdf|share(Open|OpenM|Members|Auth)|vendorInfo|agentHome|clientLog|perfLog|pushKey|pushSub)$/;
+
+var RC_SOFT = /^(submitCheck|submitBatch|envSubmit|noticeRead|edu(Watch|Read|Done|Ack)|photoUp|patrolPhoto|patrolSave|confirmFill|inboxReopen|support(Add|Msg|Reply)|xe(Ticket|Log)|classSign|mailPref)$/;
+
+function rcAfter(action) {
+ if (RC_KEEP.indexOf(action) >= 0 || RC_READ.test(action)) return;
+ if (RC_SOFT.test(action)) return rcSoft();
+ rcClear();
+}
+
+function rcSoft() {
+ var all = rcAll();
+ RC_GEN++;
+ Object.keys(all).forEach((function(k) {
+  all[k].at = 0;
+ }));
+ rcSave();
+}
+
+var RC_GEN = 0;
+
+var RC_INF = {};
 
 function rcKey(action, body) {
  return (S.dev ? "dev:" + S.dev.name + "|" : "") + (S.me && S.me.person && S.me.person.name || "") + "|" + action + "|" + JSON.stringify(body || {});
@@ -508,12 +533,15 @@ function rcIdle() {
 function apiR(action, body, opt) {
  var k = rcKey(action, body), c = rcAll()[k], page = S.page, arg = S.arg;
  var get = function() {
-  return api(action, body, Object.assign({
+  if (RC_INF[k]) return RC_INF[k];
+  var gen = RC_GEN;
+  var pr = RC_INF[k] = api(action, body, Object.assign({
    quiet: !!c
   }, opt || {})).then((function(d) {
+   if (RC_INF[k] === pr) delete RC_INF[k];
    var js = JSON.stringify(d), changed = !c || c.js !== js;
    rcAll()[k] = {
-    at: Date.now(),
+    at: gen === RC_GEN ? Date.now() : 0,
     js
    };
    rcSave();
@@ -521,7 +549,11 @@ function apiR(action, body, opt) {
     d,
     changed
    };
+  }), (function(e) {
+   if (RC_INF[k] === pr) delete RC_INF[k];
+   throw e;
   }));
+  return pr;
  };
  if (!c) return get().then((function(r) {
   return r.d;
@@ -693,6 +725,104 @@ function obRefresh() {
  }));
 }
 
+var BATCH_N = 25;
+
+var LS_SENT = "chk.sent", SENT_KEEP = 36 * 36e5, SENT_MAX = 150;
+
+function sentAll() {
+ var t = Date.now();
+ return (lsGet(LS_SENT, []) || []).filter((function(x) {
+  return x && t - x.at < SENT_KEEP;
+ }));
+}
+
+function sentAdd(j) {
+ try {
+  var b = j.body || {}, l = sentAll().filter((function(x) {
+   return !(x.key === j.key && x.date === b.date);
+  }));
+  l.push({
+   key: j.key,
+   who: j.who || "",
+   d: b.deptId,
+   f: b.formId,
+   o: b.object || "",
+   date: b.date,
+   r: b.results || {},
+   n: b.notes || {},
+   w: !!b.noWork,
+   at: Date.now()
+  });
+  lsSet(LS_SENT, l.slice(-SENT_MAX));
+ } catch (e) {}
+}
+
+function mineOverlay(v) {
+ try {
+  var me = S.me && S.me.person ? S.me.person.name : "";
+  if (!v || !v.model || !me || v.who && v.who !== me) return v;
+  var src = sentAll().filter((function(x) {
+   return x.who === me;
+  })).map((function(x) {
+   return {
+    d: x.d,
+    f: x.f,
+    date: x.date,
+    r: x.r,
+    n: x.n,
+    w: x.w
+   };
+  }));
+  (S.outbox || []).forEach((function(j) {
+   if ((j.status === "pending" || j.status === "auth") && (!j.action || j.action === "submitCheck") && (!j.who || j.who === me)) src.push({
+    d: j.body.deptId,
+    f: j.body.formId,
+    date: j.body.date,
+    r: j.body.results || {},
+    n: j.body.notes || {},
+    w: !!j.body.noWork
+   });
+  }));
+  src.forEach((function(x) {
+   if (x.d !== v.dept || String(x.date).slice(0, 7) !== v.period) return;
+   var blk = (v.model.daily || []).filter((function(y) {
+    return y.form === x.f;
+   }))[0];
+   if (!blk) return;
+   var d = Number(String(x.date).slice(8)), cur = blk.days[d];
+   if (cur && cur.signer) return;
+   blk.days[d] = {
+    results: x.r,
+    notes: x.n,
+    noWork: x.w,
+    signer: me,
+    pend: true
+   };
+  }));
+ } catch (e) {}
+ return v;
+}
+
+function warmAfterSend() {
+ if (S.dev || !navigator.onLine || !S.me) return;
+ var seen = {}, t = Date.now();
+ sentAll().forEach((function(x) {
+  if (t - x.at < 3e5) seen[x.d + "|" + String(x.date).slice(0, 7)] = 1;
+ }));
+ Object.keys(seen).slice(0, 2).forEach((function(k) {
+  var q = {
+   deptId: k.split("|")[0],
+   period: k.split("|")[1]
+  };
+  if (rcAll()[rcKey("monthView", q)]) setTimeout((function() {
+   apiR("monthView", q, {
+    quiet: true,
+    noRetry: true
+   }).catch((function() {}));
+  }), 1500 + Math.random() * 4e3);
+ }));
+}
+
 var flushTimer = null;
 
 var AUTH_RE = /失效|名單|選擇您的身分/;
@@ -773,79 +903,135 @@ function flush() {
    }));
   }));
  })).then((function(jobs) {
-  var p = Promise.resolve(), stop = false;
-  if (jobs.some((function(j) {
+  var stop = false, pend = jobs.filter((function(j) {
    return j.status === "pending";
-  }))) bgSync();
-  jobs.filter((function(j) {
-   return j.status === "pending";
-  })).forEach((function(j) {
+  }));
+  if (pend.length) bgSync();
+  function jobOk(j, r) {
+   sent++;
+   if (r && r.queued) queued++;
+   if (j.action === "envSubmit" && window.envSentOk) envSentOk(j);
+   if (!j.action || j.action === "submitCheck") sentAdd(j);
+   return obDel(j.id);
+  }
+  function single(j) {
+   if (stop) return;
+   return api(j.action || "submitCheck", Object.assign({
+    submitId: j.id
+   }, j.body), {
+    token: j.token,
+    quiet: true
+   }).then((function(r) {
+    return jobOk(j, r);
+   })).catch((function(e) {
+    return jobErr(j, e);
+   }));
+  }
+  var tok = lsGet(LS.TOKEN, ""), bat = S.noBatch ? [] : pend.filter((function(j) {
+   return (!j.action || j.action === "submitCheck") && j.token === tok;
+  }));
+  if (bat.length < 2) bat = [];
+  var rest = pend.filter((function(j) {
+   return bat.indexOf(j) < 0;
+  })), p = Promise.resolve();
+  for (var k = 0; k < bat.length; k += BATCH_N) (function(chunk) {
    p = p.then((function() {
     if (stop) return;
-    return api(j.action || "submitCheck", Object.assign({
-     submitId: j.id
-    }, j.body), {
-     token: j.token,
-     quiet: true
+    return api("submitBatch", {
+     jobs: chunk.map((function(j) {
+      return Object.assign({
+       submitId: j.id
+      }, j.body);
+     }))
+    }, {
+     token: tok,
+     quiet: true,
+     noRetry: true
     }).then((function(r) {
-     sent++;
-     if (r && r.queued) queued++;
-     if (j.action === "envSubmit" && window.envSentOk) envSentOk(j);
-     return obDel(j.id);
+     var res = r && r.results || [], q = Promise.resolve();
+     chunk.forEach((function(j, i) {
+      q = q.then((function() {
+       var x = res[i];
+       if (!x || x.fallback || x.retry) {
+        rest.push(j);
+        return;
+       }
+       if (x.ok) return jobOk(j, x.data);
+       var e = new Error(x.error || "系統錯誤");
+       e.biz = true;
+       if (x.info) e.info = x.info;
+       return jobErr(j, e);
+      }));
+     }));
+     return q;
     })).catch((function(e) {
-     j.tries = (j.tries || 0) + 1;
-     j.message = e.message;
-     if (e.update) {
-      stop = true;
-      j.tries--;
-      return obPut(j);
-     }
-     if (e.biz && AUTH_RE.test(e.message)) {
-      if (j.token === lsGet(LS.TOKEN, "")) {
-       stop = true;
-       relogin = e.message;
-       return obPut(j);
-      }
-      j.status = "auth";
-      return obPut(j);
-     }
-     if (e.biz && e.info && e.info.revise) {
-      reviseAdd(j, e.info);
-      revised++;
-      var a1 = S.me && A(j.key);
-      if (a1 && a1.due && j.body.date === today() && !a1.due.signer) {
-       a1.due.todayDone = false;
-       a1.due.todayNoWork = false;
-      }
-      return obDel(j.id);
-     }
-     if (e.biz && isTaken(e)) {
-      takenAdd(takenOf(j, e));
-      taken.push(1);
-      var a2 = S.me && A(j.key);
-      if (a2 && a2.due && j.body.date === today()) {
-       a2.due.todayDone = true;
-      }
-      return obDel(j.id);
-     }
-     if (e.biz) {
-      j.status = "error";
-      failed++;
-      var a = S.me && A(j.key);
-      if (a && a.due && j.body.date === today() && !a.due.signer) {
-       a.due.todayDone = false;
-       a.due.todayNoWork = false;
-      }
-      return obPut(j);
-     }
-     stop = true;
-     clearTimeout(flushTimer);
-     flushTimer = setTimeout(flush, 6e4);
-     return obPut(j);
+     if (e.biz && /不支援的動作/.test(e.message || "")) S.noBatch = true;
+     chunk.forEach((function(j) {
+      rest.push(j);
+     }));
     }));
    }));
+  })(bat.slice(k, k + BATCH_N));
+  return p.then((function() {
+   var q = Promise.resolve();
+   rest.forEach((function(j) {
+    q = q.then((function() {
+     return single(j);
+    }));
+   }));
+   return q;
   }));
-  return p;
+  function jobErr(j, e) {
+   j.tries = (j.tries || 0) + 1;
+   j.message = e.message;
+   if (e.update) {
+    stop = true;
+    j.tries--;
+    return obPut(j);
+   }
+   if (e.biz && AUTH_RE.test(e.message)) {
+    if (j.token === lsGet(LS.TOKEN, "")) {
+     stop = true;
+     relogin = e.message;
+     return obPut(j);
+    }
+    j.status = "auth";
+    return obPut(j);
+   }
+   if (e.biz && e.info && e.info.revise) {
+    reviseAdd(j, e.info);
+    revised++;
+    var a1 = S.me && A(j.key);
+    if (a1 && a1.due && j.body.date === today() && !a1.due.signer) {
+     a1.due.todayDone = false;
+     a1.due.todayNoWork = false;
+    }
+    return obDel(j.id);
+   }
+   if (e.biz && isTaken(e)) {
+    takenAdd(takenOf(j, e));
+    taken.push(1);
+    var a2 = S.me && A(j.key);
+    if (a2 && a2.due && j.body.date === today()) {
+     a2.due.todayDone = true;
+    }
+    return obDel(j.id);
+   }
+   if (e.biz) {
+    j.status = "error";
+    failed++;
+    var a = S.me && A(j.key);
+    if (a && a.due && j.body.date === today() && !a.due.signer) {
+     a.due.todayDone = false;
+     a.due.todayNoWork = false;
+    }
+    return obPut(j);
+   }
+   stop = true;
+   clearTimeout(flushTimer);
+   flushTimer = setTimeout(flush, 6e4);
+   return obPut(j);
+  }
  })).then((function() {
   S.flushing = false;
   if (relogin) return kickToLogin(relogin);
@@ -856,6 +1042,7 @@ function flush() {
   S.sentMsg = null;
   if (revised) toast("表單改版了：原本的勾選已幫你帶入，請到首頁黃色提示補勾新增的項目", "", 6e3);
   if (sent || failed || revised || taken.length) refreshMe();
+  if (sent) warmAfterSend();
   return obRefresh();
  })).then((function() {
   if (S.page === "home") render();

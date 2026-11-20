@@ -2538,7 +2538,7 @@ PAGES.month = function() {
   period: a.period
  }).then((function(v) {
   if (S.page !== "month" || S.arg !== a) return;
-  S.view = v;
+  S.view = mineOverlay(v);
   monthRender();
  })).catch((function(e) {
   $("app").innerHTML = errBox("讀不到這個月的資料", e.message) + '<button class="btn navy" onclick="render()">再試一次</button>';
@@ -2638,7 +2638,7 @@ function monthRender() {
  var pend = (S.outbox || []).filter((function(j) {
   return j.body.deptId === v.dept && j.body.date.slice(0, 7) === v.period;
  }));
- if (pend.length && !rev) h += '<div class="strip info">' + ic("cloud", 24, 2.2) + '<div class="stx"><span>手機裡還有 <b>' + pend.length + " 筆</b>這個月的檢點沒上傳完</span><small>上傳完才會出現在下面</small></div>" + '<button class="btn sm" onclick="flush().then(function(){render()})">立即上傳</button></div>';
+ if (pend.length && !rev) h += '<div class="strip info">' + ic("cloud", 24, 2.2) + '<div class="stx"><span>手機裡還有 <b>' + pend.length + " 筆</b>這個月的檢點沒上傳完</span><small>月曆上先顯示你填的內容；有網路會自動上傳</small></div>" + '<button class="btn sm" onclick="flush().then(function(){render()})">立即上傳</button></div>';
  if ((v.status === "填寫中" || v.status === "退回") && v.problems.length) {
   h += '<div class="box warn"><div class="r">' + ic("warn", 24) + '<div class="bt"><b>送出前還要補 ' + v.problems.length + " 個地方</b></div></div>" + '<div class="list">' + v.problems.slice(0, 20).map((function(p) {
    return '<div class="li" style="min-height:52px"><span class="mn"><span class="nm" style="font-weight:500">' + esc(p) + "</span></span></div>";
