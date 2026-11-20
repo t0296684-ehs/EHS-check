@@ -1995,6 +1995,8 @@ function openFill(key, date) {
   x: {},
   noWork: false
  };
+ delete S.fill.slotOk;
+ delete S.fill.taken;
  S.ff = "all";
  go("fill", {
   key
@@ -2030,9 +2032,11 @@ function loadDay() {
   if (!d || S.page !== "fill" || S.fill !== fm) return;
   if (d.taken) {
    fm.taken = d.taken;
+   draftDrop(fm);
    render();
    return;
   }
+  fm.slotOk = true;
   if (!a.daily || Object.keys(fm.r).length || fm.noWork) return;
   fm.r = d.results || {};
   fm.n = d.notes || {};
@@ -2362,6 +2366,45 @@ function submitFill() {
   });
  }
  if (S.dev) return devBlock("這張檢點表");
+ if (!a.daily && !fm.slotOk && !S.share && !S.dev && navigator.onLine) {
+  var b0 = $("fillBtn");
+  if (b0) {
+   b0.disabled = true;
+   b0.className = "btn busy";
+   b0.innerHTML = '<span class="spin"></span>確認這一期有沒有人送過…';
+  }
+  return api("dayView", {
+   deptId: a.dept,
+   formId: a.form,
+   date: fm.date,
+   object: a.object || "",
+   kind: a.kind || "",
+   slot: 1
+  }, {
+   quiet: true,
+   noRetry: true
+  }).then((function(d) {
+   if (S.page !== "fill" || S.fill !== fm) return;
+   if (d && d.taken) {
+    fm.taken = d.taken;
+    draftDrop(fm);
+    render();
+    return toast(esc(takenText({
+     date: d.taken.date,
+     who: d.taken.signer,
+     daily: false
+    })), "err", 6e3);
+   }
+   fm.slotOk = true;
+   render();
+   submitFill();
+  })).catch((function() {
+   if (S.page !== "fill" || S.fill !== fm) return;
+   fm.slotOk = true;
+   render();
+   submitFill();
+  }));
+ }
  if (!S.fillOk && !window.__E2E_FILLOK) return fillConfirm(a, f, fm);
  S.fillOk = false;
  var btn = $("fillBtn");
