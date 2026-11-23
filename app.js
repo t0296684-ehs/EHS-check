@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.54.1";
+var APP_VERSION = "0.54.2";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -158,6 +158,19 @@ function txtWhy(s, o) {
  for (var i = 0; i < t.length; i++) u[t.charAt(i)] = 1;
  if (Object.keys(u).length < Math.min(3 + Math.floor(t.length / 8), 8)) return "請寫具體內容，不要用重複的字湊字數";
  return "";
+}
+
+function rtDis(v) {
+ return txtWhy(v) ? " disabled" : "";
+}
+
+function rsnLive(el) {
+ var w = txtWhy(el.value), t = $("rsnTip");
+ el.classList.remove("bad");
+ Array.prototype.forEach.call(document.querySelectorAll("button.rt"), (function(b) {
+  b.disabled = !!w;
+ }));
+ if (t) t.textContent = !el.value.trim() ? "" : w;
 }
 
 function nameWhy(s) {

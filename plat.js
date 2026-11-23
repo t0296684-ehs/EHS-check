@@ -1,4 +1,4 @@
-var PLAT_VER = "0.54.1";
+var PLAT_VER = "0.54.2";
 
 function platHeal() {
  try {
@@ -1866,7 +1866,7 @@ PLAT_PAGES.envMonth = function() {
  }
  var t = today(), rows = envCal(M, sys, per, t);
  var act = "", st = M.status;
- if ((st === "填寫中" || st === "退回") && per < t.slice(0, 7)) act = '<button class="btn" onclick="envAct(\'submit\')">' + ic("check", 20, 3) + "檢查並送出 " + Number(per.slice(5)) + " 月抄表紀錄</button>"; else if (st === "待主管確認" && M.canMgr || st === "待環安衛確認" && M.canEhs) act = '<label class="nl" for="envCm">退回原因：<b>寫要改哪一天、哪一項</b>（確認不用填，抄表的人看得到）</label><textarea id="envCm" class="note plain" placeholder="退回時必填，例：11/5 放流流量計讀數不對，請補 11/12">' + esc(S.envCm || "") + "</textarea>" + '<div class="btns"><button class="btn redline" onclick="envAct(\'return\')">退回給抄表的人</button><button class="btn" onclick="envAct(\'approve\')">' + ic("check", 20, 3) + "確認 " + Number(per.slice(5)) + " 月抄表紀錄</button></div>";
+ if ((st === "填寫中" || st === "退回") && per < t.slice(0, 7)) act = '<button class="btn" onclick="envAct(\'submit\')">' + ic("check", 20, 3) + "檢查並送出 " + Number(per.slice(5)) + " 月抄表紀錄</button>"; else if (st === "待主管確認" && M.canMgr || st === "待環安衛確認" && M.canEhs) act = '<label class="nl" for="envCm">退回原因：<b>寫要改哪一天、哪一項</b>（確認不用填，抄表的人看得到）</label><textarea id="envCm" class="note plain" oninput="rsnLive(this)" placeholder="退回時必填，例：11/5 放流流量計讀數不對，請補 11/12">' + esc(S.envCm || "") + '</textarea><div class="muted sm2 rsnTip" id="rsnTip"></div>' + '<div class="btns"><button class="btn redline rt"' + rtDis(S.envCm) + ' onclick="envAct(\'return\')">退回給抄表的人</button><button class="btn" onclick="envAct(\'approve\')">' + ic("check", 20, 3) + "確認 " + Number(per.slice(5)) + " 月抄表紀錄</button></div>";
  $("app").innerHTML = '<div class="card"><div class="mr"><b>本月狀態</b>' + pill(st === "已歸檔" ? "ok" : st === "退回" ? "ng" : "info", "", st) + "</div>" + '<div class="muted sm2">' + esc(M.layers === 3 ? "流程：抄表人送出 → 單位負責人（" + (M.mgr || "未設定") + "）確認 → 環安衛確認" : "流程：抄表人送出 → 環安衛確認") + "</div>" + (per < t.slice(0, 7) && (st === "填寫中" || st === "退回") ? '<div class="muted sm2">' + esc("沒抄到的日子先點那一天補填，補好再送出。確認的人就是送出的人時，那一關自動跳過；歸檔後隔天把操作紀錄 PDF 存到 NAS。") + "</div>" : "") + (st === "退回" && M.reason ? '<div class="box err"><div class="r">' + ic("ret", 22) + '<div class="bt"><b>退回原因</b><div class="m">' + esc(M.reason) + "</div></div></div></div>" : "") + "</div>" + rows;
  if (act) bar(act);
 };

@@ -2715,9 +2715,9 @@ function monthRender() {
  } else if ((v.status === "填寫中" || v.status === "退回") && !ehs) {
   bar(v.problems.length ? '<button class="btn" disabled>補完 ' + v.problems.length + " 個地方，才能送單位負責人</button>" : '<button class="btn" id="smBtn" onclick="submitMonth()">' + ic("check", 22, 2.8) + (v.who ? "送出我的 " + (v.nSend || 0) + " 份，鎖定送單位負責人" : "本月完成，鎖定送單位負責人") + "</button>");
  } else if (v.status === "待主管審核" && boss && !ehs) {
-  bar('<label class="nl" for="cm">退回原因：<b>寫要改哪一天、哪一項</b>（核准不用填，本課看得到）</label><textarea id="cm" class="note plain" placeholder="退回時必填，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm) + "</textarea>" + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">先離開</button><button class="btn redline" onclick="doReview(\'return\')">退回本課修改</button><button class="btn" onclick="doReview(\'approve\')">' + ic("pen", 22) + "核准並簽名</button></div>");
+  bar('<label class="nl" for="cm">退回原因：<b>寫要改哪一天、哪一項</b>（核准不用填，本課看得到）</label><textarea id="cm" class="note plain" oninput="rsnLive(this)" placeholder="退回時必填，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm) + '</textarea><div class="muted sm2 rsnTip" id="rsnTip"></div>' + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">先離開</button><button class="btn redline rt"' + rtDis(S.cm) + ' onclick="doReview(\'return\')">退回本課修改</button><button class="btn" onclick="doReview(\'approve\')">' + ic("pen", 22) + "核准並簽名</button></div>");
  } else if (v.status === "待環安衛審核" && ehs) {
-  bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>" + '<label class="nl" for="cm">退回原因：<b>寫要改哪一天、哪一項</b>（核准不用填，本課與單位負責人看得到）</label><textarea id="cm" class="note plain" placeholder="退回時必填，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm || "") + "</textarea>" + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">先離開</button><button class="btn redline" onclick="doEhs(\'return\')">退回本課修改</button><button class="btn" onclick="doEhs(\'approve\')">' + ic("check", 22, 2.8) + "核准歸檔</button></div>");
+  bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>" + '<label class="nl" for="cm">退回原因：<b>寫要改哪一天、哪一項</b>（核准不用填，本課與單位負責人看得到）</label><textarea id="cm" class="note plain" oninput="rsnLive(this)" placeholder="退回時必填，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm || "") + '</textarea><div class="muted sm2 rsnTip" id="rsnTip"></div>' + '<div class="btns r3"><button class="btn ghost" onclick="revLeave()">先離開</button><button class="btn redline rt"' + rtDis(S.cm) + ' onclick="doEhs(\'return\')">退回本課修改</button><button class="btn" onclick="doEhs(\'approve\')">' + ic("check", 22, 2.8) + "核准歸檔</button></div>");
  } else if (v.status === "已歸檔" || v.status === "待環安衛審核") {
   bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>");
  }
@@ -3035,7 +3035,7 @@ function submitMonth() {
   S.mErr = {
    t: "還不能送審",
    m: "手機裡還有 " + pend.length + " 筆這個月的檢點沒上傳完，上傳完才能送。",
-   btn: '<button class="btn navy" onclick="S.mErr=null;flush().then(function(){render()})">立即上傳</button>'
+   btn: '<div class="muted sm2">' + esc(navigator.onLine ? "剛才已自動上傳一次，網路或伺服器忙沒傳完，資料都還在手機裡" : "目前沒有網路，連上網路會自動上傳") + '</div><button class="btn navy" onclick="S.mErr=null;flush().then(function(){return obRefresh()}).then(function(){submitMonth()},function(){render()})">上傳後直接送審</button>'
   };
   monthRender();
   window.scrollTo(0, 0);
@@ -5455,9 +5455,9 @@ function sfGoCell(i, d, ri) {
 function sfRevBar() {
  var v = S.sf.v, boss = mgrOf(v.dept), ehs = isEhs();
  if (v.status === "待主管審核" && boss && !ehs) {
-  bar('<div class="sfrb"><textarea id="cm" class="note plain" placeholder="意見：核准可不填；退回要寫要改哪一天、哪一項，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm || "") + "</textarea>" + '<button class="btn redline" onclick="doReview(\'return\')">退回</button><button class="btn" onclick="doReview(\'approve\')">' + ic("pen", 22) + "核准並簽名</button></div>");
+  bar('<div class="sfrb"><textarea id="cm" class="note plain" oninput="rsnLive(this)" placeholder="意見：核准可不填；退回要寫要改哪一天、哪一項，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm || "") + "</textarea>" + '<button class="btn redline rt"' + rtDis(S.cm) + ' onclick="doReview(\'return\')">退回</button><button class="btn" onclick="doReview(\'approve\')">' + ic("pen", 22) + "核准並簽名</button></div>");
  } else if (v.status === "待環安衛審核" && ehs) {
-  bar('<div class="sfrb"><button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + '開啟 PDF</button><textarea id="cm" class="note plain" placeholder="意見：核准可不填；退回要寫要改哪一天、哪一項，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm || "") + '</textarea><button class="btn redline" onclick="doEhs(\'return\')">退回</button><button class="btn" onclick="doEhs(\'approve\')">' + ic("check", 22, 2.8) + "核准歸檔</button></div>");
+  bar('<div class="sfrb"><button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + '開啟 PDF</button><textarea id="cm" class="note plain" oninput="rsnLive(this)" placeholder="意見：核准可不填；退回要寫要改哪一天、哪一項，例：10/3、10/7 堆高機第 5 項沒寫異常說明">' + esc(S.cm || "") + '</textarea><button class="btn redline rt"' + rtDis(S.cm) + ' onclick="doEhs(\'return\')">退回</button><button class="btn" onclick="doEhs(\'approve\')">' + ic("check", 22, 2.8) + "核准歸檔</button></div>");
  } else if (v.status === "已歸檔" || v.status === "待環安衛審核") {
   bar('<button class="btn ghost" onclick="openPdf(' + jsq(v.monthId) + ')">' + ic("pdf", 20, 2.2) + "開啟 PDF</button>");
  } else bar(v.status === "填寫中" || v.status === "退回" ? '<button class="btn" disabled>本課還沒送審（' + esc(v.status) + "）</button>" : "");
