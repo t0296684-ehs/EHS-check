@@ -2037,6 +2037,13 @@ function loadDay() {
    return;
   }
   fm.slotOk = true;
+  if (!a.daily && d.own && !Object.keys(fm.r).length) {
+   fm.r = d.results || {};
+   fm.n = d.notes || {};
+   render();
+   toast("已帶出 " + md(fm.date) + " 送出的內容，改好再送出", "", 2500);
+   return;
+  }
   if (!a.daily || Object.keys(fm.r).length || fm.noWork) return;
   fm.r = d.results || {};
   fm.n = d.notes || {};
@@ -2146,7 +2153,8 @@ PAGES.fill = function() {
   h += '<div class="box warn"><div class="r">' + ic("info", 22) + '<div class="bt"><b>已有同仁送出</b><div class="m">' + esc(takenText(tk)) + "</div></div></div></div>";
   $("app").innerHTML = h;
   S.topExtra = "";
-  bar('<button class="btn" onclick="fillTakenHome()">回首頁</button>');
+  var mine = S.me && S.me.person && fm.taken.signer === S.me.person.name && fm.taken.date && fm.taken.date !== fm.date && !a.daily && !f.evidence;
+  bar(mine ? '<button class="btn ghost" onclick="fillTakenHome()">回首頁</button><button class="btn navy" onclick="openFill(' + jsq(a.key) + "," + jsq(fm.taken.date) + ')">打開 ' + md(fm.taken.date) + " 那筆修改</button>" : '<button class="btn" onclick="fillTakenHome()">回首頁</button>');
   return;
  }
  if (a.daily) {
