@@ -1,6 +1,6 @@
 "use strict";
 
-var APP_VERSION = "0.54.3";
+var APP_VERSION = "0.54.4";
 
 if (typeof PLAT_VER === "string" && PLAT_VER !== APP_VERSION) window.addEventListener("load", (function() {
  if (window.platHeal) platHeal(); else location.reload();
@@ -3450,6 +3450,12 @@ if (document.readyState === "loading") document.addEventListener("DOMContentLoad
 (function() {
  var sx = 0, sy = 0, on = false, dx = 0, app = null;
  var backBtn = function() {
+  var dg = document.getElementById("pDlg");
+  if (dg) return {
+   click: function() {
+    dg.remove();
+   }
+  };
   var xp = document.querySelector("#xepanel .xex");
   if (xp) return xp;
   var b = document.getElementById("back");

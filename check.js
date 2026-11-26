@@ -2343,7 +2343,12 @@ function fillConfirm(a, f, fm) {
 }
 
 function submitFill() {
- var a = A(S.arg.key), fm = S.fill, f = F(a.form, fm && fm.date);
+ var a = S.arg && A(S.arg.key), fm = S.fill;
+ if (S.page !== "fill" || !a || !fm) {
+  render();
+  return toast("已離開填寫畫面，這張沒有送出；請重新打開這張再送", "err", 5e3);
+ }
+ var f = F(a.form, fm.date);
  if (fm.taken) return toast(esc(takenText({
   date: fm.taken.date,
   who: fm.taken.signer,
