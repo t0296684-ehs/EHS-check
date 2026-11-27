@@ -257,7 +257,7 @@ function perDoneAsk(key) {
  if (!a) return;
  var d = a.due || {}, mine = S.me && d.lastBy === S.me.person.name, who = mine ? "您" : d.lastBy || "同事";
  dlg("<b>" + (a.freq === "每月" ? "這個月" : "這一期") + "已經做過了，不用再填</b><p>" + esc("「" + pickName(a) + (a.kind ? "（" + a.kind + "）" : "") + "」已經由 " + who + " 在 " + mdTxt(d.last) + " 檢查送出。") + "</p>" + (d.due ? "<p>" + esc("下次要在 " + mdTxt(d.due) + " 前完成。") + "</p>" : "") + (mine ? '<p class="muted">' + esc("要改內容：按「改 " + mdTxt(d.last) + " 那筆」，日期選 " + mdTxt(d.last) + "。") + "</p>" : ""), mine ? [ [ "改 " + mdTxt(d.last) + " 那筆", function() {
-  openFill(key);
+  openFill(key, d.last);
  }, "ghost" ] ] : []);
 }
 
@@ -1986,6 +1986,7 @@ function openFill(key, date) {
   go("vendor");
   return;
  }
+ if (!date && !a.daily && a.due && a.due.state === "ok" && a.due.last && !/每年|每兩年/.test(a.freq || "")) return perDoneAsk(key);
  var d = date || today();
  S.fill = !S.share && lsGet(LS.DRAFT, {})[key + "@" + d] || {
   key,
